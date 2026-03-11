@@ -6,7 +6,7 @@
   { "id": 5, "title": "Onboarding: First Deploy", "phase": 1, "passes": false },
   { "id": 6, "title": "Onboarding: Success Screen", "phase": 1, "passes": false },
   { "id": 7, "title": "Framework Detection", "phase": 1, "passes": true },
-  { "id": 8, "title": "Dockerfile Generation", "phase": 1, "passes": false },
+  { "id": 8, "title": "Dockerfile Generation", "phase": 1, "passes": true },
   { "id": 9, "title": "Build Pipeline & Orchestration", "phase": 1, "passes": false },
   { "id": 10, "title": "Caddy Route Management", "phase": 1, "passes": false },
   { "id": 11, "title": "Projects CRUD API", "phase": 1, "passes": false },

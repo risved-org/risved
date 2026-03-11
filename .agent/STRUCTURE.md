@@ -11,10 +11,15 @@ src/
 │       │   ├── index.ts     # Drizzle database instance
 │       │   ├── schema.ts    # Database schema
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
-│       └── detection/
-│           ├── index.ts     # detectFramework() + createFsContext()
-│           ├── types.ts     # Types: FrameworkId, Tier, Confidence, etc.
-│           └── detectors.ts # Individual framework detectors
+│       ├── detection/
+│       │   ├── index.ts     # detectFramework() + createFsContext()
+│       │   ├── types.ts     # Types: FrameworkId, Tier, Confidence, etc.
+│       │   └── detectors.ts # Individual framework detectors
+│       └── dockerfile/
+│           ├── index.ts     # generateDockerfile() entry point
+│           ├── types.ts     # DockerfileOptions, DockerfileResult, FrameworkBuildConfig
+│           ├── configs.ts   # Per-framework build configurations
+│           └── templates.ts # Tier-specific Dockerfile template generators
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
 │   ├── +page.svelte         # Landing page

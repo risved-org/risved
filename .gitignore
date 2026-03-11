@@ -29,6 +29,7 @@ project.inlang/cache/
 
 # Ralph loop
 ralph.sh
+/Dockerfile
 scripts/
 .agent/
 .agents/
@@ -36,7 +37,7 @@ PRD.md
 CLAUDE.md
 AGENTS.md
 .mcp.json
-.vscode/
-.cursor/
-.codex/
 .claude/
+.codex/
+.cursor/
+.vscode/
