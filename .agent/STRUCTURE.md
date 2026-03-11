@@ -15,11 +15,14 @@ src/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
 │       │   ├── types.ts     # Types: FrameworkId, Tier, Confidence, etc.
 │       │   └── detectors.ts # Individual framework detectors
-│       └── dockerfile/
-│           ├── index.ts     # generateDockerfile() entry point
-│           ├── types.ts     # DockerfileOptions, DockerfileResult, FrameworkBuildConfig
-│           ├── configs.ts   # Per-framework build configurations
-│           └── templates.ts # Tier-specific Dockerfile template generators
+│       ├── dockerfile/
+│       │   ├── index.ts     # generateDockerfile() entry point
+│       │   ├── types.ts     # DockerfileOptions, DockerfileResult, FrameworkBuildConfig
+│       │   ├── configs.ts   # Per-framework build configurations
+│       │   └── templates.ts # Tier-specific Dockerfile template generators
+│       └── caddy/
+│           ├── index.ts     # CaddyClient class + route helpers
+│           └── types.ts     # CaddyRoute, CaddyResult, CaddyHealthStatus, etc.
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
 │   ├── +page.svelte         # Landing page

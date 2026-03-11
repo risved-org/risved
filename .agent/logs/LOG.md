@@ -3,12 +3,20 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-11
-**Tasks Completed:** 2
-**Current Task:** TASK-8 Complete
+**Tasks Completed:** 3
+**Current Task:** TASK-10 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-11 — TASK-10: Caddy Route Management
+- Created `src/lib/server/caddy/` module for managing Caddy reverse proxy via JSON admin API
+- `CaddyClient` class with injectable fetch for testability
+- Operations: addRoute, removeRoute, updateRoute, addWildcardRoute, removeWildcardRoute, listRoutes, health, ensureServer
+- Routes use `@id` for individual addressing via Caddy's `/id/` endpoint
+- 25 unit tests passing, 67 total project tests passing
+- No screenshots (backend-only task)
 
 ### 2026-03-11 — TASK-8: Dockerfile Generation
 - Created `src/lib/server/dockerfile/` module with tier-based Dockerfile generation

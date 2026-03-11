@@ -1,11 +1,11 @@
 <svelte:head>
-	<title>Jura</title>
-	<meta name="description" content="Deploy to Jura — a design-led, Deno-only PaaS" />
+	<title>Risved</title>
+	<meta name="description" content="Deploy to Risved — a design-led, Deno-only PaaS" />
 </svelte:head>
 
 <section class="landing">
-	<h1>jura<span class="dot">.</span></h1>
-	<p class="tagline">Deploy to Jura</p>
+	<h1>risved<span class="dot">.</span></h1>
+	<p class="tagline">Deploy to Risved</p>
 </section>
 
 <style>
