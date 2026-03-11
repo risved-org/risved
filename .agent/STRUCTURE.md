@@ -5,10 +5,12 @@ scripts/
 ├── install.sh              # curl | sh installer (Docker, Deno, Caddy, Risved)
 src/
 ├── lib/
+│   ├── auth-client.ts      # BetterAuth SvelteKit client
 │   ├── paraglide/          # i18n runtime (auto-generated)
 │   │   └── messages/       # Locale message files
 │   └── server/
-│       ├── auth.ts          # BetterAuth configuration
+│       ├── auth.ts          # BetterAuth configuration (email+password, 12-char min)
+│       ├── auth-utils.ts    # First-run detection, user count helpers
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
 │       │   ├── schema.ts    # Database schema
@@ -33,6 +35,6 @@ src/
 │       └── paraglide/       # i18n demo
 ├── app.html                 # HTML template
 ├── app.d.ts                 # Type definitions
-├── hooks.server.ts          # Server hooks (auth + i18n)
+├── hooks.server.ts          # Server hooks (auth + i18n + first-run + route protection)
 └── hooks.ts                 # Client hooks (i18n reroute)
 ```

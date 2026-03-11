@@ -3,12 +3,25 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-11
-**Tasks Completed:** 4
-**Current Task:** TASK-1 Complete
+**Tasks Completed:** 5
+**Current Task:** TASK-18 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-11 — TASK-18: Authentication (BetterAuth)
+- Updated `src/lib/server/auth.ts` — email+password with 12-char minimum, autoSignIn, removed GitHub OAuth (deferred to Phase 2)
+- Created `src/lib/server/auth-utils.ts` — `isFirstRun()` and `getUserCount()` helpers using drizzle count query
+- Updated `src/hooks.server.ts` — added `handleAuth` middleware:
+  - First-run detection: redirects to `/onboarding` if no admin user exists
+  - Route protection: unauthenticated users redirected to `/login`
+  - Public paths: `/onboarding`, `/login`, `/api/auth` accessible without session
+  - Blocks `/onboarding` access after admin is created
+- Created `src/lib/auth-client.ts` — BetterAuth SvelteKit client for frontend use
+- Removed unused GitHub OAuth env vars from `.env`
+- 12 unit tests passing, 115 total project tests passing
+- No screenshots (backend-only task)
 
 ### 2026-03-11 — TASK-1: Installation & Onboarding Script
 - Created `scripts/install.sh` — the `curl | sh` entry point for new users

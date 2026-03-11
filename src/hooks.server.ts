@@ -1,10 +1,18 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { building } from '$app/environment';
+import { redirect } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth';
+import { isFirstRun } from '$lib/server/auth-utils';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
+
+const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth'];
+
+function isPublicPath(pathname: string): boolean {
+	return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
+}
 
 const handleParaglide: Handle = ({ event, resolve }) =>
 	paraglideMiddleware(event.request, ({ request, locale }) => {
@@ -29,4 +37,30 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle: Handle = sequence(handleParaglide, handleBetterAuth);
+/**
+ * Redirects to onboarding if no admin user exists (first-run).
+ * Protects dashboard/API routes by requiring a valid session.
+ */
+const handleAuth: Handle = async ({ event, resolve }) => {
+	const { pathname } = event.url;
+
+	if (building) return resolve(event);
+
+	const firstRun = await isFirstRun();
+
+	if (firstRun && !isPublicPath(pathname)) {
+		redirect(303, '/onboarding');
+	}
+
+	if (!firstRun && pathname.startsWith('/onboarding')) {
+		redirect(303, '/');
+	}
+
+	if (!isPublicPath(pathname) && !event.locals.user) {
+		redirect(303, '/login');
+	}
+
+	return resolve(event);
+};
+
+export const handle: Handle = sequence(handleParaglide, handleBetterAuth, handleAuth);
