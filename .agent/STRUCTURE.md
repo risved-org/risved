@@ -11,9 +11,10 @@ src/
 │   └── server/
 │       ├── auth.ts          # BetterAuth configuration (email+password, 12-char min)
 │       ├── auth-utils.ts    # First-run detection, user count helpers
+│       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema
+│       │   ├── schema.ts    # Database schema (task, settings tables)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
@@ -33,7 +34,10 @@ src/
 │   ├── onboarding/
 │   │   ├── +page.server.ts  # Admin account creation action (signUpEmail)
 │   │   ├── +page.svelte     # Create admin form (email, password, confirm)
-│   │   └── StepIndicator.svelte # 4-step progress indicator component
+│   │   ├── StepIndicator.svelte # 4-step progress indicator component
+│   │   └── domain/
+│   │       ├── +page.server.ts  # Domain config action (subdomain/dedicated/ip)
+│   │       └── +page.svelte     # Radio cards, prefix picker, live URL preview
 │   └── demo/                # Demo routes
 │       ├── better-auth/     # Auth demo
 │       └── paraglide/       # i18n demo

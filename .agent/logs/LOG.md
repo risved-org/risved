@@ -3,10 +3,24 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-11
-**Tasks Completed:** 6
-**Current Task:** TASK-2 Complete
+**Tasks Completed:** 7
+**Current Task:** TASK-3 Complete
 
 ----------------------------------------------
+
+## Session Log
+
+### 2026-03-11 — TASK-3: Onboarding: Domain Setup
+- Created `settings` table in `src/lib/server/db/schema.ts` — key-value store for app configuration
+- Created `src/lib/server/settings.ts` — getSetting, setSetting, isOnboardingComplete helpers
+- Created `src/routes/onboarding/domain/+page.server.ts` — domain config form action with validation for subdomain/dedicated/ip modes
+- Created `src/routes/onboarding/domain/+page.svelte` — three radio cards (subdomain recommended, dedicated, IP-only), prefix picker (risved/deploy/apps/custom), live URL preview showing dashboard and app URL patterns
+- Updated `src/hooks.server.ts` — onboarding flow now uses `isOnboardingComplete()` instead of just `isFirstRun()` to allow multi-step onboarding after admin account creation
+- Updated `playwright.config.ts` — sequential test execution with global DB reset setup
+- Renamed e2e tests to `01-onboarding.test.ts` and `02-domain.test.ts` for ordered execution
+- 23 new unit tests (6 settings + 17 domain), 153 total unit tests passing
+- 6 new e2e tests, 11 total e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-3-1.png`, `.agent/screenshots/TASK-3-2.png`
 
 ## Session Log
 

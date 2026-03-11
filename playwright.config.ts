@@ -5,11 +5,12 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
 	testDir: './tests',
-	fullyParallel: true,
+	globalSetup: './tests/global-setup.ts',
+	fullyParallel: false,
 	globalTimeout: 30 * 60 * 1000,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
-	workers: process.env.CI ? 3 : 6,
+	workers: 1,
 	reporter: 'html',
 	use: {
 		baseURL: 'http://localhost:5173',

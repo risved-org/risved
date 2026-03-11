@@ -3,6 +3,7 @@ import { building } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth';
 import { isFirstRun } from '$lib/server/auth-utils';
+import { isOnboardingComplete } from '$lib/server/settings';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
@@ -38,7 +39,7 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 };
 
 /**
- * Redirects to onboarding if no admin user exists (first-run).
+ * Redirects to onboarding if no admin user exists (first-run) or onboarding is incomplete.
  * Protects dashboard/API routes by requiring a valid session.
  */
 const handleAuth: Handle = async ({ event, resolve }) => {
@@ -47,12 +48,17 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	if (building) return resolve(event);
 
 	const firstRun = await isFirstRun();
+	const onboardingDone = await isOnboardingComplete();
 
 	if (firstRun && !isPublicPath(pathname)) {
 		redirect(303, '/onboarding');
 	}
 
-	if (!firstRun && pathname.startsWith('/onboarding')) {
+	if (!firstRun && !onboardingDone && !isPublicPath(pathname)) {
+		redirect(303, '/onboarding/domain');
+	}
+
+	if (onboardingDone && pathname.startsWith('/onboarding')) {
 		redirect(303, '/');
 	}
 
