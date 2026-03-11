@@ -1,6 +1,8 @@
 # Project Directory Structure
 
 ```
+scripts/
+├── install.sh              # curl | sh installer (Docker, Deno, Caddy, Risved)
 src/
 ├── lib/
 │   ├── paraglide/          # i18n runtime (auto-generated)

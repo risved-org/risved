@@ -3,12 +3,23 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-11
-**Tasks Completed:** 3
-**Current Task:** TASK-10 Complete
+**Tasks Completed:** 4
+**Current Task:** TASK-1 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-11 — TASK-1: Installation & Onboarding Script
+- Created `scripts/install.sh` — the `curl | sh` entry point for new users
+- Checks: root, OS (Ubuntu/Debian), RAM (2GB min/4GB rec), disk (10GB min), ports 80/443
+- Installs Docker Engine from official repo (not snap), Deno via official installer
+- Creates `risved` Docker network, starts Caddy container, starts Risved control plane
+- Idempotent: safe to re-run, checks for existing installs/containers/networks
+- Colored output with banner, info/ok/warn/err/fatal helpers
+- RISVED_TESTING=1 guard allows sourcing functions for unit testing
+- 36 unit tests passing, 103 total project tests passing
+- No screenshots (backend-only task)
 
 ### 2026-03-11 — TASK-10: Caddy Route Management
 - Created `src/lib/server/caddy/` module for managing Caddy reverse proxy via JSON admin API
