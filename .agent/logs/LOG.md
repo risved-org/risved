@@ -3,12 +3,22 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-11
-**Tasks Completed:** 5
-**Current Task:** TASK-18 Complete
+**Tasks Completed:** 6
+**Current Task:** TASK-2 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-11 — TASK-2: Onboarding: Create Admin Account
+- Created `src/routes/onboarding/+page.svelte` — admin account creation form with email, password (12-char min), and confirm password fields
+- Created `src/routes/onboarding/+page.server.ts` — server action with validation, first-run guard, BetterAuth signUpEmail integration, redirects to `/onboarding/domain` on success
+- Created `src/routes/onboarding/StepIndicator.svelte` — reusable 4-step progress indicator (Account → Domain → Verify → Deploy) with active/completed/upcoming states
+- Client-side validation: password length counter, mismatch detection, disabled submit button
+- Server-side validation: empty email, password < 12 chars, password mismatch, duplicate admin check
+- Updated `playwright.config.ts` — added webServer config for reliable e2e test startup
+- 15 unit tests + 5 e2e tests passing, 130 total unit tests passing
+- Screenshot: `.agent/screenshots/TASK-2-1.png`
 
 ### 2026-03-11 — TASK-18: Authentication (BetterAuth)
 - Updated `src/lib/server/auth.ts` — email+password with 12-char minimum, autoSignIn, removed GitHub OAuth (deferred to Phase 2)

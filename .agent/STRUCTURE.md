@@ -30,6 +30,10 @@ src/
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
 │   ├── +page.svelte         # Landing page
+│   ├── onboarding/
+│   │   ├── +page.server.ts  # Admin account creation action (signUpEmail)
+│   │   ├── +page.svelte     # Create admin form (email, password, confirm)
+│   │   └── StepIndicator.svelte # 4-step progress indicator component
 │   └── demo/                # Demo routes
 │       ├── better-auth/     # Auth demo
 │       └── paraglide/       # i18n demo
