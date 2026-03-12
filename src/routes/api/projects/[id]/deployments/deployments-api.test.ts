@@ -117,18 +117,17 @@ describe('POST /api/projects/:id/deployments/:did/stop', () => {
 	});
 });
 
-/* ── Tests: Rollback endpoint (Phase 1 stub) ─────────────────────── */
+/* ── Tests: Rollback endpoint ─────────────────────────────────────── */
 
 describe('POST /api/projects/:id/deployments/:did/rollback', () => {
 	beforeEach(() => vi.clearAllMocks());
 
-	it('returns 501 not implemented', async () => {
+	it('returns 404 when project not found', async () => {
+		setupSelectChain([]);
 		const { POST } = await import('./[did]/rollback/+server');
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
 
-		expect(res.status).toBe(501);
-		const data = await res.json();
-		expect(data.error).toContain('not yet implemented');
+		expect(res.status).toBe(404);
 	});
 });
 

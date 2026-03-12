@@ -3,10 +3,22 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 22
-**Current Task:** TASK-33 Complete
+**Tasks Completed:** 23
+**Current Task:** TASK-34 Complete
 
 ----------------------------------------------
+
+## Session Log
+
+### 2026-03-12 — TASK-34: Rollback to Previous Deployment
+- Added `triggerType` column to `deployments` schema (`manual` | `webhook` | `rollback`)
+- Created `src/lib/server/pipeline/rollback.ts` — `runRollback()` function that skips clone/detect/build, re-deploys from cached Docker image with same zero-downtime cutover
+- Updated rollback API endpoint (`/api/projects/:id/deployments/:did/rollback`) from 501 stub to full implementation: validates project, deployment status, and image tag before running rollback
+- Updated project detail page to show rollback buttons on previous successful deployments and rollback badges on rollback-triggered deployments
+- 16 new unit tests (8 rollback pipeline, 8 rollback API), 3 updated project detail tests
+- 5 e2e tests (rollback buttons, rollback badge, no button on failed, API call, no console errors)
+- 539 unit tests passing, 104 e2e tests passing, tsc clean
+- Screenshots: `.agent/screenshots/TASK-34-1.png` (deployment list with rollback buttons), `.agent/screenshots/TASK-34-2.png` (after rollback API call)
 
 ## Session Log
 

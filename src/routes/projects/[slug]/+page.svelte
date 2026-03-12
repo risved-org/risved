@@ -33,8 +33,24 @@
 		return 'dot-stopped';
 	}
 
+	let rollingBack = $state<string | null>(null);
+
 	function handleRedeploy() {
 		fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' });
+	}
+
+	async function handleRollback(e: Event, depId: string) {
+		e.preventDefault();
+		e.stopPropagation();
+		rollingBack = depId;
+		try {
+			await fetch(`/api/projects/${data.project.id}/deployments/${depId}/rollback`, {
+				method: 'POST'
+			});
+			window.location.reload();
+		} finally {
+			rollingBack = null;
+		}
 	}
 </script>
 
@@ -76,7 +92,7 @@
 			<p class="empty-text">No deployments yet.</p>
 		{:else}
 			<div class="deploy-list">
-				{#each data.deployments as dep (dep.id)}
+				{#each data.deployments as dep, i (dep.id)}
 					<a
 						href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
 						class="deploy-row"
@@ -84,9 +100,27 @@
 					>
 						<span class="status-dot {statusClass(dep.status)}"></span>
 						<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '—'}</span>
-						<span class="deploy-status">{dep.status}</span>
+						<span class="deploy-status">
+							{dep.status}
+							{#if dep.triggerType === 'rollback'}
+								<span class="trigger-badge" data-testid="rollback-badge">rollback</span>
+							{/if}
+						</span>
 						<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
-						<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
+						<span class="deploy-actions">
+							{#if i > 0 && (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
+								<button
+									class="btn-rollback"
+									data-testid="rollback-btn"
+									disabled={rollingBack === dep.id}
+									onclick={(e) => handleRollback(e, dep.id)}
+								>
+									{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
+								</button>
+							{:else}
+								<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
+							{/if}
+						</span>
 					</a>
 				{/each}
 			</div>
@@ -343,7 +377,7 @@
 	}
 	.deploy-row {
 		display: grid;
-		grid-template-columns: 20px 80px 70px 1fr 80px;
+		grid-template-columns: 20px 80px 1fr auto 80px;
 		align-items: center;
 		padding: var(--space-2) var(--space-3);
 		gap: var(--space-2);
@@ -362,10 +396,42 @@
 	}
 	.deploy-status {
 		color: var(--color-text-1);
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
 	}
 	.deploy-time,
 	.deploy-duration {
 		color: var(--color-text-2);
+	}
+	.deploy-actions {
+		text-align: right;
+	}
+	.trigger-badge {
+		padding: 1px 6px;
+		background: rgba(59, 130, 246, 0.15);
+		color: var(--color-accent);
+		border-radius: var(--radius-sm);
+		font-size: 0.6875rem;
+		font-weight: 500;
+	}
+	.btn-rollback {
+		padding: 2px 8px;
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-1);
+		font-size: 0.75rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.btn-rollback:hover {
+		border-color: var(--color-accent);
+		color: var(--color-accent);
+	}
+	.btn-rollback:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	/* Webhook */

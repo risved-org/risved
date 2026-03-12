@@ -139,4 +139,23 @@ describe('project detail page source', () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('font-mono');
 	});
+
+	it('has rollback button for previous deployments', async () => {
+		const mod = await import('./+page.svelte?raw');
+		expect(mod.default).toContain('rollback-btn');
+		expect(mod.default).toContain('btn-rollback');
+		expect(mod.default).toContain('handleRollback');
+	});
+
+	it('has rollback badge for rollback deployments', async () => {
+		const mod = await import('./+page.svelte?raw');
+		expect(mod.default).toContain('rollback-badge');
+		expect(mod.default).toContain('trigger-badge');
+	});
+
+	it('exposes triggerType and imageTag in deployment data', async () => {
+		const mod = await import('./+page.server.ts?raw');
+		expect(mod.default).toContain('triggerType');
+		expect(mod.default).toContain('imageTag');
+	});
 });

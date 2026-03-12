@@ -34,7 +34,8 @@ src/
 │       │   ├── types.ts     # PipelinePhase, LogEntry, PipelineConfig, CommandRunner
 │       │   ├── docker.ts    # Git clone, Docker build/run/stop, health check
 │       │   ├── log.ts       # Log collector + DB persistence
-│       │   └── port.ts      # Port allocator (3001-3999)
+│       │   ├── port.ts      # Port allocator (3001-3999)
+│       │   └── rollback.ts  # runRollback() — re-deploy from cached image (skip clone/detect/build)
 │       ├── github/
 │       │   ├── index.ts     # GitHubClient class (repos, statuses, comments, webhooks) + OAuth helpers
 │       │   └── types.ts     # GitHubRepo, GitHubUser, CommitStatusParams, etc.

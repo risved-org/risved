@@ -52,6 +52,7 @@ export const deployments = sqliteTable('deployments', {
 	projectId: text('project_id').notNull(),
 	commitSha: text('commit_sha'),
 	status: text('status').notNull().default('pending'),
+	triggerType: text('trigger_type').notNull().default('manual'), // 'manual' | 'webhook' | 'rollback'
 	imageTag: text('image_tag'),
 	containerName: text('container_name'),
 	startedAt: text('started_at'),

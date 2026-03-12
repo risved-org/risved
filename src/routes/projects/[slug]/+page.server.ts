@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { projects, deployments, domains, envVars, webhookDeliveries } from '$lib/server/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
 
 const FRAMEWORK_NAMES: Record<string, string> = {
@@ -89,6 +89,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			id: d.id,
 			commitSha: d.commitSha,
 			status: d.status,
+			triggerType: d.triggerType,
+			imageTag: d.imageTag,
 			createdAt: d.createdAt,
 			finishedAt: d.finishedAt
 		})),
