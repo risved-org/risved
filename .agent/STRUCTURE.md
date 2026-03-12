@@ -103,7 +103,10 @@ src/
 │   │                       └── +server.ts # POST rollback (501 stub, Phase 2)
 │   ├── new/
 │   │   ├── +page.server.ts  # New project load (frameworks, domain), create+deploy action
-│   │   └── +page.svelte     # Git source, framework select, config, env vars editor, deploy button
+│   │   ├── +page.svelte     # Git source, framework select, config, env vars editor, deploy button
+│   │   └── import/
+│   │       ├── +page.server.ts  # Import load (connections, frameworks), import+deploy action
+│   │       └── +page.svelte     # Account selector, repo search, repo list, config panel, deploy
 │   ├── settings/
 │   │   ├── +page.server.ts  # Settings load (user, hostname, timezone, apiToken), general/email/password/token actions
 │   │   ├── +page.svelte     # General settings, admin email, change password, API token management
