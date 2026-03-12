@@ -3,13 +3,15 @@ import { db } from '$lib/server/db';
 import { envVars } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
+import { encrypt, safeDecrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
-/** Mask a secret value, showing only the first 4 chars. */
+/** Mask a secret value, showing only the first 4 chars of the decrypted value. */
 function maskValue(value: string, isSecret: boolean): string {
-	if (!isSecret) return value;
-	if (value.length <= 4) return '••••';
-	return value.slice(0, 4) + '••••••••';
+	if (!isSecret) return safeDecrypt(value);
+	const plain = safeDecrypt(value);
+	if (plain.length <= 4) return '••••';
+	return plain.slice(0, 4) + '••••••••';
 }
 
 /**
@@ -44,17 +46,13 @@ export const PUT: RequestHandler = async (event) => {
 		if (typeof value !== 'string') {
 			return jsonError(400, 'value must be a string');
 		}
-		updates.value = value;
+		updates.value = encrypt(value);
 	}
 	if (is_secret !== undefined) {
 		updates.isSecret = is_secret === true;
 	}
 
-	const [updated] = await db
-		.update(envVars)
-		.set(updates)
-		.where(eq(envVars.id, eid))
-		.returning();
+	const [updated] = await db.update(envVars).set(updates).where(eq(envVars.id, eid)).returning();
 
 	return json({
 		...updated,

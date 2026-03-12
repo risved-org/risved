@@ -3,13 +3,15 @@ import { db } from '$lib/server/db';
 import { projects, envVars } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
+import { encrypt, safeDecrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
-/** Mask a secret value, showing only the first 4 chars. */
+/** Mask a secret value, showing only the first 4 chars of the decrypted value. */
 function maskValue(value: string, isSecret: boolean): string {
-	if (!isSecret) return value;
-	if (value.length <= 4) return '••••';
-	return value.slice(0, 4) + '••••••••';
+	if (!isSecret) return safeDecrypt(value);
+	const plain = safeDecrypt(value);
+	if (plain.length <= 4) return '••••';
+	return plain.slice(0, 4) + '••••••••';
 }
 
 /**
@@ -80,13 +82,16 @@ export const POST: RequestHandler = async (event) => {
 		return jsonError(409, `Environment variable "${trimmedKey}" already exists`);
 	}
 
+	const isSecret = is_secret === true;
+	const encryptedValue = encrypt(value);
+
 	const [created] = await db
 		.insert(envVars)
 		.values({
 			projectId: id,
 			key: trimmedKey,
-			value: value,
-			isSecret: is_secret === true
+			value: encryptedValue,
+			isSecret
 		})
 		.returning();
 

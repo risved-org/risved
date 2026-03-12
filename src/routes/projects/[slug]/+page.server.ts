@@ -2,6 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { projects, deployments, domains, envVars, webhookDeliveries } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { safeDecrypt } from '$lib/server/crypto';
 import type { PageServerLoad, Actions } from './$types';
 
 const FRAMEWORK_NAMES: Record<string, string> = {
@@ -15,11 +16,12 @@ const FRAMEWORK_NAMES: Record<string, string> = {
 	solidstart: 'SolidStart'
 };
 
-/** Mask a secret value, showing only the first 4 chars. */
+/** Mask a secret value, showing only the first 4 chars of the decrypted value. */
 function maskValue(value: string, isSecret: boolean): string {
-	if (!isSecret) return value;
-	if (value.length <= 4) return '••••';
-	return value.slice(0, 4) + '••••••••';
+	const plain = safeDecrypt(value);
+	if (!isSecret) return plain;
+	if (plain.length <= 4) return '••••';
+	return plain.slice(0, 4) + '••••••••';
 }
 
 export const load: PageServerLoad = async ({ params }) => {

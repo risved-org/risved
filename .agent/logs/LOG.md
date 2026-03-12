@@ -3,8 +3,21 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 23
-**Current Task:** TASK-34 Complete
+**Tasks Completed:** 24
+**Current Task:** TASK-35 Complete
+
+----------------------------------------------
+
+## Session Log
+
+### 2026-03-12 — TASK-35: Environment Variable Encryption
+- Created `src/lib/server/crypto.ts` — AES-256-GCM encrypt/decrypt with server key stored as file outside DB (`.risved-encryption.key`), auto-generated on first use
+- Updated env var API endpoints (`/api/projects/:id/env`) to encrypt values on write and decrypt on read/mask
+- Updated new project and import pages to encrypt env vars before storing
+- Updated project detail page to use `safeDecrypt` for backward compatibility with existing plaintext values
+- Added `safeDecrypt()` helper for graceful handling of pre-encryption legacy data
+- 16 crypto unit tests, 12 env API unit tests (updated with crypto mocks)
+- 557 unit tests passing, e2e tests passing, tsc clean
 
 ----------------------------------------------
 

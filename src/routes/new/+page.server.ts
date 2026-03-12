@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { projects, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { slugify, generateWebhookSecret } from '$lib/server/api-utils';
+import { encrypt } from '$lib/server/crypto';
 import { allocatePort } from '$lib/server/pipeline/port';
 import { runPipeline } from '$lib/server/pipeline';
 import { createCommandRunner } from '$lib/server/pipeline/docker';
@@ -118,7 +119,7 @@ export const actions: Actions = {
 				await db.insert(envVars).values({
 					projectId: project.id,
 					key,
-					value,
+					value: encrypt(value),
 					isSecret
 				});
 			}

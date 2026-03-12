@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { gitConnections, projects, envVars } from '$lib/server/db/schema';
 import { slugify, generateWebhookSecret } from '$lib/server/api-utils';
+import { encrypt } from '$lib/server/crypto';
 import { allocatePort } from '$lib/server/pipeline/port';
 import { runPipeline } from '$lib/server/pipeline';
 import { createCommandRunner } from '$lib/server/pipeline/docker';
@@ -93,7 +94,9 @@ export const actions: Actions = {
 			const value = envValues[i] ?? '';
 			const isSecret = envSecrets[i] === '1';
 			if (key && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-				await db.insert(envVars).values({ projectId: project.id, key, value, isSecret });
+				await db
+					.insert(envVars)
+					.values({ projectId: project.id, key, value: encrypt(value), isSecret });
 			}
 		}
 

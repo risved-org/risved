@@ -13,6 +13,7 @@ src/
 │       ├── auth-utils.ts    # First-run detection, user count helpers
 │       ├── api-utils.ts     # Auth guard, slugify, webhook secret, JSON error helpers
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
+│       ├── crypto.ts        # AES-256-GCM encryption (encrypt, decrypt, safeDecrypt), server key management
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
 │       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections, preview_deployments)
