@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { verifySignature, parseWebhookPayload } from '$lib/server/webhook';
 import { runPipeline } from '$lib/server/pipeline';
 import { createCommandRunner } from '$lib/server/pipeline/docker';
+import { createPreview, cleanupPrPreviews } from '$lib/server/preview';
 import type { FrameworkId, Tier } from '$lib/server/detection/types';
 import type { RequestHandler } from './$types';
 
@@ -87,6 +88,15 @@ export const POST: RequestHandler = async (event) => {
 		return json({ received: true, action: actionTaken });
 	}
 
+	/* Handle PR preview events */
+	if (webhookEvent.type === 'pr_open' || webhookEvent.type === 'pr_update') {
+		return handlePrPreview(project, webhookEvent, headers, rawPayload);
+	}
+
+	if (webhookEvent.type === 'pr_close') {
+		return handlePrClose(project, webhookEvent, headers, rawPayload);
+	}
+
 	/* Branch filter: skip if push branch doesn't match project's deploy branch */
 	if (webhookEvent.branch && webhookEvent.branch !== project.branch) {
 		actionTaken = `skipped: branch ${webhookEvent.branch} != ${project.branch}`;
@@ -123,6 +133,84 @@ export const POST: RequestHandler = async (event) => {
 
 	return json({ received: true, action: actionTaken, event: webhookEvent.type });
 };
+
+/**
+ * Handle PR open/update: create or update preview deployment.
+ */
+async function handlePrPreview(
+	project: typeof projects.$inferSelect,
+	webhookEvent: ReturnType<typeof parseWebhookPayload>,
+	headers: Record<string, string>,
+	rawPayload: string
+) {
+	if (!project.previewsEnabled) {
+		const action = 'skipped: previews disabled';
+		await logDelivery(project.id, webhookEvent.type, headers, rawPayload, true, action);
+		return json({ received: true, action });
+	}
+
+	if (!webhookEvent.prNumber) {
+		const action = 'skipped: no PR number';
+		await logDelivery(project.id, webhookEvent.type, headers, rawPayload, true, action);
+		return json({ received: true, action });
+	}
+
+	const action = `triggered preview for PR #${webhookEvent.prNumber}`;
+	await logDelivery(project.id, webhookEvent.type, headers, rawPayload, true, action);
+
+	createPreview(
+		{
+			id: project.id,
+			slug: project.slug,
+			repoUrl: project.repoUrl,
+			branch: project.branch,
+			frameworkId: project.frameworkId,
+			tier: project.tier,
+			previewLimit: project.previewLimit,
+			previewsEnabled: project.previewsEnabled,
+			previewAutoDelete: project.previewAutoDelete
+		},
+		webhookEvent.prNumber,
+		webhookEvent.prTitle,
+		webhookEvent.branch ?? 'main',
+		webhookEvent.commitSha
+	).catch(() => {
+		/* Preview errors are logged internally */
+	});
+
+	return json({ received: true, action, event: webhookEvent.type });
+}
+
+/**
+ * Handle PR close: clean up preview deployments if auto-delete is enabled.
+ */
+async function handlePrClose(
+	project: typeof projects.$inferSelect,
+	webhookEvent: ReturnType<typeof parseWebhookPayload>,
+	headers: Record<string, string>,
+	rawPayload: string
+) {
+	if (!project.previewsEnabled || !project.previewAutoDelete) {
+		const action = 'skipped: auto-delete disabled';
+		await logDelivery(project.id, webhookEvent.type, headers, rawPayload, true, action);
+		return json({ received: true, action });
+	}
+
+	if (!webhookEvent.prNumber) {
+		const action = 'skipped: no PR number';
+		await logDelivery(project.id, webhookEvent.type, headers, rawPayload, true, action);
+		return json({ received: true, action });
+	}
+
+	const action = `cleaning up preview for PR #${webhookEvent.prNumber}`;
+	await logDelivery(project.id, webhookEvent.type, headers, rawPayload, true, action);
+
+	cleanupPrPreviews(project.id, webhookEvent.prNumber).catch(() => {
+		/* Cleanup errors are non-fatal */
+	});
+
+	return json({ received: true, action, event: webhookEvent.type });
+}
 
 /** Log a webhook delivery to the database. */
 async function logDelivery(

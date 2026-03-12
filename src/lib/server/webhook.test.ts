@@ -68,8 +68,10 @@ describe('parseWebhookPayload', () => {
 			{
 				action: 'closed',
 				pull_request: {
+					number: 7,
 					merged: true,
 					base: { ref: 'main' },
+					head: { ref: 'feat', sha: 'xxx' },
 					merge_commit_sha: 'def5678',
 					title: 'Add feature'
 				},
@@ -80,15 +82,126 @@ describe('parseWebhookPayload', () => {
 		expect(result.type).toBe('pr_merge');
 		expect(result.branch).toBe('main');
 		expect(result.commitSha).toBe('def5678');
+		expect(result.prNumber).toBe(7);
+		expect(result.prTitle).toBe('Add feature');
 	});
 
-	it('returns unknown for non-merge PR close', () => {
+	it('parses GitHub PR close (not merged) as pr_close', () => {
 		const result = parseWebhookPayload(
 			{ 'x-github-event': 'pull_request' },
-			{ action: 'closed', pull_request: { merged: false } }
+			{
+				action: 'closed',
+				pull_request: { merged: false, number: 5, title: 'WIP', head: { ref: 'feat', sha: 'a1' } },
+				sender: { login: 'dev' }
+			}
 		);
 
-		expect(result.type).toBe('unknown');
+		expect(result.type).toBe('pr_close');
+		expect(result.prNumber).toBe(5);
+		expect(result.branch).toBe('feat');
+	});
+
+	it('parses GitHub PR open event', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{
+				action: 'opened',
+				pull_request: {
+					number: 42,
+					title: 'Add feature',
+					head: { ref: 'feat-branch', sha: 'abc123' },
+					base: { ref: 'main' }
+				},
+				sender: { login: 'dev' }
+			}
+		);
+
+		expect(result.type).toBe('pr_open');
+		expect(result.prNumber).toBe(42);
+		expect(result.prTitle).toBe('Add feature');
+		expect(result.branch).toBe('feat-branch');
+		expect(result.commitSha).toBe('abc123');
+	});
+
+	it('parses GitHub PR synchronize as pr_update', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{
+				action: 'synchronize',
+				pull_request: {
+					number: 42,
+					title: 'Add feature',
+					head: { ref: 'feat-branch', sha: 'def456' }
+				},
+				sender: { login: 'dev' }
+			}
+		);
+
+		expect(result.type).toBe('pr_update');
+		expect(result.prNumber).toBe(42);
+		expect(result.commitSha).toBe('def456');
+	});
+
+	it('parses GitLab MR open event', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{
+				object_attributes: {
+					action: 'open',
+					iid: 10,
+					title: 'New MR',
+					source_branch: 'feature',
+					target_branch: 'main',
+					last_commit: { id: 'gl123' }
+				},
+				user: { username: 'gl-dev' }
+			}
+		);
+
+		expect(result.type).toBe('pr_open');
+		expect(result.prNumber).toBe(10);
+		expect(result.branch).toBe('feature');
+	});
+
+	it('parses GitLab MR update event', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{
+				object_attributes: {
+					action: 'update',
+					iid: 10,
+					title: 'Updated MR',
+					source_branch: 'feature',
+					target_branch: 'main',
+					last_commit: { id: 'gl456' }
+				},
+				user: { username: 'gl-dev' }
+			}
+		);
+
+		expect(result.type).toBe('pr_update');
+		expect(result.prNumber).toBe(10);
+		expect(result.commitSha).toBe('gl456');
+	});
+
+	it('parses GitLab MR close event', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{
+				object_attributes: {
+					action: 'close',
+					iid: 10,
+					title: 'Closed MR',
+					source_branch: 'feature',
+					target_branch: 'main',
+					last_commit: { id: 'gl789' }
+				},
+				user: { username: 'gl-dev' }
+			}
+		);
+
+		expect(result.type).toBe('pr_close');
+		expect(result.prNumber).toBe(10);
 	});
 
 	it('parses GitLab push event', () => {
@@ -144,10 +257,7 @@ describe('parseWebhookPayload', () => {
 	});
 
 	it('returns unknown for unsupported events', () => {
-		const result = parseWebhookPayload(
-			{ 'x-github-event': 'issues' },
-			{ action: 'opened' }
-		);
+		const result = parseWebhookPayload({ 'x-github-event': 'issues' }, { action: 'opened' });
 
 		expect(result.type).toBe('unknown');
 	});

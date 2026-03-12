@@ -3,12 +3,21 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 19
-**Current Task:** TASK-25 Complete
+**Tasks Completed:** 20
+**Current Task:** TASK-31 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-31: PR Deploy Previews
+- Added `previewDeployments` table to schema (id, projectId, prNumber, prTitle, branch, commitSha, deploymentId, containerName, port, domain, status)
+- Added preview config columns to `projects` table: `previewsEnabled`, `previewLimit` (default 3), `previewAutoDelete`
+- Extended `parseWebhookPayload` in `webhook.ts` to detect PR open/update/close events for GitHub/Gitea/Forgejo/GitLab (added `prNumber` and `prTitle` fields to `WebhookEvent`)
+- Created `src/lib/server/preview/` module with `createPreview`, `cleanupPreview`, `cleanupPrPreviews`, `enforcePreviewLimit`, `listPreviews`, `allocatePreviewPort` (port range 4001-4999), `buildPreviewDomain` (format: `pr-{n}.{slug}.{domain}`)
+- Updated webhook handler to route PR open/update events to preview creation, PR close events to preview cleanup
+- 12 new/updated webhook parser tests (PR open, update, close, merge with prNumber/prTitle for GitHub and GitLab), 4 preview unit tests, 3 webhook handler tests for PR events
+- 492 unit tests passing, tsc clean
 
 ### 2026-03-12 — TASK-25: Settings Screen
 - Created `src/routes/settings/+page.server.ts` — load returns user info, hostname, timezone, masked API token from settings table; five actions: general (save hostname/timezone), email (update admin email with validation), password (change via BetterAuth changePassword API with 12-char min), generateToken (create rsv_ prefixed 64-char hex token), revokeToken (clear token)

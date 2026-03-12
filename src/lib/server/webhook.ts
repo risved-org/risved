@@ -45,12 +45,25 @@ function safeCompare(a: string, b: string): boolean {
 
 /** Parsed webhook event data. */
 export interface WebhookEvent {
-	type: 'push' | 'pr_merge' | 'unknown';
+	type: 'push' | 'pr_merge' | 'pr_open' | 'pr_update' | 'pr_close' | 'unknown';
 	branch: string | null;
 	commitSha: string | null;
 	commitMessage: string | null;
 	sender: string | null;
+	prNumber: number | null;
+	prTitle: string | null;
 }
+
+/** Default result for unknown events. */
+const UNKNOWN_EVENT: WebhookEvent = {
+	type: 'unknown',
+	branch: null,
+	commitSha: null,
+	commitMessage: null,
+	sender: null,
+	prNumber: null,
+	prTitle: null
+};
 
 /**
  * Parse a webhook payload into a normalized event structure.
@@ -60,44 +73,35 @@ export function parseWebhookPayload(
 	headers: Record<string, string>,
 	body: Record<string, unknown>
 ): WebhookEvent {
-	const githubEvent = headers['x-github-event'] || headers['x-gitea-event'] || headers['x-forgejo-event'];
+	const githubEvent =
+		headers['x-github-event'] || headers['x-gitea-event'] || headers['x-forgejo-event'];
 	const gitlabEvent = headers['x-gitlab-event'];
 
 	/* GitHub / Gitea / Forgejo push */
 	if (githubEvent === 'push') {
 		const ref = body.ref as string | undefined;
-		const branch = ref?.startsWith('refs/heads/') ? ref.slice(11) : ref ?? null;
+		const branch = ref?.startsWith('refs/heads/') ? ref.slice(11) : (ref ?? null);
 		const headCommit = body.head_commit as Record<string, unknown> | undefined;
 		return {
 			type: 'push',
 			branch,
-			commitSha: (body.after as string) ?? headCommit?.id as string ?? null,
+			commitSha: (body.after as string) ?? (headCommit?.id as string) ?? null,
 			commitMessage: (headCommit?.message as string) ?? null,
-			sender: (body.sender as Record<string, unknown>)?.login as string ?? null
+			sender: ((body.sender as Record<string, unknown>)?.login as string) ?? null,
+			prNumber: null,
+			prTitle: null
 		};
 	}
 
-	/* GitHub / Gitea / Forgejo pull request merge */
+	/* GitHub / Gitea / Forgejo pull request */
 	if (githubEvent === 'pull_request') {
-		const action = body.action as string;
-		const pr = body.pull_request as Record<string, unknown> | undefined;
-		const merged = pr?.merged as boolean;
-		if (action === 'closed' && merged) {
-			const base = pr?.base as Record<string, unknown> | undefined;
-			return {
-				type: 'pr_merge',
-				branch: (base?.ref as string) ?? null,
-				commitSha: (pr?.merge_commit_sha as string) ?? null,
-				commitMessage: (pr?.title as string) ?? null,
-				sender: (body.sender as Record<string, unknown>)?.login as string ?? null
-			};
-		}
+		return parseGitHubPrEvent(body);
 	}
 
 	/* GitLab push */
 	if (gitlabEvent === 'Push Hook') {
 		const ref = body.ref as string | undefined;
-		const branch = ref?.startsWith('refs/heads/') ? ref.slice(11) : ref ?? null;
+		const branch = ref?.startsWith('refs/heads/') ? ref.slice(11) : (ref ?? null);
 		const commits = body.commits as Record<string, unknown>[] | undefined;
 		const lastCommit = commits?.[commits.length - 1];
 		return {
@@ -105,23 +109,142 @@ export function parseWebhookPayload(
 			branch,
 			commitSha: (body.after as string) ?? null,
 			commitMessage: (lastCommit?.message as string) ?? null,
-			sender: (body.user_username as string) ?? null
+			sender: (body.user_username as string) ?? null,
+			prNumber: null,
+			prTitle: null
 		};
 	}
 
 	/* GitLab merge request */
 	if (gitlabEvent === 'Merge Request Hook') {
-		const attrs = body.object_attributes as Record<string, unknown> | undefined;
-		if (attrs?.action === 'merge') {
-			return {
-				type: 'pr_merge',
-				branch: (attrs?.target_branch as string) ?? null,
-				commitSha: (attrs?.merge_commit_sha as string) ?? null,
-				commitMessage: (attrs?.title as string) ?? null,
-				sender: (body.user as Record<string, unknown>)?.username as string ?? null
-			};
-		}
+		return parseGitLabMrEvent(body);
 	}
 
-	return { type: 'unknown', branch: null, commitSha: null, commitMessage: null, sender: null };
+	return { ...UNKNOWN_EVENT };
+}
+
+/**
+ * Parse GitHub/Gitea/Forgejo pull_request events into open/update/merge/close.
+ */
+function parseGitHubPrEvent(body: Record<string, unknown>): WebhookEvent {
+	const action = body.action as string;
+	const pr = body.pull_request as Record<string, unknown> | undefined;
+	const prNumber = (pr?.number as number) ?? null;
+	const prTitle = (pr?.title as string) ?? null;
+	const head = pr?.head as Record<string, unknown> | undefined;
+	const base = pr?.base as Record<string, unknown> | undefined;
+	const sender = ((body.sender as Record<string, unknown>)?.login as string) ?? null;
+
+	if (action === 'opened') {
+		return {
+			type: 'pr_open',
+			branch: (head?.ref as string) ?? null,
+			commitSha: (head?.sha as string) ?? null,
+			commitMessage: prTitle,
+			sender,
+			prNumber,
+			prTitle
+		};
+	}
+
+	if (action === 'synchronize') {
+		return {
+			type: 'pr_update',
+			branch: (head?.ref as string) ?? null,
+			commitSha: (head?.sha as string) ?? null,
+			commitMessage: prTitle,
+			sender,
+			prNumber,
+			prTitle
+		};
+	}
+
+	if (action === 'closed') {
+		const merged = pr?.merged as boolean;
+		if (merged) {
+			return {
+				type: 'pr_merge',
+				branch: (base?.ref as string) ?? null,
+				commitSha: (pr?.merge_commit_sha as string) ?? null,
+				commitMessage: prTitle,
+				sender,
+				prNumber,
+				prTitle
+			};
+		}
+		return {
+			type: 'pr_close',
+			branch: (head?.ref as string) ?? null,
+			commitSha: (head?.sha as string) ?? null,
+			commitMessage: prTitle,
+			sender,
+			prNumber,
+			prTitle
+		};
+	}
+
+	return { ...UNKNOWN_EVENT };
+}
+
+/**
+ * Parse GitLab merge request events into open/update/merge/close.
+ */
+function parseGitLabMrEvent(body: Record<string, unknown>): WebhookEvent {
+	const attrs = body.object_attributes as Record<string, unknown> | undefined;
+	const action = attrs?.action as string | undefined;
+	const prNumber = (attrs?.iid as number) ?? null;
+	const prTitle = (attrs?.title as string) ?? null;
+	const sender = ((body.user as Record<string, unknown>)?.username as string) ?? null;
+	const sourceBranch = (attrs?.source_branch as string) ?? null;
+	const targetBranch = (attrs?.target_branch as string) ?? null;
+
+	if (action === 'open') {
+		return {
+			type: 'pr_open',
+			branch: sourceBranch,
+			commitSha: ((attrs?.last_commit as Record<string, unknown>)?.id as string) ?? null,
+			commitMessage: prTitle,
+			sender,
+			prNumber,
+			prTitle
+		};
+	}
+
+	if (action === 'update') {
+		return {
+			type: 'pr_update',
+			branch: sourceBranch,
+			commitSha: ((attrs?.last_commit as Record<string, unknown>)?.id as string) ?? null,
+			commitMessage: prTitle,
+			sender,
+			prNumber,
+			prTitle
+		};
+	}
+
+	if (action === 'merge') {
+		return {
+			type: 'pr_merge',
+			branch: targetBranch,
+			commitSha: (attrs?.merge_commit_sha as string) ?? null,
+			commitMessage: prTitle,
+			sender,
+			prNumber,
+			prTitle
+		};
+	}
+
+	if (action === 'close') {
+		return {
+			type: 'pr_close',
+			branch: sourceBranch,
+			commitSha: ((attrs?.last_commit as Record<string, unknown>)?.id as string) ?? null,
+			commitMessage: prTitle,
+			sender,
+			prNumber,
+			prTitle
+		};
+	}
+
+	return { ...UNKNOWN_EVENT };
 }

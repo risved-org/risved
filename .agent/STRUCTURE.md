@@ -15,7 +15,7 @@ src/
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections)
+│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections, preview_deployments)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
@@ -44,8 +44,11 @@ src/
 │       ├── forgejo/
 │       │   ├── index.ts     # ForgejoClient class (repos, statuses, comments, webhooks) + token verification
 │       │   └── types.ts     # ForgejoRepo, ForgejoUser, CommitStatusParams, etc.
+│       ├── preview/
+│       │   ├── index.ts     # Preview manager (create/cleanup/enforce limit, port allocation 4001-4999)
+│       │   └── types.ts     # PreviewProject, PreviewResult types
 │       ├── dns.ts            # DNS record generation, verification, server IP detection
-│       └── webhook.ts       # HMAC signature verification, webhook payload parsing
+│       └── webhook.ts       # HMAC signature verification, webhook payload parsing (push, PR open/update/close/merge)
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
 │   ├── +page.server.ts     # Dashboard load (system health, projects with deployments/domains)

@@ -30,6 +30,9 @@ export const projects = sqliteTable('projects', {
 	webhookPrMergedEnabled: integer('webhook_pr_merged_enabled', { mode: 'boolean' })
 		.notNull()
 		.default(true),
+	previewsEnabled: integer('previews_enabled', { mode: 'boolean' }).notNull().default(false),
+	previewLimit: integer('preview_limit').notNull().default(3),
+	previewAutoDelete: integer('preview_auto_delete', { mode: 'boolean' }).notNull().default(true),
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
@@ -122,6 +125,28 @@ export const gitConnections = sqliteTable('git_connections', {
 	refreshToken: text('refresh_token'),
 	tokenExpiresAt: text('token_expires_at'),
 	avatarUrl: text('avatar_url'),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString()),
+	updatedAt: text('updated_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
+export const previewDeployments = sqliteTable('preview_deployments', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	projectId: text('project_id').notNull(),
+	prNumber: integer('pr_number').notNull(),
+	prTitle: text('pr_title'),
+	branch: text('branch').notNull(),
+	commitSha: text('commit_sha'),
+	deploymentId: text('deployment_id'),
+	containerName: text('container_name'),
+	port: integer('port'),
+	domain: text('domain'),
+	status: text('status').notNull().default('building'), // building | active | failed | cleaned
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),

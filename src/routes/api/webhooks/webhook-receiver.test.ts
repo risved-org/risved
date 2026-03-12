@@ -33,6 +33,11 @@ vi.mock('$lib/server/pipeline/docker', () => ({
 	createCommandRunner: vi.fn().mockReturnValue({ exec: vi.fn() })
 }));
 
+vi.mock('$lib/server/preview', () => ({
+	createPreview: vi.fn().mockResolvedValue({ success: true, previewId: 'pv-1' }),
+	cleanupPrPreviews: vi.fn().mockResolvedValue(1)
+}));
+
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
 const SECRET = 'webhook-secret-123';
@@ -52,6 +57,9 @@ function makeProject(overrides?: Record<string, unknown>) {
 		webhookSecret: SECRET,
 		frameworkId: null,
 		tier: null,
+		previewsEnabled: false,
+		previewLimit: 3,
+		previewAutoDelete: true,
 		...overrides
 	};
 }
@@ -127,9 +135,7 @@ describe('POST /api/webhooks/:projectId', () => {
 		setupSelectChain([]);
 
 		const { POST } = await import('./[projectId]/+server');
-		const res = await POST(
-			makeEvent({}, { 'x-github-event': 'push' })
-		);
+		const res = await POST(makeEvent({}, { 'x-github-event': 'push' }));
 
 		expect(res.status).toBe(404);
 	});
@@ -172,6 +178,88 @@ describe('POST /api/webhooks/:projectId', () => {
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(data.action).toContain('unsupported');
+	});
+
+	it('triggers preview on PR open when previews enabled', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: true })]);
+
+		const payload = JSON.stringify({
+			action: 'opened',
+			pull_request: {
+				number: 42,
+				title: 'New feature',
+				head: { ref: 'feat-branch', sha: 'sha1' },
+				base: { ref: 'main' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('triggered preview');
+		expect(data.event).toBe('pr_open');
+	});
+
+	it('skips preview on PR open when previews disabled', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: false })]);
+
+		const payload = JSON.stringify({
+			action: 'opened',
+			pull_request: {
+				number: 42,
+				title: 'New feature',
+				head: { ref: 'feat-branch', sha: 'sha1' },
+				base: { ref: 'main' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('previews disabled');
+	});
+
+	it('cleans up preview on PR close when auto-delete enabled', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: true, previewAutoDelete: true })]);
+
+		const payload = JSON.stringify({
+			action: 'closed',
+			pull_request: {
+				number: 42,
+				merged: false,
+				title: 'Closed PR',
+				head: { ref: 'feat', sha: 'sha2' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('cleaning up preview');
 	});
 
 	it('accepts Gitea push with valid signature', async () => {
