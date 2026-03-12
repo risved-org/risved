@@ -3,12 +3,19 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 10
-**Current Task:** TASK-9 Complete
+**Tasks Completed:** 11
+**Current Task:** TASK-19 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-19: Login Screen
+- Created `src/routes/login/+page.server.ts` — load function redirects if authed, queries project/running counts for status footer; default action calls `auth.api.signInEmail` with error handling
+- Created `src/routes/login/+page.svelte` — centered login card (380px max-width), RISVED wordmark (all caps, letter-spaced), email/password form with `use:enhance`, error display, "Forgot password?" with CLI command reference, fixed status footer with health dot and project count in JetBrains Mono
+- 11 unit tests (2 load, 3 action, 6 source assertions), 6 e2e tests (form display, forgot password, status footer, auth redirect, invalid credentials error, no console errors)
+- 317 unit tests passing, 33 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-19-1.png` (login form), `.agent/screenshots/TASK-19-2.png` (error state)
 
 ### 2026-03-12 — TASK-9: Build Pipeline & Orchestration
 - Added `projects`, `deployments`, and `build_logs` tables to `src/lib/server/db/schema.ts`

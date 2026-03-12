@@ -72,6 +72,9 @@ src/
 │   │                   │   └── +server.ts # POST stop deployment container
 │   │                   └── rollback/
 │   │                       └── +server.ts # POST rollback (501 stub, Phase 2)
+│   ├── login/
+│   │   ├── +page.server.ts  # Login load (redirect if authed, project counts), signIn action
+│   │   └── +page.svelte     # Centered login form, RISVED wordmark, status footer
 │   ├── onboarding/
 │   │   ├── +page.server.ts  # Admin account creation action (signUpEmail)
 │   │   ├── +page.svelte     # Create admin form (email, password, confirm)
