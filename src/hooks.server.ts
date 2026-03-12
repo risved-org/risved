@@ -9,7 +9,7 @@ import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 
-const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth'];
+const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks'];
 
 function isPublicPath(pathname: string): boolean {
 	return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));

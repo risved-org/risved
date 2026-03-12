@@ -15,7 +15,7 @@ src/
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains)
+│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
@@ -35,11 +35,15 @@ src/
 │       │   ├── docker.ts    # Git clone, Docker build/run/stop, health check
 │       │   ├── log.ts       # Log collector + DB persistence
 │       │   └── port.ts      # Port allocator (3001-3999)
-│       └── dns.ts            # DNS record generation, verification, server IP detection
+│       ├── dns.ts            # DNS record generation, verification, server IP detection
+│       └── webhook.ts       # HMAC signature verification, webhook payload parsing
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
 │   ├── +page.svelte         # Landing page
 │   ├── api/
+│   │   ├── webhooks/
+│   │   │   └── [projectId]/
+│   │   │       └── +server.ts       # POST webhook receiver (HMAC, branch filter, deploy trigger)
 │   │   └── projects/
 │   │       ├── +server.ts           # GET (list), POST (create) projects
 │   │       └── [id]/

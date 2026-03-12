@@ -93,4 +93,19 @@ export const domains = sqliteTable('domains', {
 		.$defaultFn(() => new Date().toISOString())
 });
 
+export const webhookDeliveries = sqliteTable('webhook_deliveries', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	projectId: text('project_id').notNull(),
+	event: text('event').notNull(),
+	headers: text('headers').notNull(),
+	payload: text('payload').notNull(),
+	signatureValid: integer('signature_valid', { mode: 'boolean' }).notNull(),
+	actionTaken: text('action_taken'),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
 export * from './auth.schema';
