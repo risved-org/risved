@@ -96,7 +96,10 @@
 
 	<!-- Webhook -->
 	<section class="section" data-testid="webhook-section">
-		<h2 class="section-title">Webhook</h2>
+		<div class="section-header">
+			<h2 class="section-title">Webhook</h2>
+			<a href={resolve(`/projects/${data.project.slug}/webhooks`)} class="btn-sm" data-testid="configure-webhook-btn">Configure</a>
+		</div>
 		<div class="webhook-bar">
 			{#if data.webhookActive}
 				<span class="status-dot dot-live"></span>

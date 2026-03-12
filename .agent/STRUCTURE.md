@@ -80,6 +80,9 @@ src/
 │   │   └── [slug]/
 │   │       ├── +page.server.ts  # Project detail load (project, deployments, domains, env vars, webhook), delete action
 │   │       ├── +page.svelte     # Header, deployments list, webhook bar, env block, domains, danger zone
+│   │       ├── webhooks/
+│   │       │   ├── +page.server.ts  # Webhook config load (project, domain), regenerate + update actions
+│   │       │   └── +page.svelte     # Payload URL, secret, provider tabs, branch filter, event toggles
 │   │       └── deployments/
 │   │           └── [did]/
 │   │               ├── +page.server.ts  # Build log load (project, deployment, logs, phases)

@@ -14,7 +14,7 @@
   { "id": 13, "title": "Environment Variables API", "phase": 1, "passes": true },
   { "id": 14, "title": "Domains API", "phase": 1, "passes": true },
   { "id": 15, "title": "Webhook Receiver (Generic)", "phase": 1, "passes": true },
-  { "id": 16, "title": "Webhook Configuration UI", "phase": 1, "passes": false },
+  { "id": 16, "title": "Webhook Configuration UI", "phase": 1, "passes": true },
   { "id": 17, "title": "Webhook Delivery Log", "phase": 1, "passes": false },
   { "id": 18, "title": "Authentication (BetterAuth)", "phase": 1, "passes": true },
   { "id": 19, "title": "Login Screen", "phase": 1, "passes": true },

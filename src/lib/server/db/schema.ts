@@ -26,6 +26,10 @@ export const projects = sqliteTable('projects', {
 	port: integer('port'),
 	domain: text('domain'),
 	webhookSecret: text('webhook_secret'),
+	webhookPushEnabled: integer('webhook_push_enabled', { mode: 'boolean' }).notNull().default(true),
+	webhookPrMergedEnabled: integer('webhook_pr_merged_enabled', { mode: 'boolean' })
+		.notNull()
+		.default(true),
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),

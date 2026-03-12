@@ -3,12 +3,19 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 15
-**Current Task:** TASK-23 Complete
+**Tasks Completed:** 16
+**Current Task:** TASK-16 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-16: Webhook Configuration UI
+- Created `src/routes/projects/[slug]/webhooks/+page.server.ts` — load returns project webhook data (secret, branch, event toggles) and payload URL using risved domain setting; regenerate action generates new webhook secret; update action persists branch filter and event toggle changes
+- Created `src/routes/projects/[slug]/webhooks/+page.svelte` — webhook config page with payload URL + copy button, webhook secret + copy/regenerate, tabbed provider setup guides (GitHub, GitLab, Forgejo, Gitea, Codeberg, Bitbucket with numbered steps), branch filter input, push/PR merged event toggles, save button
+- 15 unit tests (3 load, 2 regenerate, 2 update, 8 source assertions), 6 e2e tests (payload URL, secret, provider tabs, branch/toggles, navigation, no console errors)
+- 384 unit tests passing, 60 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-16-1.png` (full page), `.agent/screenshots/TASK-16-2.png` (settings section)
 
 ### 2026-03-12 — TASK-23: Project Detail Screen
 - Created `src/routes/projects/[slug]/+page.server.ts` — load resolves project by slug, fetches deployments (reverse-chronological), domains, masked env vars, last webhook delivery; delete action removes all associated data and redirects
