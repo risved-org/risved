@@ -18,7 +18,7 @@
   { "id": 17, "title": "Webhook Delivery Log", "phase": 1, "passes": false },
   { "id": 18, "title": "Authentication (BetterAuth)", "phase": 1, "passes": true },
   { "id": 19, "title": "Login Screen", "phase": 1, "passes": true },
-  { "id": 20, "title": "Dashboard Screen", "phase": 1, "passes": false },
+  { "id": 20, "title": "Dashboard Screen", "phase": 1, "passes": true },
   { "id": 21, "title": "New Project Screen", "phase": 1, "passes": false },
   { "id": 22, "title": "Build Log Screen", "phase": 1, "passes": false },
   { "id": 23, "title": "Project Detail Screen", "phase": 1, "passes": false },

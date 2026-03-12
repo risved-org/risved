@@ -3,10 +3,20 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 11
-**Current Task:** TASK-19 Complete
+**Tasks Completed:** 12
+**Current Task:** TASK-20 Complete
 
 ----------------------------------------------
+
+## Session Log
+
+### 2026-03-12 — TASK-20: Dashboard Screen
+- Created `src/routes/+page.server.ts` — load function with system health metrics (CPU, memory, disk, uptime, container count via os/execSync), projects with latest deployment status and primary domains
+- Updated `src/routes/+page.svelte` — dashboard with health bar (horizontal mono strip), project table (dense grid rows with status dot, name, framework badge, domain link, commit SHA, time ago, redeploy/open actions), empty state with New Project CTA
+- Fixed `tests/05-success.test.ts` — updated waitForURL to handle auth redirect now that `/` has a server load
+- 14 unit tests (4 load, 2 health, 2 framework names, 7 source assertions), 4 e2e tests (health bar, empty state, project rows, no console errors)
+- 331 unit tests passing, 37 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-20-1.png` (empty state), `.agent/screenshots/TASK-20-2.png` (project table)
 
 ## Session Log
 

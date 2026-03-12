@@ -39,7 +39,8 @@ src/
 │       └── webhook.ts       # HMAC signature verification, webhook payload parsing
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
-│   ├── +page.svelte         # Landing page
+│   ├── +page.server.ts     # Dashboard load (system health, projects with deployments/domains)
+│   ├── +page.svelte         # Dashboard screen (health bar, project table, empty state)
 │   ├── api/
 │   │   ├── webhooks/
 │   │   │   └── [projectId]/

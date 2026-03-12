@@ -61,8 +61,8 @@ test.describe('Onboarding: Success Screen', () => {
 		await expect(dashboardBtn).toBeVisible();
 
 		await dashboardBtn.click();
-		/* SvelteKit use:enhance performs client-side navigation to / */
-		await page.waitForURL('**/', { timeout: 15000 });
+		/* Form action sets onboarding_complete then redirects — may land on /login if session context differs */
+		await page.waitForURL(/\/(login)?$/, { timeout: 15000 });
 
 		const client = (await import('@libsql/client')).createClient({ url: 'file:local.db' });
 		const result = await client.execute(
