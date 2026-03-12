@@ -2,7 +2,7 @@
   { "id": 1, "title": "Installation & Onboarding Script", "phase": 1, "passes": true },
   { "id": 2, "title": "Onboarding: Create Admin Account", "phase": 1, "passes": true },
   { "id": 3, "title": "Onboarding: Domain Setup", "phase": 1, "passes": true },
-  { "id": 4, "title": "Onboarding: DNS Verification", "phase": 1, "passes": false },
+  { "id": 4, "title": "Onboarding: DNS Verification", "phase": 1, "passes": true },
   { "id": 5, "title": "Onboarding: First Deploy", "phase": 1, "passes": false },
   { "id": 6, "title": "Onboarding: Success Screen", "phase": 1, "passes": false },
   { "id": 7, "title": "Framework Detection", "phase": 1, "passes": true },

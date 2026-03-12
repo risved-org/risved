@@ -25,9 +25,10 @@ src/
 │       │   ├── types.ts     # DockerfileOptions, DockerfileResult, FrameworkBuildConfig
 │       │   ├── configs.ts   # Per-framework build configurations
 │       │   └── templates.ts # Tier-specific Dockerfile template generators
-│       └── caddy/
-│           ├── index.ts     # CaddyClient class + route helpers
-│           └── types.ts     # CaddyRoute, CaddyResult, CaddyHealthStatus, etc.
+│       ├── caddy/
+│       │   ├── index.ts     # CaddyClient class + route helpers
+│       │   └── types.ts     # CaddyRoute, CaddyResult, CaddyHealthStatus, etc.
+│       └── dns.ts            # DNS record generation, verification, server IP detection
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
 │   ├── +page.svelte         # Landing page
@@ -35,9 +36,12 @@ src/
 │   │   ├── +page.server.ts  # Admin account creation action (signUpEmail)
 │   │   ├── +page.svelte     # Create admin form (email, password, confirm)
 │   │   ├── StepIndicator.svelte # 4-step progress indicator component
-│   │   └── domain/
-│   │       ├── +page.server.ts  # Domain config action (subdomain/dedicated/ip)
-│   │       └── +page.svelte     # Radio cards, prefix picker, live URL preview
+│   │   ├── domain/
+│   │   │   ├── +page.server.ts  # Domain config action (subdomain/dedicated/ip)
+│   │   │   └── +page.svelte     # Radio cards, prefix picker, live URL preview
+│   │   └── verify/
+│   │       ├── +page.server.ts  # DNS verification load/actions (check, skip)
+│   │       └── +page.svelte     # DNS records table, copy buttons, provider chips, SSL status
 │   └── demo/                # Demo routes
 │       ├── better-auth/     # Auth demo
 │       └── paraglide/       # i18n demo
