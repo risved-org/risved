@@ -3,12 +3,19 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 12
-**Current Task:** TASK-20 Complete
+**Tasks Completed:** 13
+**Current Task:** TASK-21 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-21: New Project Screen
+- Created `src/routes/new/+page.server.ts` — load returns framework list from detectors and risved domain setting; default action validates input, creates project with slug/port/webhook, saves env vars, triggers pipeline, redirects to dashboard
+- Created `src/routes/new/+page.svelte` — single scrollable form with Git Source section (repo URL, branch, root dir), Framework section (detection result display + manual override dropdown), Configuration section (project name auto-derived from URL, domain preview), Environment Variables section (dark code-editor-style block with key/value/secret toggle, add/remove rows), and Deploy button
+- 14 unit tests (2 load, 4 action, 8 source assertions), 5 e2e tests (form sections, back link, framework options, env var add/remove, no console errors)
+- 345 unit tests passing, 42 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-21-1.png` (full form), `.agent/screenshots/TASK-21-2.png` (env vars state)
 
 ### 2026-03-12 — TASK-20: Dashboard Screen
 - Created `src/routes/+page.server.ts` — load function with system health metrics (CPU, memory, disk, uptime, container count via os/execSync), projects with latest deployment status and primary domains

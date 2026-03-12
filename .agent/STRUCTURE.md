@@ -73,6 +73,9 @@ src/
 │   │                   │   └── +server.ts # POST stop deployment container
 │   │                   └── rollback/
 │   │                       └── +server.ts # POST rollback (501 stub, Phase 2)
+│   ├── new/
+│   │   ├── +page.server.ts  # New project load (frameworks, domain), create+deploy action
+│   │   └── +page.svelte     # Git source, framework select, config, env vars editor, deploy button
 │   ├── login/
 │   │   ├── +page.server.ts  # Login load (redirect if authed, project counts), signIn action
 │   │   └── +page.svelte     # Centered login form, RISVED wordmark, status footer
