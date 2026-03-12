@@ -3,12 +3,22 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 16
-**Current Task:** TASK-16 Complete
+**Tasks Completed:** 17
+**Current Task:** TASK-17 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-17: Webhook Delivery Log
+- Created `src/routes/projects/[slug]/webhooks/deliveries/+page.server.ts` — load fetches project by slug, queries webhook_deliveries ordered by createdAt desc with limit 50, returns mapped deliveries
+- Created `src/routes/projects/[slug]/webhooks/deliveries/+page.svelte` — delivery list table with event column, status badges (deployed/rejected/skipped/received), action text, relative time, clickable rows linking to detail page, back link to webhook config
+- Created `src/routes/projects/[slug]/webhooks/deliveries/[did]/+page.server.ts` — load fetches delivery by id with JSON-parsed headers/payload; redeliver action re-verifies signature, logs new delivery, triggers pipeline if valid
+- Created `src/routes/projects/[slug]/webhooks/deliveries/[did]/+page.svelte` — detail page with metadata grid (ID, event, timestamp, action, signature badge), request headers terminal block, JSON payload with syntax highlighting (keys blue, strings green, numbers accent), redeliver button with loading/success states
+- Added "View delivery log" link to webhook config page
+- 19 unit tests (8 list + 11 detail), 6 e2e tests (list rows, detail metadata/headers/payload, redeliver button, nav config→deliveries, nav list→detail, no console errors)
+- 403 unit tests passing, 66 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-17-1.png` (delivery list), `.agent/screenshots/TASK-17-2.png` (delivery detail)
 
 ### 2026-03-12 — TASK-16: Webhook Configuration UI
 - Created `src/routes/projects/[slug]/webhooks/+page.server.ts` — load returns project webhook data (secret, branch, event toggles) and payload URL using risved domain setting; regenerate action generates new webhook secret; update action persists branch filter and event toggle changes

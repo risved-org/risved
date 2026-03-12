@@ -166,6 +166,20 @@
 		</div>
 	</section>
 
+	<!-- Delivery Log Link -->
+	<section class="section" data-testid="deliveries-link-section">
+		<div class="delivery-link-row">
+			<span class="section-title">Recent Deliveries</span>
+			<a
+				href={resolve(`/projects/${data.project.slug}/webhooks/deliveries`)}
+				class="btn-sm"
+				data-testid="view-deliveries-btn"
+			>
+				View delivery log
+			</a>
+		</div>
+	</section>
+
 	<!-- Branch Filter & Event Toggles -->
 	<section class="section" data-testid="config-section">
 		<h2 class="section-title">Webhook Settings</h2>
@@ -397,6 +411,28 @@
 	}
 	.toggle-label {
 		color: var(--color-text-1);
+	}
+
+	/* Delivery link */
+	.delivery-link-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.btn-sm {
+		padding: var(--space-1) var(--space-3);
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-1);
+		font-size: 0.8125rem;
+		cursor: pointer;
+		text-decoration: none;
+	}
+	.btn-sm:hover {
+		border-color: var(--color-text-2);
+		color: var(--color-text-0);
+		text-decoration: none;
 	}
 
 	/* Save button */

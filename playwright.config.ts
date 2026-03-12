@@ -19,10 +19,12 @@ export default defineConfig({
 	},
 
 	webServer: {
-		command: 'npm run dev -- --host 0.0.0.0',
-		url: 'http://localhost:5173/@vite/client',
+		command: 'npx svelte-kit sync && npm run dev -- --host 0.0.0.0',
+		url: 'http://localhost:5173/login',
 		reuseExistingServer: true,
-		timeout: 60000
+		timeout: 120000,
+		stdout: 'pipe',
+		stderr: 'pipe'
 	},
 
 	// NB: only chromium will run in Docker (arm64).

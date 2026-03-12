@@ -82,7 +82,13 @@ src/
 │   │       ├── +page.svelte     # Header, deployments list, webhook bar, env block, domains, danger zone
 │   │       ├── webhooks/
 │   │       │   ├── +page.server.ts  # Webhook config load (project, domain), regenerate + update actions
-│   │       │   └── +page.svelte     # Payload URL, secret, provider tabs, branch filter, event toggles
+│   │       │   ├── +page.svelte     # Payload URL, secret, provider tabs, branch filter, event toggles
+│   │       │   └── deliveries/
+│   │       │       ├── +page.server.ts  # Delivery list load (project, deliveries desc by time, limit 50)
+│   │       │       ├── +page.svelte     # Delivery list table (event, status badge, action, time, clickable rows)
+│   │       │       └── [did]/
+│   │       │           ├── +page.server.ts  # Delivery detail load (parsed headers/payload), redeliver action
+│   │       │           └── +page.svelte     # Metadata grid, headers block, JSON payload, redeliver button
 │   │       └── deployments/
 │   │           └── [did]/
 │   │               ├── +page.server.ts  # Build log load (project, deployment, logs, phases)
