@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const task = sqliteTable('task', {
 	id: text('id')
@@ -25,6 +25,7 @@ export const projects = sqliteTable('projects', {
 	tier: text('tier'),
 	port: integer('port'),
 	domain: text('domain'),
+	webhookSecret: text('webhook_secret'),
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
@@ -57,5 +58,25 @@ export const buildLogs = sqliteTable('build_logs', {
 	level: text('level').notNull().default('info'),
 	message: text('message').notNull()
 });
+
+export const envVars = sqliteTable(
+	'env_vars',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		projectId: text('project_id').notNull(),
+		key: text('key').notNull(),
+		value: text('value').notNull(),
+		isSecret: integer('is_secret', { mode: 'boolean' }).notNull().default(false),
+		createdAt: text('created_at')
+			.notNull()
+			.$defaultFn(() => new Date().toISOString()),
+		updatedAt: text('updated_at')
+			.notNull()
+			.$defaultFn(() => new Date().toISOString())
+	},
+	(table) => [uniqueIndex('env_vars_project_key_idx').on(table.projectId, table.key)]
+);
 
 export * from './auth.schema';

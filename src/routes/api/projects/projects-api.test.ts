@@ -29,7 +29,8 @@ vi.mock('$lib/server/db', () => ({ db: mockDb }));
 vi.mock('$lib/server/db/schema', () => ({
 	projects: { id: 'id', slug: 'slug', port: 'port', createdAt: 'created_at' },
 	deployments: { id: 'id', projectId: 'project_id', createdAt: 'created_at' },
-	buildLogs: { deploymentId: 'deployment_id', timestamp: 'timestamp' }
+	buildLogs: { deploymentId: 'deployment_id', timestamp: 'timestamp' },
+	envVars: { id: 'id', projectId: 'project_id', key: 'key' }
 }));
 
 vi.mock('$lib/server/api-utils', () => ({

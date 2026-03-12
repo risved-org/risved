@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { projects, deployments } from '$lib/server/db/schema';
+import { projects, deployments, envVars } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { createCommandRunner, dockerStop } from '$lib/server/pipeline/docker';
@@ -118,7 +118,8 @@ export const DELETE: RequestHandler = async (event) => {
 		}
 	}
 
-	/* Delete deployments then project */
+	/* Delete env vars, deployments, then project */
+	await db.delete(envVars).where(eq(envVars.projectId, id));
 	await db.delete(deployments).where(eq(deployments.projectId, id));
 	await db.delete(projects).where(eq(projects.id, id));
 

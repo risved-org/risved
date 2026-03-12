@@ -15,7 +15,7 @@ src/
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs)
+│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
@@ -44,6 +44,10 @@ src/
 │   │       ├── +server.ts           # GET (list), POST (create) projects
 │   │       └── [id]/
 │   │           ├── +server.ts       # GET (detail), PUT (update), DELETE project
+│   │           ├── env/
+│   │           │   ├── +server.ts       # GET (list masked), POST (create) env vars
+│   │           │   └── [eid]/
+│   │           │       └── +server.ts   # PUT (update), DELETE env var
 │   │           ├── deploy/
 │   │           │   └── +server.ts   # POST trigger deployment
 │   │           └── deployments/

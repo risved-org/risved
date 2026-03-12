@@ -11,7 +11,7 @@
   { "id": 10, "title": "Caddy Route Management", "phase": 1, "passes": true },
   { "id": 11, "title": "Projects CRUD API", "phase": 1, "passes": true },
   { "id": 12, "title": "Deployments API", "phase": 1, "passes": true },
-  { "id": 13, "title": "Environment Variables API", "phase": 1, "passes": false },
+  { "id": 13, "title": "Environment Variables API", "phase": 1, "passes": true },
   { "id": 14, "title": "Domains API", "phase": 1, "passes": false },
   { "id": 15, "title": "Webhook Receiver (Generic)", "phase": 1, "passes": false },
   { "id": 16, "title": "Webhook Configuration UI", "phase": 1, "passes": false },
