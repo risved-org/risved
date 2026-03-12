@@ -3,12 +3,19 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 13
-**Current Task:** TASK-21 Complete
+**Tasks Completed:** 14
+**Current Task:** TASK-22 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-22: Build Log Screen
+- Created `src/routes/projects/[slug]/deployments/[did]/+page.server.ts` — load resolves project by slug, fetches deployment + build logs + primary domain, returns phase list with ordered pipeline steps
+- Created `src/routes/projects/[slug]/deployments/[did]/+page.svelte` — hero build log UI with horizontal phase indicator (completed/active/pending/failed states with glow dots and connectors), metadata bar (status badge, commit SHA, elapsed timer), full terminal output (JetBrains Mono, timestamps in dim grey, commands in blue, errors in red, auto-scroll with cursor blink), SSE streaming via EventSource for live deployments, error summary with retry button on failure, success actions (open live site, view project) on success
+- 12 unit tests (4 load, 8 source assertions), 5 e2e tests (phase indicator, metadata, terminal content, success actions, no console errors)
+- 357 unit tests passing, 47 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-22-1.png` (phase indicator + terminal), `.agent/screenshots/TASK-22-2.png` (success state)
 
 ### 2026-03-12 — TASK-21: New Project Screen
 - Created `src/routes/new/+page.server.ts` — load returns framework list from detectors and risved domain setting; default action validates input, creates project with slug/port/webhook, saves env vars, triggers pipeline, redirects to dashboard

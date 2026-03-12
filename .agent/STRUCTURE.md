@@ -76,6 +76,12 @@ src/
 │   ├── new/
 │   │   ├── +page.server.ts  # New project load (frameworks, domain), create+deploy action
 │   │   └── +page.svelte     # Git source, framework select, config, env vars editor, deploy button
+│   ├── projects/
+│   │   └── [slug]/
+│   │       └── deployments/
+│   │           └── [did]/
+│   │               ├── +page.server.ts  # Build log load (project, deployment, logs, phases)
+│   │               └── +page.svelte     # Phase indicator, terminal output, metadata bar, success/error actions
 │   ├── login/
 │   │   ├── +page.server.ts  # Login load (redirect if authed, project counts), signIn action
 │   │   └── +page.svelte     # Centered login form, RISVED wordmark, status footer
