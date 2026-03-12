@@ -120,6 +120,9 @@ src/
 │   │   └── [slug]/
 │   │       ├── +page.server.ts  # Project detail load (project, deployments, domains, env vars, webhook), delete action
 │   │       ├── +page.svelte     # Header, deployments list, webhook bar, env block, domains, danger zone
+│   │       ├── checks/
+│   │       │   ├── +page.server.ts  # Checks config load (project, preview URL format), save action (toggles + limit)
+│   │       │   └── +page.svelte     # PR status mock, preview URL format, 4 toggles, preview limit, save
 │   │       ├── webhooks/
 │   │       │   ├── +page.server.ts  # Webhook config load (project, domain), regenerate + update actions
 │   │       │   ├── +page.svelte     # Payload URL, secret, provider tabs, branch filter, event toggles

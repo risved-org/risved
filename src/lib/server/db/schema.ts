@@ -33,6 +33,10 @@ export const projects = sqliteTable('projects', {
 	previewsEnabled: integer('previews_enabled', { mode: 'boolean' }).notNull().default(false),
 	previewLimit: integer('preview_limit').notNull().default(3),
 	previewAutoDelete: integer('preview_auto_delete', { mode: 'boolean' }).notNull().default(true),
+	commitStatusEnabled: integer('commit_status_enabled', { mode: 'boolean' })
+		.notNull()
+		.default(false),
+	requiredCheck: integer('required_check', { mode: 'boolean' }).notNull().default(false),
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),

@@ -3,12 +3,23 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 20
-**Current Task:** TASK-31 Complete
+**Tasks Completed:** 21
+**Current Task:** TASK-32 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-32: PR Status Checks Configuration
+- Added `commitStatusEnabled` and `requiredCheck` boolean columns to `projects` table schema
+- Created `src/routes/projects/[slug]/checks/+page.server.ts` — load returns project check settings and preview URL format; `save` action updates all toggles and preview limit
+- Created `src/routes/projects/[slug]/checks/+page.svelte` — GitHub PR commit status mock, deploy preview URL format card, four toggles (post commit status, deploy previews, auto-delete previews, required check/block merge), preview limit input
+- Added "PR Status Checks" section with Configure link on project detail page
+- Updated `tests/global-setup.ts` to include `preview_deployments` table in cleanup
+- Ran `drizzle-kit push` to add new columns and create `preview_deployments` table in local.db
+- 13 unit tests (3 load, 4 save action, 6 source assertions), 4 e2e tests (mock + URL, toggles, navigation, no console errors)
+- 505 unit tests passing, 94 e2e tests passing, tsc clean
+- Screenshots: `.agent/screenshots/TASK-32-1.png` (full checks page), `.agent/screenshots/TASK-32-2.png` (toggles section)
 
 ### 2026-03-12 — TASK-31: PR Deploy Previews
 - Added `previewDeployments` table to schema (id, projectId, prNumber, prTitle, branch, commitSha, deploymentId, containerName, port, domain, status)

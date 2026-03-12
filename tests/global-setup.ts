@@ -36,6 +36,7 @@ async function globalSetup() {
 		DELETE FROM env_vars;
 		DELETE FROM deployments;
 		DELETE FROM domains;
+		DELETE FROM preview_deployments;
 		DELETE FROM git_connections;
 		DELETE FROM projects;
 	`);

@@ -93,6 +93,18 @@
 		{/if}
 	</section>
 
+	<!-- PR Status Checks -->
+	<section class="section" data-testid="checks-section">
+		<div class="section-header">
+			<h2 class="section-title">PR Status Checks</h2>
+			<a
+				href={resolve(`/projects/${data.project.slug}/checks`)}
+				class="btn-sm"
+				data-testid="configure-checks-btn">Configure</a
+			>
+		</div>
+	</section>
+
 	<!-- Webhook -->
 	<section class="section" data-testid="webhook-section">
 		<div class="section-header">

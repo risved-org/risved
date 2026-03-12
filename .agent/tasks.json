@@ -30,7 +30,7 @@
   { "id": 29, "title": "Connect Provider Screen", "phase": 2, "passes": true },
   { "id": 30, "title": "Repo Picker Screen", "phase": 2, "passes": true },
   { "id": 31, "title": "PR Deploy Previews", "phase": 2, "passes": true },
-  { "id": 32, "title": "PR Status Checks Configuration", "phase": 2, "passes": false },
+  { "id": 32, "title": "PR Status Checks Configuration", "phase": 2, "passes": true },
   { "id": 33, "title": "Git Settings Screen", "phase": 2, "passes": false },
   { "id": 34, "title": "Rollback to Previous Deployment", "phase": 2, "passes": false },
   { "id": 35, "title": "Environment Variable Encryption", "phase": 2, "passes": false },
