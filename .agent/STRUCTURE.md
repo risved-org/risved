@@ -76,6 +76,9 @@ src/
 │   ├── new/
 │   │   ├── +page.server.ts  # New project load (frameworks, domain), create+deploy action
 │   │   └── +page.svelte     # Git source, framework select, config, env vars editor, deploy button
+│   ├── settings/
+│   │   ├── +page.server.ts  # Settings load (user, hostname, timezone, apiToken), general/email/password/token actions
+│   │   └── +page.svelte     # General settings, admin email, change password, API token management
 │   ├── projects/
 │   │   └── [slug]/
 │   │       ├── +page.server.ts  # Project detail load (project, deployments, domains, env vars, webhook), delete action

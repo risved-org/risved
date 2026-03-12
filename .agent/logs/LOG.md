@@ -3,12 +3,19 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 18
-**Current Task:** TASK-24 Complete
+**Tasks Completed:** 19
+**Current Task:** TASK-25 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-25: Settings Screen
+- Created `src/routes/settings/+page.server.ts` — load returns user info, hostname, timezone, masked API token from settings table; five actions: general (save hostname/timezone), email (update admin email with validation), password (change via BetterAuth changePassword API with 12-char min), generateToken (create rsv_ prefixed 64-char hex token), revokeToken (clear token)
+- Created `src/routes/settings/+page.svelte` — settings page with four sections: General (hostname input, timezone dropdown), Admin Email (email input with update), Change Password (current/new/confirm password fields), API Token (generate/regenerate/revoke with one-time token display, copy button, masked view)
+- 15 unit tests (3 load, 6 action, 6 source assertions), 6 e2e tests (general section, email/password sections, token section, generate token, save general, no console errors)
+- 432 unit tests passing, 78 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-25-1.png` (full settings page), `.agent/screenshots/TASK-25-2.png` (generated API token)
 
 ### 2026-03-12 — TASK-24: Domains Screen
 - Created `src/routes/projects/[slug]/domains/+page.server.ts` — load fetches project by slug, domains list, and server IP; four actions: add (hostname validation, uniqueness check, Caddy route), verify (DNS A record check, SSL status update), primary (toggle primary domain), remove (delete domain + Caddy route cleanup)
