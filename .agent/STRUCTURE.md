@@ -15,7 +15,7 @@ src/
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries)
+│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
@@ -35,6 +35,9 @@ src/
 │       │   ├── docker.ts    # Git clone, Docker build/run/stop, health check
 │       │   ├── log.ts       # Log collector + DB persistence
 │       │   └── port.ts      # Port allocator (3001-3999)
+│       ├── github/
+│       │   ├── index.ts     # GitHubClient class (repos, statuses, comments, webhooks) + OAuth helpers
+│       │   └── types.ts     # GitHubRepo, GitHubUser, CommitStatusParams, etc.
 │       ├── dns.ts            # DNS record generation, verification, server IP detection
 │       └── webhook.ts       # HMAC signature verification, webhook payload parsing
 ├── routes/
@@ -45,6 +48,13 @@ src/
 │   │   ├── webhooks/
 │   │   │   └── [projectId]/
 │   │   │       └── +server.ts       # POST webhook receiver (HMAC, branch filter, deploy trigger)
+│   │   ├── git/
+│   │   │   └── github/
+│   │   │       ├── +server.ts       # GitHub OAuth connect/callback/disconnect, list connections
+│   │   │       ├── repos/
+│   │   │       │   └── +server.ts   # List/search GitHub repos for a connection
+│   │   │       └── webhook/
+│   │   │           └── +server.ts   # Auto-configure GitHub webhook for a project
 │   │   └── projects/
 │   │       ├── +server.ts           # GET (list), POST (create) projects
 │   │       └── [id]/

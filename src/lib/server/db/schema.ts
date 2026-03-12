@@ -112,4 +112,22 @@ export const webhookDeliveries = sqliteTable('webhook_deliveries', {
 		.$defaultFn(() => new Date().toISOString())
 });
 
+export const gitConnections = sqliteTable('git_connections', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	provider: text('provider').notNull(), // 'github' | 'gitlab' | 'forgejo' | 'gitea'
+	accountName: text('account_name').notNull(),
+	accessToken: text('access_token').notNull(),
+	refreshToken: text('refresh_token'),
+	tokenExpiresAt: text('token_expires_at'),
+	avatarUrl: text('avatar_url'),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString()),
+	updatedAt: text('updated_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
 export * from './auth.schema';

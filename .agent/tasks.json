@@ -24,7 +24,7 @@
   { "id": 23, "title": "Project Detail Screen", "phase": 1, "passes": true },
   { "id": 24, "title": "Domains Screen", "phase": 1, "passes": true },
   { "id": 25, "title": "Settings Screen", "phase": 1, "passes": true },
-  { "id": 26, "title": "GitHub Integration", "phase": 2, "passes": false },
+  { "id": 26, "title": "GitHub Integration", "phase": 2, "passes": true },
   { "id": 27, "title": "GitLab Integration", "phase": 2, "passes": false },
   { "id": 28, "title": "Forgejo/Gitea Integration", "phase": 2, "passes": false },
   { "id": 29, "title": "Connect Provider Screen", "phase": 2, "passes": false },
