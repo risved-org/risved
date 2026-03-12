@@ -125,6 +125,7 @@ export const gitConnections = sqliteTable('git_connections', {
 		.$defaultFn(() => crypto.randomUUID()),
 	provider: text('provider').notNull(), // 'github' | 'gitlab' | 'forgejo' | 'gitea'
 	accountName: text('account_name').notNull(),
+	instanceUrl: text('instance_url'),
 	accessToken: text('access_token').notNull(),
 	refreshToken: text('refresh_token'),
 	tokenExpiresAt: text('token_expires_at'),

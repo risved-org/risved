@@ -3,10 +3,21 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 21
-**Current Task:** TASK-32 Complete
+**Tasks Completed:** 22
+**Current Task:** TASK-33 Complete
 
 ----------------------------------------------
+
+## Session Log
+
+### 2026-03-12 — TASK-33: Git Settings Screen
+- Added `instanceUrl` column to `gitConnections` schema, updated Forgejo connect to store instance URL
+- Created `src/routes/settings/git/+page.server.ts` — load returns connections (enriched with default instance URLs), SSH public key, and default webhook settings; actions: disconnect, refresh, generateSshKey (Ed25519), saveDefaults
+- Created `src/routes/settings/git/+page.svelte` — connected accounts list with provider icon, account name, instance URL, connection age, refresh/disconnect actions; SSH deploy key display with copy button and generate; default webhook settings with 3 toggles (auto-configure, commit status, deploy previews)
+- Added navigation links from settings page to git settings and providers pages
+- 15 unit tests (4 load, 5 action, 6 source assertions), 5 e2e tests (sections, empty state, toggles, navigation, no console errors)
+- 520 unit tests passing, 99 e2e tests passing, tsc clean
+- Screenshots: `.agent/screenshots/TASK-33-1.png` (full page), `.agent/screenshots/TASK-33-2.png` (toggles section)
 
 ## Session Log
 

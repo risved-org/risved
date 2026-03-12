@@ -61,6 +61,7 @@ export const actions: Actions = {
 				.update(gitConnections)
 				.set({
 					accessToken: token,
+					instanceUrl: instanceUrl.replace(/\/+$/, ''),
 					avatarUrl: user.avatar_url,
 					updatedAt: new Date().toISOString()
 				})
@@ -69,6 +70,7 @@ export const actions: Actions = {
 			await db.insert(gitConnections).values({
 				provider: 'forgejo',
 				accountName: user.login,
+				instanceUrl: instanceUrl.replace(/\/+$/, ''),
 				accessToken: token,
 				avatarUrl: user.avatar_url
 			});

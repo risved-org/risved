@@ -54,6 +54,16 @@
 		<h1>Settings</h1>
 	</header>
 
+	<!-- Navigation -->
+	<nav class="settings-nav" data-testid="settings-nav">
+		<a href={resolve('/settings/providers')} class="nav-link" data-testid="providers-link">
+			Git Providers
+		</a>
+		<a href={resolve('/settings/git')} class="nav-link" data-testid="git-settings-link">
+			Git Settings
+		</a>
+	</nav>
+
 	<!-- General Settings -->
 	<section class="section" data-testid="general-section">
 		<h2 class="section-title">General</h2>
@@ -342,6 +352,26 @@
 	h1 {
 		font-size: 1.4rem;
 		font-weight: 600;
+	}
+
+	/* Settings nav */
+	.settings-nav {
+		display: flex;
+		gap: var(--space-2);
+	}
+	.nav-link {
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-1);
+		font-size: 0.8125rem;
+		font-weight: 500;
+		text-decoration: none;
+	}
+	.nav-link:hover {
+		border-color: var(--color-text-2);
+		color: var(--color-text-0);
 	}
 
 	.mono {
