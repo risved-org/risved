@@ -78,6 +78,8 @@ src/
 │   │   └── +page.svelte     # Git source, framework select, config, env vars editor, deploy button
 │   ├── projects/
 │   │   └── [slug]/
+│   │       ├── +page.server.ts  # Project detail load (project, deployments, domains, env vars, webhook), delete action
+│   │       ├── +page.svelte     # Header, deployments list, webhook bar, env block, domains, danger zone
 │   │       └── deployments/
 │   │           └── [did]/
 │   │               ├── +page.server.ts  # Build log load (project, deployment, logs, phases)

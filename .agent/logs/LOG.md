@@ -3,12 +3,19 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 14
-**Current Task:** TASK-22 Complete
+**Tasks Completed:** 15
+**Current Task:** TASK-23 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-23: Project Detail Screen
+- Created `src/routes/projects/[slug]/+page.server.ts` — load resolves project by slug, fetches deployments (reverse-chronological), domains, masked env vars, last webhook delivery; delete action removes all associated data and redirects
+- Created `src/routes/projects/[slug]/+page.svelte` — single scrollable page: header (name, status dot, framework badge, domain link), deployments list (commit SHA, status, time ago, duration, links to build log), webhook status bar, env vars code-editor block (blue keys, green values, masked secrets), domains list (hostname, primary badge, SSL status), danger zone (delete with confirmation)
+- 12 unit tests (3 load/action, 8 source assertions, 1 db call check), 7 e2e tests (header, deployments, webhook, env vars, domains, danger zone, no console errors)
+- 369 unit tests passing, 54 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-23-1.png` (full detail page), `.agent/screenshots/TASK-23-2.png` (delete confirmation)
 
 ### 2026-03-12 — TASK-22: Build Log Screen
 - Created `src/routes/projects/[slug]/deployments/[did]/+page.server.ts` — load resolves project by slug, fetches deployment + build logs + primary domain, returns phase list with ordered pipeline steps
