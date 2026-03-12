@@ -2,27 +2,21 @@
 
 `Current Status`
 =================
-**Last Updated:** 2026-03-11
-**Tasks Completed:** 7
-**Current Task:** TASK-3 Complete
+**Last Updated:** 2026-03-12
+**Tasks Completed:** 8
+**Current Task:** TASK-5 Complete
 
 ----------------------------------------------
 
 ## Session Log
 
-### 2026-03-11 — TASK-3: Onboarding: Domain Setup
-- Created `settings` table in `src/lib/server/db/schema.ts` — key-value store for app configuration
-- Created `src/lib/server/settings.ts` — getSetting, setSetting, isOnboardingComplete helpers
-- Created `src/routes/onboarding/domain/+page.server.ts` — domain config form action with validation for subdomain/dedicated/ip modes
-- Created `src/routes/onboarding/domain/+page.svelte` — three radio cards (subdomain recommended, dedicated, IP-only), prefix picker (risved/deploy/apps/custom), live URL preview showing dashboard and app URL patterns
-- Updated `src/hooks.server.ts` — onboarding flow now uses `isOnboardingComplete()` instead of just `isFirstRun()` to allow multi-step onboarding after admin account creation
-- Updated `playwright.config.ts` — sequential test execution with global DB reset setup
-- Renamed e2e tests to `01-onboarding.test.ts` and `02-domain.test.ts` for ordered execution
-- 23 new unit tests (6 settings + 17 domain), 153 total unit tests passing
-- 6 new e2e tests, 11 total e2e tests passing
-- Screenshots: `.agent/screenshots/TASK-3-1.png`, `.agent/screenshots/TASK-3-2.png`
-
-## Session Log
+### 2026-03-12 — TASK-5: Onboarding: First Deploy
+- Created `src/routes/onboarding/deploy/templates.ts` — StarterTemplate type and 4 starter templates (Fresh, Hono, SvelteKit, Astro) with estimated deploy times
+- Created `src/routes/onboarding/deploy/+page.server.ts` — load function with guard redirects (first-run → onboarding, no dns → verify), three actions: starter (validate template, save config), repo (validate git URL, save config), skip (mark onboarding complete)
+- Created `src/routes/onboarding/deploy/+page.svelte` — two-tab UI (Starter template with 2x2 grid / Own repository with URL+branch fields), skip button, StepIndicator at step 4
+- 20 new unit tests, 203 total unit tests passing
+- 6 new e2e tests, 23 total e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-5-1.png`, `.agent/screenshots/TASK-5-2.png`
 
 ### 2026-03-11 — TASK-2: Onboarding: Create Admin Account
 - Created `src/routes/onboarding/+page.svelte` — admin account creation form with email, password (12-char min), and confirm password fields
@@ -46,6 +40,18 @@
 - Removed unused GitHub OAuth env vars from `.env`
 - 12 unit tests passing, 115 total project tests passing
 - No screenshots (backend-only task)
+
+### 2026-03-11 — TASK-3: Onboarding: Domain Setup
+- Created `settings` table in `src/lib/server/db/schema.ts` — key-value store for app configuration
+- Created `src/lib/server/settings.ts` — getSetting, setSetting, isOnboardingComplete helpers
+- Created `src/routes/onboarding/domain/+page.server.ts` — domain config form action with validation for subdomain/dedicated/ip modes
+- Created `src/routes/onboarding/domain/+page.svelte` — three radio cards (subdomain recommended, dedicated, IP-only), prefix picker (risved/deploy/apps/custom), live URL preview showing dashboard and app URL patterns
+- Updated `src/hooks.server.ts` — onboarding flow now uses `isOnboardingComplete()` instead of just `isFirstRun()` to allow multi-step onboarding after admin account creation
+- Updated `playwright.config.ts` — sequential test execution with global DB reset setup
+- Renamed e2e tests to `01-onboarding.test.ts` and `02-domain.test.ts` for ordered execution
+- 23 new unit tests (6 settings + 17 domain), 153 total unit tests passing
+- 6 new e2e tests, 11 total e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-3-1.png`, `.agent/screenshots/TASK-3-2.png`
 
 ### 2026-03-11 — TASK-1: Installation & Onboarding Script
 - Created `scripts/install.sh` — the `curl | sh` entry point for new users

@@ -39,9 +39,13 @@ src/
 │   │   ├── domain/
 │   │   │   ├── +page.server.ts  # Domain config action (subdomain/dedicated/ip)
 │   │   │   └── +page.svelte     # Radio cards, prefix picker, live URL preview
-│   │   └── verify/
-│   │       ├── +page.server.ts  # DNS verification load/actions (check, skip)
-│   │       └── +page.svelte     # DNS records table, copy buttons, provider chips, SSL status
+│   │   ├── verify/
+│   │   │   ├── +page.server.ts  # DNS verification load/actions (check, skip)
+│   │   │   └── +page.svelte     # DNS records table, copy buttons, provider chips, SSL status
+│   │   └── deploy/
+│   │       ├── +page.server.ts  # First deploy load/actions (starter, repo, skip)
+│   │       ├── +page.svelte     # Template grid, own repo input, skip button
+│   │       └── templates.ts     # StarterTemplate type and STARTER_TEMPLATES data
 │   └── demo/                # Demo routes
 │       ├── better-auth/     # Auth demo
 │       └── paraglide/       # i18n demo
