@@ -49,7 +49,13 @@ src/
 │   │           └── deployments/
 │   │               ├── +server.ts   # GET list deployments
 │   │               └── [did]/
-│   │                   └── +server.ts # GET deployment detail with logs
+│   │                   ├── +server.ts    # GET deployment detail with logs
+│   │                   ├── logs/
+│   │                   │   └── +server.ts # GET SSE stream of build logs
+│   │                   ├── stop/
+│   │                   │   └── +server.ts # POST stop deployment container
+│   │                   └── rollback/
+│   │                       └── +server.ts # POST rollback (501 stub, Phase 2)
 │   ├── onboarding/
 │   │   ├── +page.server.ts  # Admin account creation action (signUpEmail)
 │   │   ├── +page.svelte     # Create admin form (email, password, confirm)
