@@ -1,6 +1,7 @@
 import { db } from '$lib/server/db';
 import { projects, deployments, domains } from '$lib/server/db/schema';
 import { desc, eq } from 'drizzle-orm';
+import { getHealthMonitor } from '$lib/server/health';
 import type { PageServerLoad } from './$types';
 import { execSync } from 'node:child_process';
 import os from 'node:os';
@@ -97,8 +98,13 @@ export const load: PageServerLoad = async () => {
 
 	const domainMap = new Map(primaryDomains.map((d) => [d.projectId, d.hostname]));
 
+	/* Health monitor status per project */
+	const monitor = getHealthMonitor();
+	const healthMap = new Map(monitor.getAll().map((h) => [h.projectId, h]));
+
 	const projectList = allProjects.map((p) => {
 		const dep = latestDeployMap.get(p.id);
+		const containerHealth = healthMap.get(p.id);
 		return {
 			id: p.id,
 			name: p.name,
@@ -108,7 +114,9 @@ export const load: PageServerLoad = async () => {
 			domain: domainMap.get(p.id) ?? p.domain ?? null,
 			status: dep?.status ?? 'stopped',
 			commitSha: dep?.commitSha ?? null,
-			lastDeployedAt: dep?.createdAt ?? null
+			lastDeployedAt: dep?.createdAt ?? null,
+			containerHealthy: containerHealth?.healthy ?? null,
+			totalRestarts: containerHealth?.totalRestarts ?? 0
 		};
 	});
 

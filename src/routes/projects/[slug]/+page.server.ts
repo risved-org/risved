@@ -1,8 +1,16 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { projects, deployments, domains, envVars, webhookDeliveries } from '$lib/server/db/schema';
+import {
+	projects,
+	deployments,
+	domains,
+	envVars,
+	webhookDeliveries,
+	healthEvents
+} from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { safeDecrypt } from '$lib/server/crypto';
+import { getHealthMonitor } from '$lib/server/health';
 import type { PageServerLoad, Actions } from './$types';
 
 const FRAMEWORK_NAMES: Record<string, string> = {
@@ -70,6 +78,16 @@ export const load: PageServerLoad = async ({ params }) => {
 	const latestDep = deps[0] ?? null;
 	const status = latestDep?.status ?? 'stopped';
 
+	/* Container health */
+	const monitor = getHealthMonitor();
+	const containerHealth = monitor.get(project.id);
+	const recentHealthEvents = await db
+		.select()
+		.from(healthEvents)
+		.where(eq(healthEvents.projectId, project.id))
+		.orderBy(desc(healthEvents.createdAt))
+		.limit(10);
+
 	return {
 		project: {
 			id: project.id,
@@ -105,7 +123,22 @@ export const load: PageServerLoad = async ({ params }) => {
 		})),
 		envVars: maskedEnvs,
 		lastWebhookAt: lastDelivery[0]?.createdAt ?? null,
-		webhookActive: !!project.webhookSecret
+		webhookActive: !!project.webhookSecret,
+		containerHealth: containerHealth
+			? {
+					healthy: containerHealth.healthy,
+					consecutiveFailures: containerHealth.consecutiveFailures,
+					lastCheckAt: containerHealth.lastCheckAt,
+					lastRestartAt: containerHealth.lastRestartAt,
+					totalRestarts: containerHealth.totalRestarts
+				}
+			: null,
+		healthEvents: recentHealthEvents.map((e) => ({
+			id: e.id,
+			event: e.event,
+			message: e.message,
+			createdAt: e.createdAt
+		}))
 	};
 };
 

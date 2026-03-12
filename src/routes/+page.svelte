@@ -73,6 +73,7 @@
 				<span class="col-domain">Domain</span>
 				<span class="col-commit">Commit</span>
 				<span class="col-time">Deployed</span>
+				<span class="col-health">Health</span>
 				<span class="col-actions"></span>
 			</div>
 
@@ -116,6 +117,20 @@
 						{/if}
 					</span>
 					<span class="col-time mono">{timeAgo(project.lastDeployedAt)}</span>
+					<span class="col-health" data-testid="health-indicator">
+						{#if project.status === 'live' && project.containerHealthy === true}
+							<span class="health-badge health-ok" title="Healthy">OK</span>
+						{:else if project.status === 'live' && project.containerHealthy === false}
+							<span class="health-badge health-failing" title="Unhealthy">FAIL</span>
+						{:else}
+							<span class="health-badge health-na">—</span>
+						{/if}
+						{#if project.totalRestarts > 0}
+							<span class="restart-count" title="{project.totalRestarts} restart(s)"
+								>{project.totalRestarts}x</span
+							>
+						{/if}
+					</span>
 					<span class="col-actions">
 						<button
 							class="action-btn"
@@ -231,7 +246,7 @@
 	.table-header,
 	.table-row {
 		display: grid;
-		grid-template-columns: 32px 1.5fr 0.8fr 1.5fr 0.7fr 0.7fr 72px;
+		grid-template-columns: 32px 1.5fr 0.8fr 1.5fr 0.7fr 0.7fr 64px 72px;
 		align-items: center;
 		padding: var(--space-2) var(--space-3);
 		gap: var(--space-2);
@@ -335,6 +350,42 @@
 
 	.muted {
 		color: var(--color-text-2);
+	}
+
+	/* Health column */
+	.col-health {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		white-space: nowrap;
+		font-size: 0.6875rem;
+		font-family: var(--font-mono);
+	}
+
+	.health-badge {
+		padding: 1px 5px;
+		border-radius: var(--radius-sm);
+		font-weight: 600;
+		letter-spacing: 0.03em;
+	}
+
+	.health-ok {
+		background: rgba(34, 197, 94, 0.15);
+		color: var(--color-live);
+	}
+
+	.health-failing {
+		background: rgba(239, 68, 68, 0.15);
+		color: var(--color-failed);
+	}
+
+	.health-na {
+		color: var(--color-text-2);
+	}
+
+	.restart-count {
+		color: var(--color-building);
+		font-size: 0.625rem;
 	}
 
 	/* Actions */

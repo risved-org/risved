@@ -127,6 +127,53 @@
 		{/if}
 	</section>
 
+	<!-- Container Health -->
+	<section class="section" data-testid="health-section">
+		<h2 class="section-title">Container Health</h2>
+		{#if data.containerHealth}
+			<div class="health-card">
+				<div class="health-status-row">
+					<span class="status-dot {data.containerHealth.healthy ? 'dot-live' : 'dot-failed'}"
+					></span>
+					<span class="health-status-text" data-testid="health-status">
+						{data.containerHealth.healthy ? 'Healthy' : 'Unhealthy'}
+					</span>
+					{#if data.containerHealth.lastCheckAt}
+						<span class="muted">— Last check {timeAgo(data.containerHealth.lastCheckAt)}</span>
+					{/if}
+				</div>
+				<div class="health-meta">
+					<span class="health-meta-item">
+						Failures: <strong>{data.containerHealth.consecutiveFailures}</strong>
+					</span>
+					<span class="health-meta-item">
+						Restarts: <strong data-testid="restart-count"
+							>{data.containerHealth.totalRestarts}</strong
+						>
+					</span>
+					{#if data.containerHealth.lastRestartAt}
+						<span class="health-meta-item">
+							Last restart: <strong>{timeAgo(data.containerHealth.lastRestartAt)}</strong>
+						</span>
+					{/if}
+				</div>
+			</div>
+		{:else}
+			<p class="empty-text">No health data yet. Monitoring starts after deployment goes live.</p>
+		{/if}
+		{#if data.healthEvents.length > 0}
+			<div class="health-events" data-testid="health-events">
+				{#each data.healthEvents as evt (evt.id)}
+					<div class="health-event-row">
+						<span class="event-badge event-{evt.event}">{evt.event.replace('_', ' ')}</span>
+						<span class="event-msg">{evt.message}</span>
+						<span class="event-time mono">{timeAgo(evt.createdAt)}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
 	<!-- PR Status Checks -->
 	<section class="section" data-testid="checks-section">
 		<div class="section-header">
@@ -432,6 +479,83 @@
 	.btn-rollback:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	/* Health section */
+	.health-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-3);
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-size: 0.8125rem;
+	}
+	.health-status-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.health-status-text {
+		font-weight: 500;
+	}
+	.health-meta {
+		display: flex;
+		gap: var(--space-4);
+		font-size: 0.75rem;
+		color: var(--color-text-2);
+	}
+	.health-meta-item strong {
+		color: var(--color-text-0);
+	}
+	.health-events {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+	.health-event-row {
+		display: grid;
+		grid-template-columns: 90px 1fr auto;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-3);
+		border-bottom: 1px solid var(--color-border);
+		font-size: 0.75rem;
+	}
+	.health-event-row:last-child {
+		border-bottom: none;
+	}
+	.event-badge {
+		padding: 1px 6px;
+		border-radius: var(--radius-sm);
+		font-size: 0.625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		white-space: nowrap;
+	}
+	.event-check_failed {
+		background: rgba(239, 68, 68, 0.15);
+		color: var(--color-failed);
+	}
+	.event-restarted {
+		background: rgba(234, 179, 8, 0.15);
+		color: var(--color-building);
+	}
+	.event-recovered {
+		background: rgba(34, 197, 94, 0.15);
+		color: var(--color-live);
+	}
+	.event-msg {
+		color: var(--color-text-1);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.event-time {
+		color: var(--color-text-2);
+		white-space: nowrap;
 	}
 
 	/* Webhook */

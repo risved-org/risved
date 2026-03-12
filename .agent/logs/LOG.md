@@ -3,8 +3,22 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 24
-**Current Task:** TASK-35 Complete
+**Tasks Completed:** 25
+**Current Task:** TASK-36 Complete
+
+----------------------------------------------
+
+## Session Log
+
+### 2026-03-12 — TASK-36: Health Monitoring & Auto-Restart
+- Created `src/lib/server/health/` module — HealthMonitor class with periodic HTTP GET checks (every 30s), consecutive failure tracking, and auto-restart via `docker restart` after 3 failures
+- Added `health_events` table to schema for persisting check failures, restarts, and recovery events
+- Created `/api/health` endpoint for health status and events
+- Started health monitor on server boot in `hooks.server.ts`
+- Updated dashboard to show Health column with OK/FAIL badges and restart count per project
+- Updated project detail page with Container Health section showing status, failure count, restart count, and recent health event log
+- 11 health monitor unit tests, all 568 unit tests passing, 11 e2e tests passing, tsc clean
+- Screenshots: `.agent/screenshots/TASK-36-1.png` (dashboard with health column), `.agent/screenshots/TASK-36-2.png` (project detail with health section and events)
 
 ----------------------------------------------
 

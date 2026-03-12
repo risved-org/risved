@@ -161,4 +161,16 @@ export const previewDeployments = sqliteTable('preview_deployments', {
 		.$defaultFn(() => new Date().toISOString())
 });
 
+export const healthEvents = sqliteTable('health_events', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	projectId: text('project_id').notNull(),
+	event: text('event').notNull(), // 'check_failed' | 'restarted' | 'recovered'
+	message: text('message').notNull(),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
 export * from './auth.schema';

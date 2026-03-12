@@ -16,8 +16,11 @@ src/
 │       ├── crypto.ts        # AES-256-GCM encryption (encrypt, decrypt, safeDecrypt), server key management
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections, preview_deployments)
+│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections, preview_deployments, health_events)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
+│       ├── health/
+│       │   ├── index.ts     # HealthMonitor class (periodic checks, auto-restart, singleton)
+│       │   └── types.ts     # ContainerHealth, HealthEvent, HealthMonitorConfig types
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
 │       │   ├── types.ts     # Types: FrameworkId, Tier, Confidence, etc.
@@ -56,6 +59,8 @@ src/
 │   ├── +page.server.ts     # Dashboard load (system health, projects with deployments/domains)
 │   ├── +page.svelte         # Dashboard screen (health bar, project table, empty state)
 │   ├── api/
+│   │   ├── health/
+│   │   │   └── +server.ts           # GET all health statuses, POST project-specific health
 │   │   ├── webhooks/
 │   │   │   └── [projectId]/
 │   │   │       └── +server.ts       # POST webhook receiver (HMAC, branch filter, deploy trigger)

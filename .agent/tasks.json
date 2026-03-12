@@ -34,7 +34,7 @@
   { "id": 33, "title": "Git Settings Screen", "phase": 2, "passes": true },
   { "id": 34, "title": "Rollback to Previous Deployment", "phase": 2, "passes": true },
   { "id": 35, "title": "Environment Variable Encryption", "phase": 2, "passes": true },
-  { "id": 36, "title": "Health Monitoring & Auto-Restart", "phase": 3, "passes": false },
+  { "id": 36, "title": "Health Monitoring & Auto-Restart", "phase": 3, "passes": true },
   { "id": 37, "title": "Resource Usage Charts", "phase": 3, "passes": false },
   { "id": 38, "title": "Build Log Retention & Docker Prune", "phase": 3, "passes": false },
   { "id": 39, "title": "Passkey Authentication", "phase": 3, "passes": false },
