@@ -13,6 +13,9 @@ async function globalSetup() {
 		DELETE FROM verification;
 		DELETE FROM user;
 		DELETE FROM settings;
+		DELETE FROM build_logs;
+		DELETE FROM deployments;
+		DELETE FROM projects;
 	`);
 
 	client.close();

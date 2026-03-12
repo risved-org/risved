@@ -14,7 +14,7 @@ src/
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema (task, settings tables)
+│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
@@ -28,6 +28,12 @@ src/
 │       ├── caddy/
 │       │   ├── index.ts     # CaddyClient class + route helpers
 │       │   └── types.ts     # CaddyRoute, CaddyResult, CaddyHealthStatus, etc.
+│       ├── pipeline/
+│       │   ├── index.ts     # runPipeline() orchestrator (8 phases)
+│       │   ├── types.ts     # PipelinePhase, LogEntry, PipelineConfig, CommandRunner
+│       │   ├── docker.ts    # Git clone, Docker build/run/stop, health check
+│       │   ├── log.ts       # Log collector + DB persistence
+│       │   └── port.ts      # Port allocator (3001-3999)
 │       └── dns.ts            # DNS record generation, verification, server IP detection
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav

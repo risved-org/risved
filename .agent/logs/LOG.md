@@ -3,12 +3,24 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 9
-**Current Task:** TASK-6 Complete
+**Tasks Completed:** 10
+**Current Task:** TASK-9 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-9: Build Pipeline & Orchestration
+- Added `projects`, `deployments`, and `build_logs` tables to `src/lib/server/db/schema.ts`
+- Created `src/lib/server/pipeline/types.ts` — PipelinePhase, LogEntry, PipelineConfig, PipelineResult, CommandRunner interfaces
+- Created `src/lib/server/pipeline/port.ts` — port allocator for 3001-3999 range using DB queries
+- Created `src/lib/server/pipeline/docker.ts` — gitClone, getCommitSha, dockerBuild, dockerRun, dockerStop, waitForHealthy, createCommandRunner
+- Created `src/lib/server/pipeline/log.ts` — createLogCollector (in-memory + stream), persistLogs (batch DB insert)
+- Created `src/lib/server/pipeline/index.ts` — runPipeline() orchestrator with 8 phases: clone → detect → build → start → health → route → cutover → live. Zero-downtime container swap, health check rollback, Caddy route integration
+- Updated `tests/global-setup.ts` — added cleanup for new tables
+- 27 new unit tests (16 docker + 11 pipeline), 242 total unit tests passing
+- 27 e2e tests passing (no regression)
+- No screenshots (backend-only task)
 
 ### 2026-03-12 — TASK-6: Onboarding: Success Screen
 - Created `src/routes/onboarding/success/+page.server.ts` — load function with first-run and deploy-config guards, parses domain config to build app URL, dashboard action sets `onboarding_complete` and redirects to `/`
