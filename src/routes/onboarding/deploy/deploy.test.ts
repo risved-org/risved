@@ -98,17 +98,16 @@ describe('deploy starter action', () => {
 		expect(result).toMatchObject({ status: 400 });
 	});
 
-	it('saves first_deploy and sets onboarding complete for valid template', async () => {
+	it('saves first_deploy and redirects to success for valid template', async () => {
 		await expect(actions.starter(makeActionEvent({ templateId: 'fresh' }))).rejects.toMatchObject({
 			status: 303,
-			location: '/'
+			location: '/onboarding/success'
 		});
 
 		expect(setSetting).toHaveBeenCalledWith(
 			'first_deploy',
 			expect.stringContaining('"templateId":"fresh"')
 		);
-		expect(setSetting).toHaveBeenCalledWith('onboarding_complete', 'true');
 	});
 });
 
@@ -127,7 +126,7 @@ describe('deploy repo action', () => {
 		expect(result).toMatchObject({ status: 400 });
 	});
 
-	it('saves first_deploy for valid HTTPS git URL', async () => {
+	it('saves first_deploy and redirects to success for valid HTTPS git URL', async () => {
 		await expect(
 			actions.repo(
 				makeActionEvent({
@@ -137,7 +136,7 @@ describe('deploy repo action', () => {
 			)
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/'
+			location: '/onboarding/success'
 		});
 
 		expect(setSetting).toHaveBeenCalledWith(
@@ -148,7 +147,6 @@ describe('deploy repo action', () => {
 			'first_deploy',
 			expect.stringContaining('"branch":"develop"')
 		);
-		expect(setSetting).toHaveBeenCalledWith('onboarding_complete', 'true');
 	});
 
 	it('defaults branch to main', async () => {

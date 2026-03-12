@@ -47,9 +47,7 @@ export const actions: Actions = {
 				framework: template.framework
 			})
 		);
-		await setSetting('onboarding_complete', 'true');
-
-		redirect(303, '/');
+		redirect(303, '/onboarding/success');
 	},
 
 	repo: async ({ request }) => {
@@ -78,9 +76,7 @@ export const actions: Actions = {
 				branch
 			})
 		);
-		await setSetting('onboarding_complete', 'true');
-
-		redirect(303, '/');
+		redirect(303, '/onboarding/success');
 	},
 
 	skip: async () => {

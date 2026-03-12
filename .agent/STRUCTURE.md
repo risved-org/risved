@@ -42,10 +42,13 @@ src/
 │   │   ├── verify/
 │   │   │   ├── +page.server.ts  # DNS verification load/actions (check, skip)
 │   │   │   └── +page.svelte     # DNS records table, copy buttons, provider chips, SSL status
-│   │   └── deploy/
-│   │       ├── +page.server.ts  # First deploy load/actions (starter, repo, skip)
-│   │       ├── +page.svelte     # Template grid, own repo input, skip button
-│   │       └── templates.ts     # StarterTemplate type and STARTER_TEMPLATES data
+│   │   ├── deploy/
+│   │   │   ├── +page.server.ts  # First deploy load/actions (starter, repo, skip)
+│   │   │   ├── +page.svelte     # Template grid, own repo input, skip button
+│   │   │   └── templates.ts     # StarterTemplate type and STARTER_TEMPLATES data
+│   │   └── success/
+│   │       ├── +page.server.ts  # Success load (deploy guard, URL builder), dashboard action
+│   │       └── +page.svelte     # Success checkmark, app URL, what's next cards, dashboard CTA
 │   └── demo/                # Demo routes
 │       ├── better-auth/     # Auth demo
 │       └── paraglide/       # i18n demo

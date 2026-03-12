@@ -20,9 +20,9 @@ export default defineConfig({
 
 	webServer: {
 		command: 'npm run dev -- --host 0.0.0.0',
-		url: 'http://localhost:5173',
+		url: 'http://localhost:5173/@vite/client',
 		reuseExistingServer: true,
-		timeout: 30000
+		timeout: 60000
 	},
 
 	// NB: only chromium will run in Docker (arm64).

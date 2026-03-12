@@ -3,12 +3,22 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 8
-**Current Task:** TASK-5 Complete
+**Tasks Completed:** 9
+**Current Task:** TASK-6 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-6: Onboarding: Success Screen
+- Created `src/routes/onboarding/success/+page.server.ts` — load function with first-run and deploy-config guards, parses domain config to build app URL, dashboard action sets `onboarding_complete` and redirects to `/`
+- Created `src/routes/onboarding/success/+page.svelte` — success checkmark icon, "You're all set" heading, conditional app URL display with mono font, three "What's next" cards (deploy another, custom domain, webhooks), "Open dashboard" CTA with `use:enhance`
+- Updated `src/routes/onboarding/deploy/+page.server.ts` — starter and repo actions now redirect to `/onboarding/success` instead of setting `onboarding_complete` and redirecting to `/`; skip action unchanged
+- Fixed domain config field name (`baseDomain` not `domain`) in URL generation
+- Updated `playwright.config.ts` — health check URL uses `/@vite/client` to avoid auth redirect loop
+- 12 new unit tests, 215 total unit tests passing
+- 4 new e2e tests, 27 total e2e tests passing
+- Screenshot: `.agent/screenshots/TASK-6-1.png`
 
 ### 2026-03-12 — TASK-5: Onboarding: First Deploy
 - Created `src/routes/onboarding/deploy/templates.ts` — StarterTemplate type and 4 starter templates (Fresh, Hono, SvelteKit, Astro) with estimated deploy times
