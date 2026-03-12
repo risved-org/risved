@@ -79,4 +79,18 @@ export const envVars = sqliteTable(
 	(table) => [uniqueIndex('env_vars_project_key_idx').on(table.projectId, table.key)]
 );
 
+export const domains = sqliteTable('domains', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	projectId: text('project_id').notNull(),
+	hostname: text('hostname').notNull().unique(),
+	isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
+	sslStatus: text('ssl_status').notNull().default('pending'),
+	verifiedAt: text('verified_at'),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
 export * from './auth.schema';
