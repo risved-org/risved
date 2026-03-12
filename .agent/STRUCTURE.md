@@ -11,6 +11,7 @@ src/
 │   └── server/
 │       ├── auth.ts          # BetterAuth configuration (email+password, 12-char min)
 │       ├── auth-utils.ts    # First-run detection, user count helpers
+│       ├── api-utils.ts     # Auth guard, slugify, webhook secret, JSON error helpers
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
@@ -38,6 +39,17 @@ src/
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
 │   ├── +page.svelte         # Landing page
+│   ├── api/
+│   │   └── projects/
+│   │       ├── +server.ts           # GET (list), POST (create) projects
+│   │       └── [id]/
+│   │           ├── +server.ts       # GET (detail), PUT (update), DELETE project
+│   │           ├── deploy/
+│   │           │   └── +server.ts   # POST trigger deployment
+│   │           └── deployments/
+│   │               ├── +server.ts   # GET list deployments
+│   │               └── [did]/
+│   │                   └── +server.ts # GET deployment detail with logs
 │   ├── onboarding/
 │   │   ├── +page.server.ts  # Admin account creation action (signUpEmail)
 │   │   ├── +page.svelte     # Create admin form (email, password, confirm)
