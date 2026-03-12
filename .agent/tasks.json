@@ -26,7 +26,7 @@
   { "id": 25, "title": "Settings Screen", "phase": 1, "passes": true },
   { "id": 26, "title": "GitHub Integration", "phase": 2, "passes": true },
   { "id": 27, "title": "GitLab Integration", "phase": 2, "passes": true },
-  { "id": 28, "title": "Forgejo/Gitea Integration", "phase": 2, "passes": false },
+  { "id": 28, "title": "Forgejo/Gitea Integration", "phase": 2, "passes": true },
   { "id": 29, "title": "Connect Provider Screen", "phase": 2, "passes": false },
   { "id": 30, "title": "Repo Picker Screen", "phase": 2, "passes": false },
   { "id": 31, "title": "PR Deploy Previews", "phase": 2, "passes": false },

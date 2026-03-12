@@ -41,6 +41,9 @@ src/
 │       ├── gitlab/
 │       │   ├── index.ts     # GitLabClient class (projects, statuses, MR notes, webhooks) + OAuth helpers
 │       │   └── types.ts     # GitLabProject, GitLabUser, CommitStatusParams, etc.
+│       ├── forgejo/
+│       │   ├── index.ts     # ForgejoClient class (repos, statuses, comments, webhooks) + token verification
+│       │   └── types.ts     # ForgejoRepo, ForgejoUser, CommitStatusParams, etc.
 │       ├── dns.ts            # DNS record generation, verification, server IP detection
 │       └── webhook.ts       # HMAC signature verification, webhook payload parsing
 ├── routes/
@@ -58,12 +61,18 @@ src/
 │   │   │   │   │   └── +server.ts   # List/search GitHub repos for a connection
 │   │   │   │   └── webhook/
 │   │   │   │       └── +server.ts   # Auto-configure GitHub webhook for a project
-│   │   │   └── gitlab/
-│   │   │       ├── +server.ts       # GitLab OAuth connect/callback/disconnect, list connections
+│   │   │   ├── gitlab/
+│   │   │   │   ├── +server.ts       # GitLab OAuth connect/callback/disconnect, list connections
+│   │   │   │   ├── repos/
+│   │   │   │   │   └── +server.ts   # List/search GitLab projects for a connection
+│   │   │   │   └── webhook/
+│   │   │   │       └── +server.ts   # Auto-configure GitLab webhook for a project
+│   │   │   └── forgejo/
+│   │   │       ├── +server.ts       # Forgejo/Gitea token connect/disconnect, list connections
 │   │   │       ├── repos/
-│   │   │       │   └── +server.ts   # List/search GitLab projects for a connection
+│   │   │       │   └── +server.ts   # List/search Forgejo repos for a connection
 │   │   │       └── webhook/
-│   │   │           └── +server.ts   # Auto-configure GitLab webhook for a project
+│   │   │           └── +server.ts   # Auto-configure Forgejo webhook for a project
 │   │   └── projects/
 │   │       ├── +server.ts           # GET (list), POST (create) projects
 │   │       └── [id]/
