@@ -3,12 +3,21 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-12
-**Tasks Completed:** 17
-**Current Task:** TASK-17 Complete
+**Tasks Completed:** 18
+**Current Task:** TASK-24 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-12 — TASK-24: Domains Screen
+- Created `src/routes/projects/[slug]/domains/+page.server.ts` — load fetches project by slug, domains list, and server IP; four actions: add (hostname validation, uniqueness check, Caddy route), verify (DNS A record check, SSL status update), primary (toggle primary domain), remove (delete domain + Caddy route cleanup)
+- Created `src/routes/projects/[slug]/domains/+page.svelte` — domain management page with active domains table (hostname, primary badge, SSL status badges with color coding: active/provisioning/pending/error, set-primary/check-DNS/remove buttons), add domain form (hostname input, DNS record card with A record type/name/value and copy button, routing diagram showing Browser → DNS → Caddy → App flow)
+- Added "Manage" link to project detail page domains section
+- Fixed unused `goto` import in project detail page
+- 14 unit tests (3 load, 3 action, 8 source assertions), 6 e2e tests (domain list, add form with DNS instructions, nav from project detail, check DNS/remove buttons, set primary button, no console errors)
+- 417 unit tests passing, 72 e2e tests passing
+- Screenshots: `.agent/screenshots/TASK-24-1.png` (domain list), `.agent/screenshots/TASK-24-2.png` (add domain form with DNS + routing diagram)
 
 ### 2026-03-12 — TASK-17: Webhook Delivery Log
 - Created `src/routes/projects/[slug]/webhooks/deliveries/+page.server.ts` — load fetches project by slug, queries webhook_deliveries ordered by createdAt desc with limit 50, returns mapped deliveries

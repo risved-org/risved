@@ -22,7 +22,7 @@
   { "id": 21, "title": "New Project Screen", "phase": 1, "passes": true },
   { "id": 22, "title": "Build Log Screen", "phase": 1, "passes": true },
   { "id": 23, "title": "Project Detail Screen", "phase": 1, "passes": true },
-  { "id": 24, "title": "Domains Screen", "phase": 1, "passes": false },
+  { "id": 24, "title": "Domains Screen", "phase": 1, "passes": true },
   { "id": 25, "title": "Settings Screen", "phase": 1, "passes": false },
   { "id": 26, "title": "GitHub Integration", "phase": 2, "passes": false },
   { "id": 27, "title": "GitLab Integration", "phase": 2, "passes": false },

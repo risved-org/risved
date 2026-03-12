@@ -89,6 +89,9 @@ src/
 │   │       │       └── [did]/
 │   │       │           ├── +page.server.ts  # Delivery detail load (parsed headers/payload), redeliver action
 │   │       │           └── +page.svelte     # Metadata grid, headers block, JSON payload, redeliver button
+│   │       ├── domains/
+│   │       │   ├── +page.server.ts  # Domains load (project, domains, serverIp), add/verify/primary/remove actions
+│   │       │   └── +page.svelte     # Domain list with SSL badges, add form, DNS record card, routing diagram
 │   │       └── deployments/
 │   │           └── [did]/
 │   │               ├── +page.server.ts  # Build log load (project, deployment, logs, phases)

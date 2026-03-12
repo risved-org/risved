@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
 
@@ -98,7 +97,11 @@
 	<section class="section" data-testid="webhook-section">
 		<div class="section-header">
 			<h2 class="section-title">Webhook</h2>
-			<a href={resolve(`/projects/${data.project.slug}/webhooks`)} class="btn-sm" data-testid="configure-webhook-btn">Configure</a>
+			<a
+				href={resolve(`/projects/${data.project.slug}/webhooks`)}
+				class="btn-sm"
+				data-testid="configure-webhook-btn">Configure</a
+			>
 		</div>
 		<div class="webhook-bar">
 			{#if data.webhookActive}
@@ -134,7 +137,14 @@
 
 	<!-- Domains -->
 	<section class="section" data-testid="domains-section">
-		<h2 class="section-title">Domains</h2>
+		<div class="section-header">
+			<h2 class="section-title">Domains</h2>
+			<a
+				href={resolve(`/projects/${data.project.slug}/domains`)}
+				class="btn-sm"
+				data-testid="manage-domains-btn">Manage</a
+			>
+		</div>
 		{#if data.domains.length === 0}
 			<p class="empty-text">No custom domains configured.</p>
 		{:else}
