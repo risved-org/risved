@@ -106,7 +106,10 @@ src/
 │   │   └── +page.svelte     # Git source, framework select, config, env vars editor, deploy button
 │   ├── settings/
 │   │   ├── +page.server.ts  # Settings load (user, hostname, timezone, apiToken), general/email/password/token actions
-│   │   └── +page.svelte     # General settings, admin email, change password, API token management
+│   │   ├── +page.svelte     # General settings, admin email, change password, API token management
+│   │   └── providers/
+│   │       ├── +page.server.ts  # Provider connections load, forgejo connect + disconnect actions
+│   │       └── +page.svelte     # Provider cards (GitHub/GitLab/Forgejo/Other), connected accounts list
 │   ├── projects/
 │   │   └── [slug]/
 │   │       ├── +page.server.ts  # Project detail load (project, deployments, domains, env vars, webhook), delete action
