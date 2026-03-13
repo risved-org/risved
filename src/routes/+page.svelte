@@ -1,8 +1,21 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import LineChart from '$lib/components/LineChart.svelte';
 
 	let { data } = $props();
+
+	function formatHour(iso: string): string {
+		const d = new Date(iso);
+		return `${d.getHours().toString().padStart(2, '0')}:00`;
+	}
+
+	let serverCpuPoints = $derived(
+		data.serverMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.cpuPercent }))
+	);
+	let serverMemPoints = $derived(
+		data.serverMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.memoryMb }))
+	);
 
 	function timeAgo(dateStr: string | null): string {
 		if (!dateStr) return '—';
@@ -55,6 +68,27 @@
 		<div class="health-item">
 			<span class="health-label">CONTAINERS</span>
 			<span class="health-value" data-testid="container-value">{data.health.containerCount}</span>
+		</div>
+	</div>
+
+	<!-- Resource overview -->
+	<div class="resource-overview" data-testid="resource-overview">
+		<h2 class="resource-title">Resource Usage (24h)</h2>
+		<div class="resource-charts">
+			<LineChart
+				points={serverCpuPoints}
+				label="CPU %"
+				color="var(--color-accent)"
+				unit="%"
+				height={100}
+			/>
+			<LineChart
+				points={serverMemPoints}
+				label="Memory (MB)"
+				color="var(--color-live)"
+				unit="MB"
+				height={100}
+			/>
 		</div>
 	</div>
 
@@ -197,6 +231,33 @@
 
 	.health-value {
 		color: var(--color-text-0);
+	}
+
+	/* Resource overview */
+	.resource-overview {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	.resource-title {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: var(--color-text-2);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+
+	.resource-charts {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-3);
+	}
+
+	@media (max-width: 600px) {
+		.resource-charts {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	/* Empty state */

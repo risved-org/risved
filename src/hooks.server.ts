@@ -5,14 +5,16 @@ import { auth } from '$lib/server/auth';
 import { isFirstRun } from '$lib/server/auth-utils';
 import { isOnboardingComplete } from '$lib/server/settings';
 import { getHealthMonitor } from '$lib/server/health';
+import { getMetricsCollector } from '$lib/server/metrics';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 
-/* Start health monitor on server boot (not during build) */
+/* Start health monitor and metrics collector on server boot (not during build) */
 if (!building) {
 	getHealthMonitor().start();
+	getMetricsCollector().start();
 }
 
 const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks'];

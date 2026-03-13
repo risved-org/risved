@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import LineChart from '$lib/components/LineChart.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -32,6 +33,18 @@
 		if (status === 'building') return 'dot-building';
 		return 'dot-stopped';
 	}
+
+	function formatHour(iso: string): string {
+		const d = new Date(iso);
+		return `${d.getHours().toString().padStart(2, '0')}:00`;
+	}
+
+	let cpuPoints = $derived(
+		data.resourceMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.cpuPercent }))
+	);
+	let memPoints = $derived(
+		data.resourceMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.memoryMb }))
+	);
 
 	let rollingBack = $state<string | null>(null);
 
@@ -172,6 +185,15 @@
 				{/each}
 			</div>
 		{/if}
+	</section>
+
+	<!-- Resource Usage -->
+	<section class="section" data-testid="resource-section">
+		<h2 class="section-title">Resource Usage (24h)</h2>
+		<div class="charts-grid">
+			<LineChart points={cpuPoints} label="CPU %" color="var(--color-accent)" unit="%" />
+			<LineChart points={memPoints} label="Memory (MB)" color="var(--color-live)" unit="MB" />
+		</div>
 	</section>
 
 	<!-- PR Status Checks -->
@@ -479,6 +501,18 @@
 	.btn-rollback:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	/* Charts grid */
+	.charts-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-3);
+	}
+	@media (max-width: 600px) {
+		.charts-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	/* Health section */

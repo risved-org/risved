@@ -6,6 +6,8 @@ scripts/
 src/
 ├── lib/
 │   ├── auth-client.ts      # BetterAuth SvelteKit client
+│   ├── components/
+│   │   └── LineChart.svelte # SVG line chart component (CPU/memory time-series)
 │   ├── paraglide/          # i18n runtime (auto-generated)
 │   │   └── messages/       # Locale message files
 │   └── server/
@@ -16,11 +18,14 @@ src/
 │       ├── crypto.ts        # AES-256-GCM encryption (encrypt, decrypt, safeDecrypt), server key management
 │       ├── db/
 │       │   ├── index.ts     # Drizzle database instance
-│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections, preview_deployments, health_events)
+│       │   ├── schema.ts    # Database schema (task, settings, projects, deployments, build_logs, env_vars, domains, webhook_deliveries, git_connections, preview_deployments, resource_metrics, health_events)
 │       │   └── auth.schema.ts # BetterAuth auto-generated schema
 │       ├── health/
 │       │   ├── index.ts     # HealthMonitor class (periodic checks, auto-restart, singleton)
 │       │   └── types.ts     # ContainerHealth, HealthEvent, HealthMonitorConfig types
+│       ├── metrics/
+│       │   ├── index.ts     # MetricsCollector class (Docker stats, hourly aggregation, pruning, singleton)
+│       │   └── types.ts     # ContainerStats, MetricPoint, MetricsCollectorConfig types
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
 │       │   ├── types.ts     # Types: FrameworkId, Tier, Confidence, etc.
@@ -56,11 +61,13 @@ src/
 │       └── webhook.ts       # HMAC signature verification, webhook payload parsing (push, PR open/update/close/merge)
 ├── routes/
 │   ├── +layout.svelte       # Root layout with nav
-│   ├── +page.server.ts     # Dashboard load (system health, projects with deployments/domains)
-│   ├── +page.svelte         # Dashboard screen (health bar, project table, empty state)
+│   ├── +page.server.ts     # Dashboard load (system health, projects with deployments/domains, server metrics)
+│   ├── +page.svelte         # Dashboard screen (health bar, resource charts, project table, empty state)
 │   ├── api/
 │   │   ├── health/
 │   │   │   └── +server.ts           # GET all health statuses, POST project-specific health
+│   │   ├── metrics/
+│   │   │   └── +server.ts           # GET server-wide aggregated resource metrics
 │   │   ├── webhooks/
 │   │   │   └── [projectId]/
 │   │   │       └── +server.ts       # POST webhook receiver (HMAC, branch filter, deploy trigger)
@@ -99,6 +106,8 @@ src/
 │   │           │       │   └── +server.ts # POST DNS verification
 │   │           │       └── primary/
 │   │           │           └── +server.ts # POST set as primary
+│   │           ├── metrics/
+│   │           │   └── +server.ts   # GET project resource metrics time-series
 │   │           ├── deploy/
 │   │           │   └── +server.ts   # POST trigger deployment
 │   │           └── deployments/
@@ -128,8 +137,8 @@ src/
 │   │       └── +page.svelte     # Connected accounts list, SSH deploy key display, default webhook toggles
 │   ├── projects/
 │   │   └── [slug]/
-│   │       ├── +page.server.ts  # Project detail load (project, deployments, domains, env vars, webhook), delete action
-│   │       ├── +page.svelte     # Header, deployments list, webhook bar, env block, domains, danger zone
+│   │       ├── +page.server.ts  # Project detail load (project, deployments, domains, env vars, webhook, metrics), delete action
+│   │       ├── +page.svelte     # Header, deployments list, resource charts, webhook bar, env block, domains, danger zone
 │   │       ├── checks/
 │   │       │   ├── +page.server.ts  # Checks config load (project, preview URL format), save action (toggles + limit)
 │   │       │   └── +page.svelte     # PR status mock, preview URL format, 4 toggles, preview limit, save

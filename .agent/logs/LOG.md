@@ -2,13 +2,26 @@
 
 `Current Status`
 =================
-**Last Updated:** 2026-03-12
-**Tasks Completed:** 25
-**Current Task:** TASK-36 Complete
+**Last Updated:** 2026-03-13
+**Tasks Completed:** 26
+**Current Task:** TASK-37 Complete
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-13 — TASK-37: Resource Usage Charts
+- Added `resource_metrics` table to schema for hourly aggregated CPU/memory data per project
+- Created `src/lib/server/metrics/` module — MetricsCollector class with Docker stats parsing, hourly bucket aggregation, 7-day retention pruning, singleton pattern
+- Created `src/lib/components/LineChart.svelte` — reusable SVG line chart with area fill, axis labels, responsive grid
+- Created `/api/projects/:id/metrics` and `/api/metrics` endpoints for per-project and server-wide metrics
+- Updated dashboard with server-wide Resource Usage (24h) section showing CPU and Memory charts
+- Updated project detail page with Resource Usage (24h) section showing per-project CPU and Memory charts
+- Started MetricsCollector on server boot alongside HealthMonitor
+- 15 metrics unit tests, all 583 unit tests passing, 107 e2e tests passing, tsc clean
+- Screenshots: `.agent/screenshots/TASK-37-1.png` (dashboard with resource charts), `.agent/screenshots/TASK-37-2.png` (project detail with resource charts)
+
+----------------------------------------------
 
 ### 2026-03-12 — TASK-36: Health Monitoring & Auto-Restart
 - Created `src/lib/server/health/` module — HealthMonitor class with periodic HTTP GET checks (every 30s), consecutive failure tracking, and auto-restart via `docker restart` after 3 failures

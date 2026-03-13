@@ -2,6 +2,7 @@ import { db } from '$lib/server/db';
 import { projects, deployments, domains } from '$lib/server/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { getHealthMonitor } from '$lib/server/health';
+import { getServerMetrics } from '$lib/server/metrics';
 import type { PageServerLoad } from './$types';
 import { execSync } from 'node:child_process';
 import os from 'node:os';
@@ -120,5 +121,8 @@ export const load: PageServerLoad = async () => {
 		};
 	});
 
-	return { health, projects: projectList };
+	/* Server-wide resource metrics (last 24h) */
+	const serverMetrics = await getServerMetrics(24);
+
+	return { health, projects: projectList, serverMetrics };
 };

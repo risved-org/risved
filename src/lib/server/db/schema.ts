@@ -161,6 +161,19 @@ export const previewDeployments = sqliteTable('preview_deployments', {
 		.$defaultFn(() => new Date().toISOString())
 });
 
+export const resourceMetrics = sqliteTable('resource_metrics', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	projectId: text('project_id').notNull(),
+	cpuPercent: integer('cpu_percent').notNull().default(0),
+	memoryMb: integer('memory_mb').notNull().default(0),
+	memoryLimitMb: integer('memory_limit_mb').notNull().default(0),
+	bucket: text('bucket').notNull(), // ISO timestamp truncated to hour
+	sampleCount: integer('sample_count').notNull().default(1),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
 export const healthEvents = sqliteTable('health_events', {
 	id: text('id')
 		.primaryKey()

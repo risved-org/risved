@@ -24,13 +24,15 @@ vi.mock('$lib/server/db', () => {
 
 vi.mock('drizzle-orm', () => ({
 	desc: vi.fn(() => 'desc_fn'),
-	eq: vi.fn(() => 'eq_fn')
+	eq: vi.fn(() => 'eq_fn'),
+	gte: vi.fn(() => 'gte_fn')
 }));
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: 'projects_table',
 	deployments: 'deployments_table',
-	domains: 'domains_table'
+	domains: 'domains_table',
+	resourceMetrics: { bucket: 'bucket' }
 }));
 
 import { db } from '$lib/server/db';
@@ -47,6 +49,8 @@ function setupDbMocks(
 	const orderByDeployments = vi.fn().mockResolvedValue(deploymentRows);
 	const whereDomains = vi.fn().mockResolvedValue(domainRows);
 
+	const orderByMetrics = vi.fn().mockResolvedValue([]);
+
 	dbAny.__selectMock
 		.mockReturnValueOnce({
 			from: vi.fn().mockReturnValue({ orderBy: orderByProjects })
@@ -56,6 +60,11 @@ function setupDbMocks(
 		})
 		.mockReturnValueOnce({
 			from: vi.fn().mockReturnValue({ where: whereDomains })
+		})
+		.mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ orderBy: orderByMetrics })
+			})
 		});
 }
 

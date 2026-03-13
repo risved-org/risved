@@ -11,6 +11,7 @@ import {
 import { eq, desc } from 'drizzle-orm';
 import { safeDecrypt } from '$lib/server/crypto';
 import { getHealthMonitor } from '$lib/server/health';
+import { getProjectMetrics } from '$lib/server/metrics';
 import type { PageServerLoad, Actions } from './$types';
 
 const FRAMEWORK_NAMES: Record<string, string> = {
@@ -78,6 +79,9 @@ export const load: PageServerLoad = async ({ params }) => {
 	const latestDep = deps[0] ?? null;
 	const status = latestDep?.status ?? 'stopped';
 
+	/* Resource metrics (last 24h) */
+	const metrics = await getProjectMetrics(project.id, 24);
+
 	/* Container health */
 	const monitor = getHealthMonitor();
 	const containerHealth = monitor.get(project.id);
@@ -138,7 +142,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			event: e.event,
 			message: e.message,
 			createdAt: e.createdAt
-		}))
+		})),
+		resourceMetrics: metrics
 	};
 };
 
