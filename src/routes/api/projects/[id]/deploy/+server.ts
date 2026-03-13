@@ -12,7 +12,7 @@ import type { RequestHandler } from './$types';
  * POST /api/projects/:id/deploy — trigger a manual deployment.
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);

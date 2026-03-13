@@ -12,7 +12,7 @@ import type { RequestHandler } from './$types';
  * Re-deploys the cached Docker image without rebuilding.
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, did } = event.params;
 

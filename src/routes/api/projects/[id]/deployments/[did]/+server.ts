@@ -9,7 +9,7 @@ import type { RequestHandler } from './$types';
  * GET /api/projects/:id/deployments/:did — deployment detail with build logs.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, did } = event.params;
 

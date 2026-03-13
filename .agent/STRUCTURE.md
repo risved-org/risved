@@ -3,6 +3,7 @@
 ```
 scripts/
 ├── install.sh              # curl | sh installer (Docker, Deno, Caddy, Risved)
+├── risved.mjs              # CLI tool (deploy, logs, reset-password, status, env)
 src/
 ├── lib/
 │   ├── auth-client.ts      # BetterAuth SvelteKit client
@@ -13,7 +14,7 @@ src/
 │   └── server/
 │       ├── auth.ts          # BetterAuth configuration (email+password, 12-char min)
 │       ├── auth-utils.ts    # First-run detection, user count helpers
-│       ├── api-utils.ts     # Auth guard, slugify, webhook secret, JSON error helpers
+│       ├── api-utils.ts     # Auth guard (session + Bearer token), slugify, webhook secret, JSON error helpers
 │       ├── settings.ts      # Key-value settings store (getSetting, setSetting, isOnboardingComplete)
 │       ├── crypto.ts        # AES-256-GCM encryption (encrypt, decrypt, safeDecrypt), server key management
 │       ├── db/

@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
  * Body: { connectionId, projectId, owner, repo }
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const body = await event.request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {

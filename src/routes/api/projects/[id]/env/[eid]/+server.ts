@@ -19,7 +19,7 @@ function maskValue(value: string, isSecret: boolean): string {
  * Body: { value?, is_secret? }
  */
 export const PUT: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, eid } = event.params;
 
@@ -64,7 +64,7 @@ export const PUT: RequestHandler = async (event) => {
  * DELETE /api/projects/:id/env/:eid — delete an environment variable.
  */
 export const DELETE: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, eid } = event.params;
 

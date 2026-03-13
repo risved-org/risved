@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
  * GET /api/projects/:id — get project detail with latest deployment.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
@@ -40,7 +40,7 @@ export const GET: RequestHandler = async (event) => {
  * Body: { name?, branch?, framework_id?, domain? }
  */
 export const PUT: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
@@ -89,7 +89,7 @@ export const PUT: RequestHandler = async (event) => {
  * DELETE /api/projects/:id — delete project, stop container, remove Caddy routes.
  */
 export const DELETE: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);

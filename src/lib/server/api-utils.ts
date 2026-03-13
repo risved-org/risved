@@ -1,14 +1,34 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
+import { getSetting } from '$lib/server/settings';
 
 /**
- * Require an authenticated user on the request. Throws 401 if not authenticated.
+ * Require an authenticated user on the request.
+ * Supports both session auth (via event.locals.user) and Bearer token auth
+ * using the API token stored in settings.
+ * Throws 401 if not authenticated.
  */
-export function requireAuth(event: RequestEvent): App.Locals['user'] {
-	if (!event.locals.user) {
-		error(401, 'Authentication required');
+export async function requireAuth(
+	event: RequestEvent
+): Promise<NonNullable<App.Locals['user']>> {
+	if (event.locals.user) {
+		return event.locals.user;
 	}
-	return event.locals.user;
+
+	/* Check for Bearer token authentication */
+	const authHeader = event.request.headers.get('authorization');
+	if (authHeader?.startsWith('Bearer ')) {
+		const token = authHeader.slice(7);
+		const storedToken = await getSetting('api_token');
+		if (storedToken && token === storedToken) {
+			/* Token-authenticated requests get a synthetic user identity */
+			return { id: 'api-token', email: 'api@risved.local', name: 'API' } as NonNullable<
+				App.Locals['user']
+			>;
+		}
+	}
+
+	error(401, 'Authentication required');
 }
 
 /**

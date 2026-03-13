@@ -12,7 +12,7 @@ import type { RequestHandler } from './$types';
  * Query params: connectionId, page (default 1), search (optional)
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const connectionId = event.url.searchParams.get('connectionId');
 	if (!connectionId) {

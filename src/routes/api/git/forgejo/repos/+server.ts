@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
  * Query params: connectionId, instanceUrl, page (default 1), search (optional)
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const connectionId = event.url.searchParams.get('connectionId');
 	const instanceUrl = event.url.searchParams.get('instanceUrl');

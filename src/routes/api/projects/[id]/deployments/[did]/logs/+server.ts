@@ -13,7 +13,7 @@ import type { RequestHandler } from './$types';
  * the stream sends all remaining logs and closes.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, did } = event.params;
 

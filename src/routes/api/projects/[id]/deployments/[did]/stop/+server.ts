@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
  * POST /api/projects/:id/deployments/:did/stop — stop a deployment's container.
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, did } = event.params;
 

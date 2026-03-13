@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
  * DELETE /api/projects/:id/domains/:did — remove a domain.
  */
 export const DELETE: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, did } = event.params;
 

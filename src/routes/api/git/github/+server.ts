@@ -14,7 +14,7 @@ import type { RequestHandler } from './$types';
  * default → list connections
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const action = event.url.searchParams.get('action');
 
@@ -107,7 +107,7 @@ export const GET: RequestHandler = async (event) => {
  * Body: { connectionId }
  */
 export const DELETE: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const body = await event.request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {

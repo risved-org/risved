@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
  * Returns current health state and recent health events.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const monitor = getHealthMonitor();
 	const statuses = monitor.getAll();
@@ -30,7 +30,7 @@ export const GET: RequestHandler = async (event) => {
  * GET /api/health/[projectId] — get health for a specific project.
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const body = await event.request.json().catch(() => null);
 	if (!body || typeof body !== 'object' || !('projectId' in body)) {

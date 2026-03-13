@@ -9,7 +9,7 @@ import type { RequestHandler } from './$types';
  * Returns log retention setting and Docker disk usage.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const manager = getCleanupManager();
 	const retentionDays = await getSetting('log_retention_days');
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async (event) => {
  * Actions: updateRetention, runCleanup, dockerPrune
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const body = await event.request.json();
 	const { action } = body;

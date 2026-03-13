@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
  * GET /api/projects — list all projects with their latest deployment status.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const rows = await db.select().from(projects).orderBy(desc(projects.createdAt));
 
@@ -22,7 +22,7 @@ export const GET: RequestHandler = async (event) => {
  * Body: { name, git_url, branch?, framework_id? }
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const body = await event.request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {

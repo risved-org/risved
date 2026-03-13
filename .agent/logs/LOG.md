@@ -3,12 +3,26 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-13
-**Tasks Completed:** 28
-**Current Task:** TASK-39 Complete
+**Tasks Completed:** 40
+**Current Task:** ALL TASKS COMPLETE
 
 ----------------------------------------------
 
 ## Session Log
+
+### 2026-03-13 — TASK-40: CLI Tool
+- Created `scripts/risved.mjs` — standalone Node.js CLI with 5 commands:
+  - `risved status` — show server and project status table (name, deployment status, port, domain)
+  - `risved deploy <project>` — trigger deployment via API with Bearer token auth
+  - `risved logs <project>` — display build logs for latest deployment with colored output
+  - `risved reset-password` — reset admin password directly in DB using BetterAuth's scrypt hash format
+  - `risved env <project> [list|set|rm]` — list, set, and remove environment variables
+- Updated `requireAuth` in `api-utils.ts` to support Bearer token auth using the `api_token` from settings (in addition to session auth)
+- Added `await` to all 39 `requireAuth()` call sites across 27 API route files (now async)
+- Added `bin` field to `package.json` for `npx risved` usage
+- 18 CLI unit tests, 5 e2e tests, all 617 unit tests passing, 122 e2e tests passing, tsc clean
+
+----------------------------------------------
 
 ### 2026-03-13 — TASK-39: Passkey Authentication
 - Added `@better-auth/passkey` plugin to server auth config and client auth config

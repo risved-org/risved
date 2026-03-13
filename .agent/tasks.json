@@ -38,5 +38,5 @@
   { "id": 37, "title": "Resource Usage Charts", "phase": 3, "passes": true },
   { "id": 38, "title": "Build Log Retention & Docker Prune", "phase": 3, "passes": true },
   { "id": 39, "title": "Passkey Authentication", "phase": 3, "passes": true },
-  { "id": 40, "title": "CLI Tool", "phase": 3, "passes": false }
+  { "id": 40, "title": "CLI Tool", "phase": 3, "passes": true }
 ]

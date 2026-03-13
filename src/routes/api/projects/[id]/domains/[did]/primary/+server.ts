@@ -9,7 +9,7 @@ import type { RequestHandler } from './$types';
  * POST /api/projects/:id/domains/:did/primary — set as primary domain.
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id, did } = event.params;
 

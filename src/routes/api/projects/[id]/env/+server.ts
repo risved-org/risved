@@ -18,7 +18,7 @@ function maskValue(value: string, isSecret: boolean): string {
  * GET /api/projects/:id/env — list environment variables (secrets masked).
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 
@@ -42,7 +42,7 @@ export const GET: RequestHandler = async (event) => {
  * Body: { key, value, is_secret? }
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 

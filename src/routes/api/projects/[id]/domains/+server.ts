@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
  * GET /api/projects/:id/domains — list domains with SSL status.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 
@@ -29,7 +29,7 @@ export const GET: RequestHandler = async (event) => {
  * Body: { hostname }
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const { id } = event.params;
 

@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
  * GET /api/git/forgejo — list Forgejo/Gitea connections.
  */
 export const GET: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const connections = await db
 		.select({
@@ -31,7 +31,7 @@ export const GET: RequestHandler = async (event) => {
  * Body: { instanceUrl, token }
  */
 export const POST: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const body = await event.request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {
@@ -84,7 +84,7 @@ export const POST: RequestHandler = async (event) => {
  * Body: { connectionId }
  */
 export const DELETE: RequestHandler = async (event) => {
-	requireAuth(event);
+	await requireAuth(event);
 
 	const body = await event.request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {
