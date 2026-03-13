@@ -53,7 +53,7 @@ test.describe('Login Screen', () => {
 		await expect(page.locator('.wordmark')).toHaveText('RISVED');
 		await expect(page.locator('input#email')).toBeVisible();
 		await expect(page.locator('input#password')).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
 
 		await page.screenshot({ path: '.agent/screenshots/TASK-19-1.png', fullPage: true });
 	});
@@ -89,7 +89,7 @@ test.describe('Login Screen', () => {
 
 		await page.locator('input#email').fill('admin@login-test.com');
 		await page.locator('input#password').fill('wrongpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
 		await expect(page.locator('.form-error')).toBeVisible({ timeout: 10000 });
 

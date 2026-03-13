@@ -49,7 +49,7 @@ test.describe('Settings Screen', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@settings-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 		await page.goto(path);
 		await page.waitForLoadState('networkidle');

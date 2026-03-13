@@ -76,7 +76,7 @@ test.describe('Build Log Screen', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@buildlog-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 		await page.goto(`/projects/${SLUG}/deployments/${DEPLOYMENT_ID}`);
 		await page.waitForLoadState('networkidle');

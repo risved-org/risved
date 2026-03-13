@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth/minimal';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
+import { passkey } from '@better-auth/passkey';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
@@ -14,5 +15,5 @@ export const auth = betterAuth({
 		minPasswordLength: 12,
 		autoSignIn: true
 	},
-	plugins: [sveltekitCookies(getRequestEvent)]
+	plugins: [passkey(), sveltekitCookies(getRequestEvent)]
 });

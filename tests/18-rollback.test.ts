@@ -74,7 +74,7 @@ test.describe('Rollback to Previous Deployment', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@rollback-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 		await page.goto(`/projects/${SLUG}`);
 		await page.waitForLoadState('networkidle');

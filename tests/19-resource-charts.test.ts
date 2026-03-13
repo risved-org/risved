@@ -74,7 +74,7 @@ test.describe('Resource Usage Charts', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@metrics-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 	}
 

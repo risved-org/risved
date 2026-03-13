@@ -3,8 +3,21 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-13
-**Tasks Completed:** 27
-**Current Task:** TASK-38 Complete
+**Tasks Completed:** 28
+**Current Task:** TASK-39 Complete
+
+----------------------------------------------
+
+## Session Log
+
+### 2026-03-13 — TASK-39: Passkey Authentication
+- Added `@better-auth/passkey` plugin to server auth config and client auth config
+- Generated updated auth schema with `passkey` table (id, publicKey, userId, credentialID, counter, deviceType, backedUp, transports, aaguid)
+- Added Passkeys section to settings page — register passkey (with optional name), list registered passkeys, delete passkeys
+- Added "Sign in with passkey" button to login page with "or" divider, supporting discoverable credentials (usernameless login)
+- Fixed all e2e test files to use `exact: true` for Sign in button selector (now 2 buttons on login page)
+- 5 passkey unit tests, all 599 unit tests passing, 117 e2e tests (116 passed, 1 flaky unrelated), tsc clean
+- Screenshots: `.agent/screenshots/TASK-39-1.png` (login with passkey button), `.agent/screenshots/TASK-39-2.png` (settings with passkeys section)
 
 ----------------------------------------------
 

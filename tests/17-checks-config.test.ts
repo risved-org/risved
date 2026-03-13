@@ -61,7 +61,7 @@ test.describe('PR Status Checks Configuration', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@checks-cfg.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 		await page.goto(`/projects/${SLUG}/checks`);
 		await page.waitForLoadState('networkidle');
@@ -100,7 +100,7 @@ test.describe('PR Status Checks Configuration', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@checks-cfg.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 
 		await page.goto(`/projects/${SLUG}`);

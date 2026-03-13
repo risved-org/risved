@@ -1,10 +1,36 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { authClient } from '$lib/auth-client';
 	import type { ActionData, PageData } from './$types';
 
 	let { form, data }: { form: ActionData; data: PageData } = $props();
 
 	let submitting = $state(false);
+	let passkeyLoading = $state(false);
+	let passkeyError = $state<string | null>(null);
+
+	async function signInWithPasskey() {
+		passkeyLoading = true;
+		passkeyError = null;
+		try {
+			await authClient.signIn.passkey({
+				fetchOptions: {
+					onSuccess() {
+						goto(resolve('/'));
+					},
+					onError(ctx) {
+						passkeyError = ctx.error?.message || 'Passkey authentication failed';
+						passkeyLoading = false;
+					}
+				}
+			});
+		} catch {
+			passkeyError = 'Browser does not support passkeys or authentication was cancelled';
+			passkeyLoading = false;
+		}
+	}
 </script>
 
 <div class="login">
@@ -56,6 +82,24 @@
 			<button type="submit" disabled={submitting}>
 				{submitting ? 'Signing in…' : 'Sign in'}
 			</button>
+
+			<div class="divider"><span>or</span></div>
+
+			<button
+				type="button"
+				class="btn-passkey"
+				disabled={passkeyLoading}
+				onclick={signInWithPasskey}
+				data-testid="passkey-login-btn"
+			>
+				{passkeyLoading ? 'Authenticating…' : 'Sign in with passkey'}
+			</button>
+
+			{#if passkeyError}
+				<p class="form-error" role="alert" data-testid="passkey-login-error">
+					{passkeyError}
+				</p>
+			{/if}
 
 			<p class="forgot">
 				Forgot password? Run <code>risved reset-password</code>
@@ -174,6 +218,33 @@
 	button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.divider {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		color: var(--color-text-2);
+		font-size: 0.8rem;
+	}
+	.divider::before,
+	.divider::after {
+		content: '';
+		flex: 1;
+		height: 1px;
+		background: var(--color-border);
+	}
+
+	.btn-passkey {
+		background: transparent;
+		border: 1.5px solid var(--color-border);
+		color: var(--color-text-1);
+		margin-top: 0;
+	}
+	.btn-passkey:hover:not(:disabled) {
+		border-color: var(--color-text-2);
+		color: var(--color-text-0);
+		background: transparent;
 	}
 
 	.forgot {

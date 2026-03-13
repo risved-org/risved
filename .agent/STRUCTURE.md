@@ -133,7 +133,7 @@ src/
 │   │       └── +page.svelte     # Account selector, repo search, repo list, config panel, deploy
 │   ├── settings/
 │   │   ├── +page.server.ts  # Settings load (user, hostname, timezone, apiToken, retentionDays), general/email/password/token/retention actions
-│   │   ├── +page.svelte     # General settings, admin email, change password, API token, build log retention, Docker resources
+│   │   ├── +page.svelte     # General settings, admin email, change password, passkeys, API token, build log retention, Docker resources
 │   │   ├── providers/
 │   │   │   ├── +page.server.ts  # Provider connections load, forgejo connect + disconnect actions
 │   │   │   └── +page.svelte     # Provider cards (GitHub/GitLab/Forgejo/Other), connected accounts list
@@ -165,7 +165,7 @@ src/
 │   │               └── +page.svelte     # Phase indicator, terminal output, metadata bar, success/error actions
 │   ├── login/
 │   │   ├── +page.server.ts  # Login load (redirect if authed, project counts), signIn action
-│   │   └── +page.svelte     # Centered login form, RISVED wordmark, status footer
+│   │   └── +page.svelte     # Centered login form, RISVED wordmark, passkey sign-in, status footer
 │   ├── onboarding/
 │   │   ├── +page.server.ts  # Admin account creation action (signUpEmail)
 │   │   ├── +page.svelte     # Create admin form (email, password, confirm)

@@ -50,7 +50,7 @@ test.describe('Dashboard Screen', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@dashboard-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 
 		await expect(page.getByTestId('health-bar')).toBeVisible();
@@ -66,7 +66,7 @@ test.describe('Dashboard Screen', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@dashboard-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 
 		await expect(page.getByTestId('empty-state')).toBeVisible();
@@ -91,7 +91,7 @@ test.describe('Dashboard Screen', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@dashboard-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 
 		await expect(page.getByTestId('project-table')).toBeVisible();
@@ -114,7 +114,7 @@ test.describe('Dashboard Screen', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@dashboard-test.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 		await page.waitForLoadState('networkidle');
 

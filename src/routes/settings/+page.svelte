@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { authClient } from '$lib/auth-client';
 	import type { PageData, ActionData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -39,6 +40,58 @@
 	let pruneResult = $state<string | null>(null);
 	let cleanupRunning = $state(false);
 	let cleanupResult = $state<string | null>(null);
+
+	/* Passkey state */
+	interface PasskeyEntry {
+		id: string;
+		name: string | null;
+		createdAt: string | number | null;
+	}
+	let passkeys = $state<PasskeyEntry[]>([]);
+	let passkeysLoading = $state(false);
+	let passkeyRegistering = $state(false);
+	let passkeyError = $state<string | null>(null);
+	let passkeySuccess = $state<string | null>(null);
+	let passkeyName = $state('');
+
+	async function loadPasskeys() {
+		passkeysLoading = true;
+		try {
+			const { data: list } = await authClient.passkey.listUserPasskeys();
+			passkeys = (list ?? []) as PasskeyEntry[];
+		} finally {
+			passkeysLoading = false;
+		}
+	}
+
+	async function registerPasskey() {
+		passkeyRegistering = true;
+		passkeyError = null;
+		passkeySuccess = null;
+		try {
+			const { error } = await authClient.passkey.addPasskey({
+				name: passkeyName || undefined
+			});
+			if (error) {
+				passkeyError = error.message || 'Failed to register passkey';
+			} else {
+				passkeySuccess = 'Passkey registered';
+				passkeyName = '';
+				await loadPasskeys();
+			}
+		} catch {
+			passkeyError = 'Browser does not support passkeys or registration was cancelled';
+		} finally {
+			passkeyRegistering = false;
+		}
+	}
+
+	async function deletePasskey(id: string) {
+		const { error } = await authClient.passkey.deletePasskey({ id });
+		if (!error) {
+			await loadPasskeys();
+		}
+	}
 
 	async function loadDiskUsage() {
 		diskLoading = true;
@@ -316,6 +369,74 @@
 				</div>
 			</div>
 		</form>
+	</section>
+
+	<!-- Passkeys -->
+	<section class="section" data-testid="passkey-section">
+		<h2 class="section-title">Passkeys</h2>
+		<div class="form-card">
+			{#if passkeys.length > 0}
+				<div class="passkey-list" data-testid="passkey-list">
+					{#each passkeys as pk (pk.id)}
+						<div class="passkey-item">
+							<div class="passkey-info">
+								<span class="passkey-name">{pk.name || 'Unnamed passkey'}</span>
+								<span class="passkey-date mono">
+									{pk.createdAt ? new Date(pk.createdAt).toLocaleDateString() : ''}
+								</span>
+							</div>
+							<button
+								class="btn-danger-sm"
+								onclick={() => deletePasskey(pk.id)}
+								data-testid="delete-passkey-btn"
+							>
+								Remove
+							</button>
+						</div>
+					{/each}
+				</div>
+			{:else if !passkeysLoading}
+				<p class="empty-text" data-testid="no-passkeys">No passkeys registered.</p>
+			{/if}
+
+			<div class="passkey-register">
+				<div class="form-group">
+					<label for="passkeyName" class="form-label">Passkey name (optional)</label>
+					<input
+						type="text"
+						id="passkeyName"
+						bind:value={passkeyName}
+						placeholder="e.g. MacBook fingerprint"
+						class="form-input"
+						data-testid="passkey-name-input"
+					/>
+				</div>
+				<div class="form-actions">
+					<button
+						class="btn-primary"
+						disabled={passkeyRegistering}
+						onclick={registerPasskey}
+						data-testid="register-passkey-btn"
+					>
+						{passkeyRegistering ? 'Registering…' : 'Register passkey'}
+					</button>
+					<button
+						class="btn-secondary"
+						disabled={passkeysLoading}
+						onclick={loadPasskeys}
+						data-testid="refresh-passkeys-btn"
+					>
+						{passkeysLoading ? 'Loading…' : 'Refresh'}
+					</button>
+					{#if passkeySuccess}
+						<span class="save-success" data-testid="passkey-success">{passkeySuccess}</span>
+					{/if}
+					{#if passkeyError}
+						<span class="form-error" data-testid="passkey-error">{passkeyError}</span>
+					{/if}
+				</div>
+			</div>
+		</div>
 	</section>
 
 	<!-- API Token -->
@@ -818,5 +939,41 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-2);
+	}
+
+	/* Passkey styles */
+	.passkey-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.passkey-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.passkey-item:last-child {
+		border-bottom: none;
+	}
+	.passkey-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.passkey-name {
+		font-size: 0.8125rem;
+		color: var(--color-text-0);
+		font-weight: 500;
+	}
+	.passkey-date {
+		font-size: 0.75rem;
+		color: var(--color-text-2);
+	}
+	.passkey-register {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
 	}
 </style>

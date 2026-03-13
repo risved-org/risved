@@ -60,7 +60,7 @@ test.describe('Webhook Configuration UI', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@webhook-cfg.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 		await page.goto(`/projects/${SLUG}/webhooks`);
 		await page.waitForLoadState('networkidle');
@@ -124,7 +124,7 @@ test.describe('Webhook Configuration UI', () => {
 		await page.waitForLoadState('networkidle');
 		await page.locator('input#email').fill('admin@webhook-cfg.com');
 		await page.locator('input#password').fill('testpassword12');
-		await page.getByRole('button', { name: 'Sign in' }).click();
+		await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 		await page.waitForURL('**/', { timeout: 15000 });
 
 		await page.goto(`/projects/${SLUG}`);
