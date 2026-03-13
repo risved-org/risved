@@ -9,12 +9,14 @@ import type { PageServerLoad, Actions } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	const currentUser = locals.user;
 	if (!currentUser) {
-		return { user: null, hostname: null, timezone: null, apiToken: null };
+		return { user: null, hostname: null, timezone: null, apiToken: null, retentionDays: 30 };
 	}
 
 	const hostname = await getSetting('hostname');
 	const timezone = await getSetting('timezone');
 	const apiToken = await getSetting('api_token');
+	const retentionSetting = await getSetting('log_retention_days');
+	const retentionDays = retentionSetting ? parseInt(retentionSetting, 10) : 30;
 
 	return {
 		user: {
@@ -24,7 +26,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		},
 		hostname: hostname ?? '',
 		timezone: timezone ?? 'UTC',
-		apiToken: apiToken ? maskToken(apiToken) : null
+		apiToken: apiToken ? maskToken(apiToken) : null,
+		retentionDays: isNaN(retentionDays) ? 30 : retentionDays
 	};
 };
 
@@ -115,5 +118,18 @@ export const actions: Actions = {
 		await setSetting('api_token', '');
 
 		return { tokenRevoked: true };
+	},
+
+	/** Update build log retention period. */
+	retention: async ({ request }) => {
+		const formData = await request.formData();
+		const days = parseInt((formData.get('retentionDays') as string) ?? '30', 10);
+
+		if (isNaN(days) || days < 1 || days > 365) {
+			return fail(400, { retentionError: 'Retention must be between 1 and 365 days' });
+		}
+
+		await setSetting('log_retention_days', String(days));
+		return { retentionSaved: true };
 	}
 };

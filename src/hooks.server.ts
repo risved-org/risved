@@ -6,6 +6,7 @@ import { isFirstRun } from '$lib/server/auth-utils';
 import { isOnboardingComplete } from '$lib/server/settings';
 import { getHealthMonitor } from '$lib/server/health';
 import { getMetricsCollector } from '$lib/server/metrics';
+import { getCleanupManager } from '$lib/server/cleanup';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
@@ -15,6 +16,7 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 if (!building) {
 	getHealthMonitor().start();
 	getMetricsCollector().start();
+	getCleanupManager().start();
 }
 
 const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks'];

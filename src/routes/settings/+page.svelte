@@ -18,6 +18,77 @@
 	let revokingToken = $state(false);
 	let tokenCopied = $state(false);
 	let newlyGeneratedToken = $state<string | null>(null);
+	let retentionDays = $state(data.retentionDays ?? 30);
+	let retentionSaving = $state(false);
+
+	/* Docker disk usage state */
+	interface DiskEntry {
+		count: number;
+		sizeFormatted: string;
+	}
+	interface DockerDisk {
+		images: DiskEntry;
+		containers: DiskEntry;
+		volumes: DiskEntry;
+		buildCache: { sizeFormatted: string };
+		totalFormatted: string;
+	}
+	let diskUsage = $state<DockerDisk | null>(null);
+	let diskLoading = $state(false);
+	let pruning = $state<string | null>(null);
+	let pruneResult = $state<string | null>(null);
+	let cleanupRunning = $state(false);
+	let cleanupResult = $state<string | null>(null);
+
+	async function loadDiskUsage() {
+		diskLoading = true;
+		try {
+			const res = await fetch(resolve('/api/cleanup'));
+			if (res.ok) {
+				const d = await res.json();
+				diskUsage = d.diskUsage;
+			}
+		} finally {
+			diskLoading = false;
+		}
+	}
+
+	async function runPrune(type: string) {
+		pruning = type;
+		pruneResult = null;
+		try {
+			const res = await fetch(resolve('/api/cleanup'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'dockerPrune', type })
+			});
+			if (res.ok) {
+				const d = await res.json();
+				pruneResult = `Reclaimed: ${d.result.spaceReclaimed}`;
+				await loadDiskUsage();
+			}
+		} finally {
+			pruning = null;
+		}
+	}
+
+	async function runCleanupNow() {
+		cleanupRunning = true;
+		cleanupResult = null;
+		try {
+			const res = await fetch(resolve('/api/cleanup'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'runCleanup' })
+			});
+			if (res.ok) {
+				const d = await res.json();
+				cleanupResult = `Removed ${d.result.deploymentsRemoved} deployments, ${d.result.buildLogsRemoved} logs`;
+			}
+		} finally {
+			cleanupRunning = false;
+		}
+	}
 
 	const timezones = [
 		'UTC',
@@ -325,6 +396,160 @@
 			</div>
 		</div>
 	</section>
+
+	<!-- Build Log Retention -->
+	<section class="section" data-testid="retention-section">
+		<h2 class="section-title">Build Log Retention</h2>
+		<form
+			method="post"
+			action="?/retention"
+			use:enhance={() => {
+				retentionSaving = true;
+				return async ({ update }) => {
+					retentionSaving = false;
+					await update();
+				};
+			}}
+		>
+			<div class="form-card">
+				<div class="form-group">
+					<label for="retentionDays" class="form-label">Retention period (days)</label>
+					<input
+						type="number"
+						id="retentionDays"
+						name="retentionDays"
+						bind:value={retentionDays}
+						min="1"
+						max="365"
+						class="form-input"
+						style="max-width: 120px;"
+						data-testid="retention-input"
+					/>
+					<p class="form-hint">
+						Deployments and build logs older than this will be automatically cleaned up.
+					</p>
+				</div>
+
+				<div class="form-actions">
+					<button
+						type="submit"
+						class="btn-primary"
+						disabled={retentionSaving}
+						data-testid="save-retention-btn"
+					>
+						{retentionSaving ? 'Saving…' : 'Save'}
+					</button>
+					<button
+						type="button"
+						class="btn-secondary"
+						disabled={cleanupRunning}
+						onclick={runCleanupNow}
+						data-testid="run-cleanup-btn"
+					>
+						{cleanupRunning ? 'Running…' : 'Run cleanup now'}
+					</button>
+					{#if form?.retentionSaved}
+						<span class="save-success" data-testid="retention-saved">Saved</span>
+					{/if}
+					{#if form?.retentionError}
+						<span class="form-error" data-testid="retention-error">{form.retentionError}</span>
+					{/if}
+					{#if cleanupResult}
+						<span class="save-success" data-testid="cleanup-result">{cleanupResult}</span>
+					{/if}
+				</div>
+			</div>
+		</form>
+	</section>
+
+	<!-- Docker Disk Usage -->
+	<section class="section" data-testid="docker-section">
+		<h2 class="section-title">Docker Resources</h2>
+		<div class="form-card">
+			{#if diskUsage}
+				<div class="disk-grid" data-testid="disk-usage">
+					<div class="disk-row">
+						<span class="disk-label">Images</span>
+						<span class="disk-count mono">{diskUsage.images.count}</span>
+						<span class="disk-size mono">{diskUsage.images.sizeFormatted}</span>
+					</div>
+					<div class="disk-row">
+						<span class="disk-label">Containers</span>
+						<span class="disk-count mono">{diskUsage.containers.count}</span>
+						<span class="disk-size mono">{diskUsage.containers.sizeFormatted}</span>
+					</div>
+					<div class="disk-row">
+						<span class="disk-label">Volumes</span>
+						<span class="disk-count mono">{diskUsage.volumes.count}</span>
+						<span class="disk-size mono">{diskUsage.volumes.sizeFormatted}</span>
+					</div>
+					<div class="disk-row">
+						<span class="disk-label">Build Cache</span>
+						<span class="disk-count mono">—</span>
+						<span class="disk-size mono">{diskUsage.buildCache.sizeFormatted}</span>
+					</div>
+					<div class="disk-row disk-total">
+						<span class="disk-label">Total</span>
+						<span class="disk-count mono"></span>
+						<span class="disk-size mono">{diskUsage.totalFormatted}</span>
+					</div>
+				</div>
+			{:else}
+				<p class="empty-text">
+					{diskLoading
+						? 'Loading Docker disk usage…'
+						: 'Click "Load usage" to view Docker disk usage.'}
+				</p>
+			{/if}
+
+			<div class="docker-actions">
+				<button
+					class="btn-secondary"
+					disabled={diskLoading}
+					onclick={loadDiskUsage}
+					data-testid="load-disk-btn"
+				>
+					{diskLoading ? 'Loading…' : 'Load usage'}
+				</button>
+				<button
+					class="btn-secondary"
+					disabled={pruning !== null}
+					onclick={() => runPrune('images')}
+					data-testid="prune-images-btn"
+				>
+					{pruning === 'images' ? 'Pruning…' : 'Prune images'}
+				</button>
+				<button
+					class="btn-secondary"
+					disabled={pruning !== null}
+					onclick={() => runPrune('containers')}
+					data-testid="prune-containers-btn"
+				>
+					{pruning === 'containers' ? 'Pruning…' : 'Prune containers'}
+				</button>
+				<button
+					class="btn-secondary"
+					disabled={pruning !== null}
+					onclick={() => runPrune('volumes')}
+					data-testid="prune-volumes-btn"
+				>
+					{pruning === 'volumes' ? 'Pruning…' : 'Prune volumes'}
+				</button>
+				<button
+					class="btn-danger-sm"
+					disabled={pruning !== null}
+					onclick={() => runPrune('all')}
+					data-testid="prune-all-btn"
+				>
+					{pruning === 'all' ? 'Pruning…' : 'Prune all'}
+				</button>
+			</div>
+
+			{#if pruneResult}
+				<span class="save-success" data-testid="prune-result">{pruneResult}</span>
+			{/if}
+		</div>
+	</section>
 </div>
 
 <style>
@@ -557,6 +782,41 @@
 	}
 	.token-actions {
 		display: flex;
+		gap: var(--space-2);
+	}
+
+	/* Docker disk usage */
+	.disk-grid {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.disk-row {
+		display: grid;
+		grid-template-columns: 1fr 60px 80px;
+		align-items: center;
+		padding: var(--space-1) 0;
+		font-size: 0.8125rem;
+	}
+	.disk-total {
+		border-top: 1px solid var(--color-border);
+		padding-top: var(--space-2);
+		font-weight: 600;
+	}
+	.disk-label {
+		color: var(--color-text-1);
+	}
+	.disk-count {
+		text-align: right;
+		color: var(--color-text-2);
+	}
+	.disk-size {
+		text-align: right;
+		color: var(--color-text-0);
+	}
+	.docker-actions {
+		display: flex;
+		flex-wrap: wrap;
 		gap: var(--space-2);
 	}
 </style>

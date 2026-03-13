@@ -26,6 +26,9 @@ src/
 │       ├── metrics/
 │       │   ├── index.ts     # MetricsCollector class (Docker stats, hourly aggregation, pruning, singleton)
 │       │   └── types.ts     # ContainerStats, MetricPoint, MetricsCollectorConfig types
+│       ├── cleanup/
+│       │   ├── index.ts     # CleanupManager class (log retention, Docker prune/disk usage, singleton)
+│       │   └── types.ts     # CleanupConfig, CleanupResult, DockerDiskUsage, DockerPruneResult types
 │       ├── detection/
 │       │   ├── index.ts     # detectFramework() + createFsContext()
 │       │   ├── types.ts     # Types: FrameworkId, Tier, Confidence, etc.
@@ -68,6 +71,8 @@ src/
 │   │   │   └── +server.ts           # GET all health statuses, POST project-specific health
 │   │   ├── metrics/
 │   │   │   └── +server.ts           # GET server-wide aggregated resource metrics
+│   │   ├── cleanup/
+│   │   │   └── +server.ts           # GET retention+disk usage, POST updateRetention/runCleanup/dockerPrune
 │   │   ├── webhooks/
 │   │   │   └── [projectId]/
 │   │   │       └── +server.ts       # POST webhook receiver (HMAC, branch filter, deploy trigger)
@@ -127,8 +132,8 @@ src/
 │   │       ├── +page.server.ts  # Import load (connections, frameworks), import+deploy action
 │   │       └── +page.svelte     # Account selector, repo search, repo list, config panel, deploy
 │   ├── settings/
-│   │   ├── +page.server.ts  # Settings load (user, hostname, timezone, apiToken), general/email/password/token actions
-│   │   ├── +page.svelte     # General settings, admin email, change password, API token management
+│   │   ├── +page.server.ts  # Settings load (user, hostname, timezone, apiToken, retentionDays), general/email/password/token/retention actions
+│   │   ├── +page.svelte     # General settings, admin email, change password, API token, build log retention, Docker resources
 │   │   ├── providers/
 │   │   │   ├── +page.server.ts  # Provider connections load, forgejo connect + disconnect actions
 │   │   │   └── +page.svelte     # Provider cards (GitHub/GitLab/Forgejo/Other), connected accounts list

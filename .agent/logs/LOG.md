@@ -3,8 +3,20 @@
 `Current Status`
 =================
 **Last Updated:** 2026-03-13
-**Tasks Completed:** 26
-**Current Task:** TASK-37 Complete
+**Tasks Completed:** 27
+**Current Task:** TASK-38 Complete
+
+----------------------------------------------
+
+## Session Log
+
+### 2026-03-13 — TASK-38: Build Log Retention & Docker Prune
+- Created `src/lib/server/cleanup/` module — CleanupManager class with configurable retention (default 30 days), periodic auto-cleanup of old deployments/build logs, Docker disk usage reporting (`docker system df`), and Docker prune controls (images, containers, volumes, all)
+- Created `/api/cleanup` endpoint for retention settings, manual cleanup trigger, and Docker prune operations
+- Updated settings page with Build Log Retention section (retention days input, save, run cleanup now) and Docker Resources section (disk usage display, prune buttons for images/containers/volumes/all)
+- Started CleanupManager on server boot alongside HealthMonitor and MetricsCollector
+- 11 cleanup unit tests, all 594 unit tests passing, 112 e2e tests passing, tsc clean
+- Screenshots: `.agent/screenshots/TASK-38-1.png` (settings page with retention and Docker resources)
 
 ----------------------------------------------
 
