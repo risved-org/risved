@@ -217,10 +217,31 @@ const solidstart: FrameworkDetector = {
 };
 
 /**
+ * TanStack Start: app.config.ts + @tanstack/start in deps
+ * Tier 3 — Node build (Vinxi/Nitro), Node serve
+ */
+const tanstackStart: FrameworkDetector = {
+	id: 'tanstack-start',
+	name: 'TanStack Start',
+	tier: 'node',
+	async detect(ctx: DetectionContext): Promise<Confidence | null> {
+		const hasDep = await hasDependency(ctx, '@tanstack/start');
+		const hasConfig =
+			(await ctx.fileExists('app.config.ts')) || (await ctx.fileExists('app.config.js'));
+
+		if (hasConfig && hasDep) return 'high';
+		if (hasDep) return 'medium';
+		return null;
+	}
+};
+
+/**
  * Detection order: most specific first.
  * SvelteKit and Fresh are checked before Hono because
  * SvelteKit projects may also have hono as a dependency,
  * and Fresh projects always have a deno.json.
+ * TanStack Start before SolidStart because both use app.config.ts
+ * but TanStack Start has a more specific dependency.
  */
 export const detectors: FrameworkDetector[] = [
 	sveltekit,
@@ -228,6 +249,7 @@ export const detectors: FrameworkDetector[] = [
 	astro,
 	nextjs,
 	nuxt,
+	tanstackStart,
 	solidstart,
 	lume,
 	hono

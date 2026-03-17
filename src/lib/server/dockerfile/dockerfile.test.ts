@@ -140,6 +140,41 @@ describe('Dockerfile Generation', () => {
 		});
 	});
 
+	describe('TanStack Start', () => {
+		it('generates TanStack Start Dockerfile with .output', () => {
+			const result = generateDockerfile({ frameworkId: 'tanstack-start', tier: 'node' });
+
+			expect(result.frameworkId).toBe('tanstack-start');
+			expect(result.tier).toBe('node');
+			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
+			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
+		});
+	});
+
+	describe('Generic fallback', () => {
+		it('generates generic Node Dockerfile', () => {
+			const result = generateDockerfile({ frameworkId: 'generic', tier: 'node' });
+
+			expect(result.frameworkId).toBe('generic');
+			expect(result.tier).toBe('node');
+			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('RUN npm ci');
+			expect(result.content).toContain('RUN npm run build');
+			expect(result.content).toContain('CMD ["node", "index.js"]');
+		});
+
+		it('generates generic Deno Dockerfile', () => {
+			const result = generateDockerfile({ frameworkId: 'generic', tier: 'deno' });
+
+			expect(result.frameworkId).toBe('generic');
+			expect(result.tier).toBe('deno');
+			expect(result.content).toContain('FROM denoland/deno:2');
+			expect(result.content).toContain('deno cache main.ts');
+			expect(result.content).toContain('CMD ["deno", "run", "--allow-all", "main.ts"]');
+		});
+	});
+
 	describe('Framework configs', () => {
 		it('returns config for known framework', () => {
 			const config = getFrameworkConfig('sveltekit');
@@ -151,7 +186,7 @@ describe('Dockerfile Generation', () => {
 			expect(() => getFrameworkConfig('unknown')).toThrow('Unknown framework: unknown');
 		});
 
-		it('all 8 frameworks have configs', () => {
+		it('all 10 frameworks have configs', () => {
 			const frameworks = [
 				'sveltekit',
 				'fresh',
@@ -160,7 +195,9 @@ describe('Dockerfile Generation', () => {
 				'nextjs',
 				'nuxt',
 				'lume',
-				'solidstart'
+				'solidstart',
+				'tanstack-start',
+				'generic'
 			];
 			for (const fw of frameworks) {
 				expect(() => getFrameworkConfig(fw)).not.toThrow();

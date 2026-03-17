@@ -17,7 +17,18 @@ const DEFAULT_PORT = 8000;
  */
 export function generateDockerfile(options: DockerfileOptions): DockerfileResult {
 	const { frameworkId, tier, port = DEFAULT_PORT, installCommand, buildCommand } = options;
-	const config = getFrameworkConfig(frameworkId);
+	let config = getFrameworkConfig(frameworkId);
+
+	/* Generic framework: adjust commands based on actual tier */
+	if (frameworkId === 'generic' && tier === 'deno') {
+		config = {
+			...config,
+			installCommand: 'deno cache main.ts',
+			buildCommand: '',
+			serveCommand: 'deno run --allow-all main.ts',
+			denoPermissions: '--allow-all'
+		};
+	}
 
 	let content: string;
 

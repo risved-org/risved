@@ -7,7 +7,9 @@ export type FrameworkId =
 	| 'nextjs'
 	| 'nuxt'
 	| 'lume'
-	| 'solidstart';
+	| 'solidstart'
+	| 'tanstack-start'
+	| 'generic';
 
 /** Runtime tier determines Docker strategy */
 export type Tier = 'deno' | 'hybrid' | 'node';

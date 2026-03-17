@@ -70,6 +70,22 @@ export const frameworkConfigs: FrameworkConfigs = {
 		installCommand: 'npm ci',
 		serveCommand: 'node .output/server/index.mjs',
 		copyPaths: ['.output']
+	},
+
+	'tanstack-start': {
+		outputDir: '.output',
+		buildCommand: 'npm run build',
+		installCommand: 'npm ci',
+		serveCommand: 'node .output/server/index.mjs',
+		copyPaths: ['.output']
+	},
+
+	generic: {
+		outputDir: '.',
+		buildCommand: 'npm run build',
+		installCommand: 'npm ci',
+		serveCommand: 'node index.js',
+		copyPaths: ['.']
 	}
 };
 

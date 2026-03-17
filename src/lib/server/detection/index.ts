@@ -15,6 +15,7 @@ export type {
 /**
  * Detect the framework used in a project directory.
  * Runs detectors in order of specificity and returns the first match.
+ * Falls back to a generic Node/Deno runtime if no specific framework is detected.
  */
 export async function detectFramework(ctx: DetectionContext): Promise<DetectionResult> {
 	for (const detector of detectors) {
@@ -32,7 +33,36 @@ export async function detectFramework(ctx: DetectionContext): Promise<DetectionR
 		}
 	}
 
+	/* Generic fallback: pick Node or Deno based on project files */
+	const tier = await detectGenericTier(ctx);
+	if (tier) {
+		return {
+			detected: true,
+			framework: {
+				id: 'generic',
+				name: tier === 'deno' ? 'Generic (Deno)' : 'Generic (Node)',
+				tier,
+				confidence: 'low'
+			}
+		};
+	}
+
 	return { detected: false, framework: null };
+}
+
+/**
+ * Determine whether an unrecognised project is Node or Deno based.
+ * Returns null only if neither signal is found.
+ */
+async function detectGenericTier(ctx: DetectionContext): Promise<'node' | 'deno' | null> {
+	const hasDenoJson =
+		(await ctx.fileExists('deno.json')) || (await ctx.fileExists('deno.jsonc'));
+	if (hasDenoJson) return 'deno';
+
+	const hasPkgJson = await ctx.fileExists('package.json');
+	if (hasPkgJson) return 'node';
+
+	return null;
 }
 
 /**

@@ -233,6 +233,45 @@ describe('Framework Detection', () => {
 		});
 	});
 
+	describe('TanStack Start', () => {
+		it('detects TanStack Start with config + dependency (high confidence)', async () => {
+			const ctx = mockContext({
+				'app.config.ts': 'export default defineConfig({});',
+				'package.json': JSON.stringify({
+					dependencies: { '@tanstack/start': '^1.0.0', '@tanstack/react-router': '^1.0.0' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('tanstack-start');
+			expect(result.framework?.tier).toBe('node');
+			expect(result.framework?.confidence).toBe('high');
+		});
+
+		it('detects TanStack Start with dependency only (medium confidence)', async () => {
+			const ctx = mockContext({
+				'package.json': JSON.stringify({
+					dependencies: { '@tanstack/start': '^1.0.0' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('tanstack-start');
+			expect(result.framework?.confidence).toBe('medium');
+		});
+
+		it('prefers TanStack Start over SolidStart when both have app.config.ts', async () => {
+			const ctx = mockContext({
+				'app.config.ts': 'export default defineConfig({});',
+				'package.json': JSON.stringify({
+					dependencies: { '@tanstack/start': '^1.0.0' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.framework?.id).toBe('tanstack-start');
+		});
+	});
+
 	describe('Priority ordering', () => {
 		it('prefers SvelteKit over Hono when both detected', async () => {
 			const ctx = mockContext({
@@ -259,20 +298,47 @@ describe('Framework Detection', () => {
 		});
 	});
 
-	describe('No framework', () => {
-		it('returns not detected for empty project', async () => {
-			const ctx = mockContext({});
-			const result = await detectFramework(ctx);
-			expect(result.detected).toBe(false);
-			expect(result.framework).toBeNull();
-		});
-
-		it('returns not detected for plain Node project', async () => {
+	describe('Generic fallback', () => {
+		it('falls back to Generic (Node) for plain Node project', async () => {
 			const ctx = mockContext({
 				'package.json': JSON.stringify({
 					dependencies: { express: '^4.0.0' }
 				})
 			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('generic');
+			expect(result.framework?.name).toBe('Generic (Node)');
+			expect(result.framework?.tier).toBe('node');
+			expect(result.framework?.confidence).toBe('low');
+		});
+
+		it('falls back to Generic (Deno) for plain Deno project', async () => {
+			const ctx = mockContext({
+				'deno.json': JSON.stringify({ imports: {} })
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('generic');
+			expect(result.framework?.name).toBe('Generic (Deno)');
+			expect(result.framework?.tier).toBe('deno');
+			expect(result.framework?.confidence).toBe('low');
+		});
+
+		it('prefers Deno over Node when deno.json exists', async () => {
+			const ctx = mockContext({
+				'deno.json': JSON.stringify({ imports: {} }),
+				'package.json': JSON.stringify({ dependencies: { express: '^4.0.0' } })
+			});
+			const result = await detectFramework(ctx);
+			expect(result.framework?.id).toBe('generic');
+			expect(result.framework?.tier).toBe('deno');
+		});
+	});
+
+	describe('No framework', () => {
+		it('returns not detected for empty project', async () => {
+			const ctx = mockContext({});
 			const result = await detectFramework(ctx);
 			expect(result.detected).toBe(false);
 			expect(result.framework).toBeNull();

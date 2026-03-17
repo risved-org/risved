@@ -1,42 +1,133 @@
-# sv
+# Risved
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A self-hosted deployment platform for web apps, powered by [SvelteKit](https://svelte.dev/docs/kit) and [Docker](https://www.docker.com/).
 
-## Creating a project
+## Installing
 
-If you're seeing this, you've probably already done this step. Congrats!
+Run the install script on an Ubuntu/Debian server (requires root):
 
 ```sh
-# create a new project
-npx sv create my-app
+curl -fsSL https://risved.org/install | sh
 ```
 
-To recreate this project with the same configuration:
+This installs Docker, Deno, and Risved, then starts the control plane. Once complete, open the printed URL in your browser to create your admin account, configure your domain, and deploy your first app.
+
+You can customise the install with environment variables:
 
 ```sh
-# recreate this project
-deno run npm:sv@0.12.5 create --template demo --types ts --add prettier eslint vitest="usages:unit,component" playwright better-auth="demo:password,github" paraglide="languageTags:en, es, fr, it, nl, pl, sv, da+demo:yes" --install deno ./
+RISVED_PORT=8080 curl -fsSL https://risved.org/install | sh
+```
+
+### Requirements
+
+- Ubuntu or Debian
+- 2 GB RAM minimum (4 GB recommended)
+- 10 GB free disk space
+- Ports 80 and 443 available
+
+## Developing
+
+For local development, you'll need [Node.js 22+](https://nodejs.org/) (or [Bun](https://bun.sh/)) and [Docker](https://www.docker.com/).
+
+```sh
+git clone https://github.com/ralf/risved.git
+cd risved
+bun install
+```
+
+Copy the example environment file and fill in the values:
+
+```sh
+cp .env.example .env
+```
+
+```sh
+# .env
+DATABASE_URL=file:local.db
+ORIGIN="http://localhost:5173"
+BETTER_AUTH_SECRET="your-secret-here"
+
+# Optional — GitHub OAuth for login
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+```
+
+Then push the database schema:
+
+```sh
+bun run db:push
 ```
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Start the development server:
 
 ```sh
-npm run dev
+bun run dev
 
 # or start the server and open the app in a new browser tab
-npm run dev -- --open
+bun run dev -- --open
 ```
 
 ## Building
 
-To create a production version of your app:
+To create a production version of Risved:
 
 ```sh
-npm run build
+bun run build
 ```
 
-You can preview the production build with `npm run preview`.
+You can preview the production build with `bun run preview`.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Testing
+
+```sh
+# unit tests
+bun run test:unit
+
+# end-to-end tests (requires Playwright browsers)
+bun run test:e2e
+
+# all tests
+bun run test
+```
+
+## CLI
+
+Risved ships with a CLI for common management tasks:
+
+```sh
+# trigger a deployment
+risved deploy [project]
+
+# stream build logs
+risved logs [project]
+
+# show server and project status
+risved status
+
+# manage environment variables
+risved env [project]
+risved env [project] set KEY=VALUE
+risved env [project] rm KEY
+
+# reset admin password
+risved reset-password
+```
+
+## Supported Frameworks
+
+Risved auto-detects the framework used in your project and generates the appropriate Docker configuration.
+
+| Framework | Tier | Strategy |
+| --- | --- | --- |
+| SvelteKit | Hybrid | Node build, Deno serve |
+| Astro | Hybrid | Node build, Deno serve |
+| Fresh | Deno | Pure Deno |
+| Hono | Deno | Pure Deno |
+| Lume | Deno | Pure Deno |
+| Next.js | Node | Node build, Node serve |
+| Nuxt | Node | Node build, Node serve |
+| SolidStart | Node | Node build, Node serve |
+| TanStack Start | Node | Node build, Node serve |
+| Generic (Node/Deno) | Auto | Fallback for unrecognised projects |
