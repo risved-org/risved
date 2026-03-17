@@ -1,6 +1,6 @@
 # Risved
 
-A self-hosted deployment platform for web apps, powered by [SvelteKit](https://svelte.dev/docs/kit) and [Docker](https://www.docker.com/).
+Risved is an open-source deployment tool for running web apps on your own server. Designed for developers who care about craft, control, and where their data lives. Built in Copenhagen.
 
 ## Installing
 
@@ -24,73 +24,6 @@ RISVED_PORT=8080 curl -fsSL https://risved.org/install | sh
 - 2 GB RAM minimum (4 GB recommended)
 - 10 GB free disk space
 - Ports 80 and 443 available
-
-## Developing
-
-For local development, you'll need [Node.js 22+](https://nodejs.org/) (or [Bun](https://bun.sh/)) and [Docker](https://www.docker.com/).
-
-```sh
-git clone https://github.com/ralf/risved.git
-cd risved
-bun install
-```
-
-Copy the example environment file and fill in the values:
-
-```sh
-cp .env.example .env
-```
-
-```sh
-# .env
-DATABASE_URL=file:local.db
-ORIGIN="http://localhost:5173"
-BETTER_AUTH_SECRET="your-secret-here"
-
-# Optional — GitHub OAuth for login
-GITHUB_CLIENT_ID=""
-GITHUB_CLIENT_SECRET=""
-```
-
-Then push the database schema:
-
-```sh
-bun run db:push
-```
-
-## Developing
-
-Start the development server:
-
-```sh
-bun run dev
-
-# or start the server and open the app in a new browser tab
-bun run dev -- --open
-```
-
-## Building
-
-To create a production version of Risved:
-
-```sh
-bun run build
-```
-
-You can preview the production build with `bun run preview`.
-
-## Testing
-
-```sh
-# unit tests
-bun run test:unit
-
-# end-to-end tests (requires Playwright browsers)
-bun run test:e2e
-
-# all tests
-bun run test
-```
 
 ## CLI
 
@@ -131,3 +64,60 @@ Risved auto-detects the framework used in your project and generates the appropr
 | SolidStart | Node | Node build, Node serve |
 | TanStack Start | Node | Node build, Node serve |
 | Generic (Node/Deno) | Auto | Fallback for unrecognised projects |
+
+## Developing
+
+For local development, you'll need [Node.js 22+](https://nodejs.org/) (or [Bun](https://bun.sh/)) and [Docker](https://www.docker.com/).
+
+```sh
+git clone https://github.com/ralf/risved.git
+cd risved
+bun install
+```
+
+Copy the example environment file and fill in the values:
+
+```sh
+cp .env.example .env
+```
+
+```sh
+# .env
+DATABASE_URL=file:local.db
+ORIGIN="http://localhost:5173"
+BETTER_AUTH_SECRET="your-secret-here"
+
+# Optional — GitHub OAuth for login
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+```
+
+Then push the database schema and start the dev server:
+
+```sh
+bun run db:push
+bun run dev
+```
+
+## Building
+
+To create a production version of Risved:
+
+```sh
+bun run build
+```
+
+You can preview the production build with `bun run preview`.
+
+## Testing
+
+```sh
+# unit tests
+bun run test:unit
+
+# end-to-end tests (requires Playwright browsers)
+bun run test:e2e
+
+# all tests
+bun run test
+```
