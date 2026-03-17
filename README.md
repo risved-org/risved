@@ -52,18 +52,18 @@ risved reset-password
 
 Risved auto-detects the framework used in your project and generates the appropriate Docker configuration.
 
-| Framework | Tier | Strategy |
-| --- | --- | --- |
-| SvelteKit | Hybrid | Node build, Deno serve |
-| Astro | Hybrid | Node build, Deno serve |
-| Fresh | Deno | Pure Deno |
-| Hono | Deno | Pure Deno |
-| Lume | Deno | Pure Deno |
-| Next.js | Node | Node build, Node serve |
-| Nuxt | Node | Node build, Node serve |
-| SolidStart | Node | Node build, Node serve |
-| TanStack Start | Node | Node build, Node serve |
-| Generic (Node/Deno) | Auto | Fallback for unrecognised projects |
+| Framework | Strategy |
+| --- | --- |
+| SvelteKit | Hybrid |
+| Astro | Hybrid |
+| Fresh | Deno |
+| Hono | Deno |
+| Lume | Deno |
+| Next.js | Node |
+| Nuxt | Node |
+| SolidStart | Node |
+| TanStack Start | Node |
+| Generic (Node/Deno) | Auto |
 
 ## Developing
 
