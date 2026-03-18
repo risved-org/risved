@@ -182,10 +182,10 @@ describe('deploy skip action', () => {
 });
 
 describe('deploy page source', () => {
-	it('includes step indicator at step 3', async () => {
+	it('includes step indicator at step 4', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('StepIndicator');
-		expect(mod.default).toContain('current={3}');
+		expect(mod.default).toContain('current={4}');
 	});
 
 	it('has starter template grid', async () => {

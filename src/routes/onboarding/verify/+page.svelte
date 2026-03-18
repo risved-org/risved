@@ -9,13 +9,21 @@
 	let checking = $state(false);
 	let copiedIndex = $state<number | null>(null);
 
+	const hasV4 = !!data.serverIps.ipv4
+	const hasV6 = !!data.serverIps.ipv6
+	const typeLabel = hasV4 && hasV6 ? 'A and AAAA' : hasV6 ? 'AAAA' : 'A'
+
 	const providers = [
-		{ name: 'Cloudflare', hint: 'DNS → Add Record → Type A → Proxy status: DNS only' },
-		{ name: 'Namecheap', hint: 'Domain List → Manage → Advanced DNS → Add A Record' },
-		{ name: 'Simply.com', hint: 'DNS → Add Record → A → Enter host and value' },
-		{ name: 'Gandi', hint: 'DNS Records → Add → A record → Set name and value' },
-		{ name: 'GoDaddy', hint: 'DNS Management → Add → Type A → Enter details' },
-		{ name: 'Route53', hint: 'Hosted Zone → Create Record → Simple routing → A record' }
+		{ name: 'Cloudflare', hint: `DNS → Add Record → Type ${typeLabel} → Proxy status: DNS only` },
+		{ name: 'Namecheap', hint: `Domain List → Manage → Advanced DNS → Add ${typeLabel} Record${hasV4 && hasV6 ? 's' : ''}` },
+		{ name: 'Simply.com', hint: `DNS → Add Record → ${typeLabel} → Enter host and value` },
+		{ name: 'Gandi', hint: `DNS Records → Add → ${typeLabel} record${hasV4 && hasV6 ? 's' : ''} → Set name and value` },
+		{ name: 'GoDaddy', hint: `DNS Management → Add → Type ${typeLabel} → Enter details` },
+		{ name: 'Route53', hint: `Hosted Zone → Create Record → Simple routing → ${typeLabel} record${hasV4 && hasV6 ? 's' : ''}` },
+		{ name: 'Hover', hint: `DNS → Add ${typeLabel} Record${hasV4 && hasV6 ? 's' : ''} → Enter hostname and IP address` },
+		{ name: 'Dynadot', hint: `Manage → DNS Settings → Add DNS Record → Type ${typeLabel} → Enter IP` },
+		{ name: 'EuroDNS', hint: `DNS Zone → Add Record → Type ${typeLabel} → Set host and value` },
+		{ name: 'Porkbun', hint: `DNS Records → Add → Type ${typeLabel} → Enter host and answer (IP)` }
 	];
 
 	let activeProvider = $state<string | null>(null);
@@ -26,7 +34,7 @@
 		if (!form?.results) return null;
 		const map = new SvelteMap<string, boolean>();
 		for (const r of form.results) {
-			map.set(r.name, r.resolved);
+			map.set(`${r.type}:${r.name}`, r.resolved);
 		}
 		return map;
 	});
@@ -46,7 +54,7 @@
 
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={2} />
+		<StepIndicator current={3} />
 
 		<header>
 			<h1>Verify DNS records</h1>
@@ -56,18 +64,34 @@
 			</p>
 		</header>
 
-		<div class="server-ip">
-			<span class="ip-label">Your server IP</span>
-			<code class="ip-value">{data.serverIp}</code>
-			<button
-				type="button"
-				class="copy-btn"
-				onclick={() => copyToClipboard(data.serverIp, -1)}
-				aria-label="Copy server IP"
-			>
-				{copiedIndex === -1 ? 'Copied' : 'Copy'}
-			</button>
-		</div>
+		{#if data.serverIps.ipv4}
+			<div class="server-ip">
+				<span class="ip-label">IPv4</span>
+				<code class="ip-value">{data.serverIps.ipv4}</code>
+				<button
+					type="button"
+					class="copy-btn"
+					onclick={() => copyToClipboard(data.serverIps.ipv4!, -1)}
+					aria-label="Copy IPv4 address"
+				>
+					{copiedIndex === -1 ? 'Copied' : 'Copy'}
+				</button>
+			</div>
+		{/if}
+		{#if data.serverIps.ipv6}
+			<div class="server-ip">
+				<span class="ip-label">IPv6</span>
+				<code class="ip-value">{data.serverIps.ipv6}</code>
+				<button
+					type="button"
+					class="copy-btn"
+					onclick={() => copyToClipboard(data.serverIps.ipv6!, -2)}
+					aria-label="Copy IPv6 address"
+				>
+					{copiedIndex === -2 ? 'Copied' : 'Copy'}
+				</button>
+			</div>
+		{/if}
 
 		<div class="dns-records" role="table" aria-label="Required DNS records">
 			<div class="dns-header" role="row">
@@ -77,8 +101,8 @@
 				<span class="dns-col-status" role="columnheader">Status</span>
 				<span class="dns-col-action" role="columnheader"></span>
 			</div>
-			{#each data.records as record, i (record.name)}
-				{@const resolved = recordResults?.get(record.name)}
+			{#each data.records as record, i (`${record.type}:${record.name}`)}
+				{@const resolved = recordResults?.get(`${record.type}:${record.name}`)}
 				<div class="dns-row" class:resolved role="row">
 					<span class="dns-col-type dns-cell" role="cell">
 						<code>{record.type}</code>

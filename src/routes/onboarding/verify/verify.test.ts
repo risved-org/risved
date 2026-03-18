@@ -12,12 +12,12 @@ vi.mock('$lib/server/settings', () => ({
 vi.mock('$lib/server/dns', () => ({
 	generateDnsRecords: vi.fn(),
 	checkAllDnsRecords: vi.fn(),
-	getServerIp: vi.fn()
+	getServerIps: vi.fn()
 }));
 
 import { isFirstRun } from '$lib/server/auth-utils';
 import { getSetting, setSetting } from '$lib/server/settings';
-import { generateDnsRecords, checkAllDnsRecords, getServerIp } from '$lib/server/dns';
+import { generateDnsRecords, checkAllDnsRecords, getServerIps } from '$lib/server/dns';
 import { load, actions } from './+page.server';
 
 type LoadParams = Parameters<typeof load>[0];
@@ -81,7 +81,7 @@ describe('verify load', () => {
 		vi.mocked(isFirstRun).mockResolvedValue(false);
 		const config = { mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' };
 		vi.mocked(getSetting).mockResolvedValueOnce(JSON.stringify(config)).mockResolvedValueOnce(null);
-		vi.mocked(getServerIp).mockResolvedValue('1.2.3.4');
+		vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
 		const mockRecords = [
 			{ type: 'A', name: 'risved.example.com', value: '1.2.3.4', purpose: 'Dashboard' }
 		];
@@ -89,7 +89,7 @@ describe('verify load', () => {
 
 		const result = (await load({} as LoadParams)) as Record<string, unknown>;
 		expect(result.domainConfig).toEqual(config);
-		expect(result.serverIp).toBe('1.2.3.4');
+		expect(result.serverIps).toEqual({ ipv4: '1.2.3.4', ipv6: null });
 		expect(result.records).toEqual(mockRecords);
 		expect(result.dnsVerified).toBe(false);
 	});
@@ -100,7 +100,7 @@ describe('verify load', () => {
 		vi.mocked(getSetting)
 			.mockResolvedValueOnce(JSON.stringify(config))
 			.mockResolvedValueOnce('true');
-		vi.mocked(getServerIp).mockResolvedValue('1.2.3.4');
+		vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
 		vi.mocked(generateDnsRecords).mockReturnValue([]);
 
 		const result = (await load({} as LoadParams)) as Record<string, unknown>;
@@ -124,7 +124,7 @@ describe('verify check action', () => {
 	it('returns results when DNS not resolved', async () => {
 		const config = { mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' };
 		vi.mocked(getSetting).mockResolvedValue(JSON.stringify(config));
-		vi.mocked(getServerIp).mockResolvedValue('1.2.3.4');
+		vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
 		const records = [
 			{ type: 'A', name: 'risved.example.com', value: '1.2.3.4', purpose: 'Dashboard' },
 			{ type: 'A', name: '*.example.com', value: '1.2.3.4', purpose: 'Apps' }
@@ -139,8 +139,8 @@ describe('verify check action', () => {
 		expect(result).toMatchObject({
 			allResolved: false,
 			results: [
-				{ name: 'risved.example.com', resolved: false },
-				{ name: '*.example.com', resolved: false }
+				{ name: 'risved.example.com', type: 'A', resolved: false },
+				{ name: '*.example.com', type: 'A', resolved: false }
 			]
 		});
 		expect(setSetting).not.toHaveBeenCalled();
@@ -149,7 +149,7 @@ describe('verify check action', () => {
 	it('sets dns_verified when all records resolve', async () => {
 		const config = { mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' };
 		vi.mocked(getSetting).mockResolvedValue(JSON.stringify(config));
-		vi.mocked(getServerIp).mockResolvedValue('1.2.3.4');
+		vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
 		const records = [
 			{ type: 'A', name: 'risved.example.com', value: '1.2.3.4', purpose: 'Dashboard' }
 		];
@@ -179,10 +179,10 @@ describe('verify skip action', () => {
 });
 
 describe('verify page source', () => {
-	it('includes step indicator at step 2', async () => {
+	it('includes step indicator at step 3', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('StepIndicator');
-		expect(mod.default).toContain('current={2}');
+		expect(mod.default).toContain('current={3}');
 	});
 
 	it('has DNS records display', async () => {

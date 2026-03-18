@@ -9,7 +9,7 @@
 	let confirmPassword = $state('');
 	let submitting = $state(false);
 
-	const passwordTooShort = $derived(password.length > 0 && password.length < 12);
+	const passwordTooShort = $derived(password.length > 0 && password.length < 8);
 	const passwordsMatch = $derived(confirmPassword.length === 0 || password === confirmPassword);
 </script>
 
@@ -53,15 +53,15 @@
 					type="password"
 					autocomplete="new-password"
 					required
-					minlength={12}
+					minlength={8}
 					bind:value={password}
-					placeholder="At least 12 characters"
+					placeholder="At least 8 characters"
 				/>
 				{#if passwordTooShort}
 					<p class="hint error">
-						{password.length}/12 characters
+						{password.length}/8 characters
 					</p>
-				{:else if password.length >= 12}
+				{:else if password.length >= 8}
 					<p class="hint ok">
 						{password.length} characters
 					</p>
@@ -76,7 +76,7 @@
 					type="password"
 					autocomplete="new-password"
 					required
-					minlength={12}
+					minlength={8}
 					bind:value={confirmPassword}
 					placeholder="Repeat your password"
 				/>

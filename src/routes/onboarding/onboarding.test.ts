@@ -66,13 +66,13 @@ describe('onboarding action', () => {
 		expect(result).toMatchObject({ status: 400, data: { error: 'Email is required.' } });
 	});
 
-	it('rejects passwords shorter than 12 characters', async () => {
+	it('rejects passwords shorter than 8 characters', async () => {
 		const result = await actions.default(
 			makeEvent({ email: 'a@b.com', password: 'short', confirmPassword: 'short' })
 		);
 		expect(result).toMatchObject({
 			status: 400,
-			data: { error: 'Password must be at least 12 characters.' }
+			data: { error: 'Password must be at least 8 characters.' }
 		});
 	});
 
@@ -114,7 +114,7 @@ describe('onboarding action', () => {
 					confirmPassword: 'validpassword1'
 				})
 			)
-		).rejects.toMatchObject({ status: 303, location: '/onboarding/domain' });
+		).rejects.toMatchObject({ status: 303, location: '/onboarding/git' });
 
 		expect(auth.api.signUpEmail).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -187,17 +187,18 @@ describe('onboarding page source', () => {
 		expect(mod.default).toContain('confirmPassword');
 	});
 
-	it('has 12-char minimum validation hint', async () => {
+	it('has 8-char minimum validation hint', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('minlength={12}');
+		expect(mod.default).toContain('minlength={8}');
 	});
 });
 
 describe('step indicator source', () => {
-	it('shows four steps: Account, Domain, Verify, Deploy', async () => {
+	it('shows five steps: Account, Git, Domain, Verify, Deploy', async () => {
 		const mod = await import('./StepIndicator.svelte?raw');
 		const src = mod.default;
 		expect(src).toContain('Account');
+		expect(src).toContain('Git');
 		expect(src).toContain('Domain');
 		expect(src).toContain('Verify');
 		expect(src).toContain('Deploy');

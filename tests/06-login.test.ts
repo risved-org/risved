@@ -3,7 +3,7 @@ import { createClient } from '@libsql/client';
 
 test.describe('Login Screen', () => {
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -32,14 +32,14 @@ test.describe('Login Screen', () => {
 		await page.waitForURL('**/', { timeout: 60000 });
 
 		/* Mark onboarding complete */
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute(
 			"INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_complete', 'true')"
 		);
 		db.close();
 
 		/* Clear session so we land on login */
-		const db2 = createClient({ url: 'file:local.db' });
+		const db2 = createClient({ url: 'file:test.db' });
 		await db2.execute('DELETE FROM session');
 		db2.close();
 
@@ -75,7 +75,7 @@ test.describe('Login Screen', () => {
 
 	test('redirects unauthenticated users to login', async ({ page }) => {
 		/* Clear session */
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute('DELETE FROM session');
 		db.close();
 

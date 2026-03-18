@@ -23,7 +23,7 @@ async function waitForServerReady(baseUrl: string, maxWaitMs = 90000) {
  * This ensures tests start from a first-run state.
  */
 async function globalSetup() {
-	const client = createClient({ url: 'file:local.db' });
+	const client = createClient({ url: 'file:test.db' });
 
 	await client.executeMultiple(`
 		DELETE FROM session;
@@ -44,7 +44,7 @@ async function globalSetup() {
 	client.close();
 
 	/* Wait for SvelteKit types to be generated before tests start */
-	await waitForServerReady('http://localhost:5173');
+	await waitForServerReady('http://localhost:5174');
 }
 
 export default globalSetup;

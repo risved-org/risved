@@ -3,7 +3,7 @@ import { createClient } from '@libsql/client';
 
 test.describe('Onboarding: Success Screen', () => {
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -64,7 +64,7 @@ test.describe('Onboarding: Success Screen', () => {
 		/* Form action sets onboarding_complete then redirects — may land on /login if session context differs */
 		await page.waitForURL(/\/(login)?$/, { timeout: 15000 });
 
-		const client = (await import('@libsql/client')).createClient({ url: 'file:local.db' });
+		const client = (await import('@libsql/client')).createClient({ url: 'file:test.db' });
 		const result = await client.execute(
 			"SELECT value FROM settings WHERE key = 'onboarding_complete'"
 		);

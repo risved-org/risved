@@ -3,7 +3,7 @@ import { createClient } from '@libsql/client';
 
 test.describe('Onboarding: Domain Setup', () => {
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;

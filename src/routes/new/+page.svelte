@@ -50,6 +50,34 @@
 		envRows = envRows.filter((_, i) => i !== index);
 	}
 
+	/** Parse pasted .env content: split KEY=value on the first = sign */
+	function handleEnvPaste(event: ClipboardEvent, index: number) {
+		const text = event.clipboardData?.getData('text') ?? ''
+		if (!text.includes('=')) return
+
+		event.preventDefault()
+		const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'))
+		const parsed = lines.map((line) => {
+			const eqIndex = line.indexOf('=')
+			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: false }
+			return {
+				key: line.slice(0, eqIndex).trim(),
+				value: line.slice(eqIndex + 1).trim(),
+				isSecret: false
+			}
+		})
+
+		if (parsed.length === 0) return
+
+		/* Replace the current row with the first parsed entry, append the rest */
+		const updated = [...envRows]
+		updated[index] = { ...updated[index], ...parsed[0] }
+		for (let j = 1; j < parsed.length; j++) {
+			updated.splice(index + j, 0, parsed[j])
+		}
+		envRows = updated
+	}
+
 	/* Serialize env vars into hidden fields using unit separator */
 	const envKeysValue = $derived(envRows.map((r) => r.key).join('\x1F'));
 	const envValuesValue = $derived(envRows.map((r) => r.value).join('\x1F'));
@@ -82,6 +110,15 @@
 		<!-- Git source section -->
 		<section class="section" data-testid="git-section">
 			<h2 class="section-title">Git Source</h2>
+			<div class="import-hint">
+				<a href={resolve('/new/import')} class="import-link" data-testid="import-link">
+					Import from a connected Git provider
+				</a>
+				<span class="import-or">or enter a URL manually below</span>
+			</div>
+			<p class="provider-hint">
+				No provider connected? <a href={resolve('/settings/providers')} data-testid="connect-provider-link">Add a Git provider</a> to browse and import repos.
+			</p>
 			<div class="section-body">
 				<div class="field">
 					<label for="repoUrl">Repository URL</label>
@@ -185,6 +222,7 @@
 							type="text"
 							bind:value={row.key}
 							placeholder="KEY"
+							onpaste={(e) => handleEnvPaste(e, i)}
 							data-testid="env-key-input"
 						/>
 						<span class="env-eq">=</span>
@@ -312,6 +350,37 @@
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
+	}
+
+	.import-hint {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2);
+		font-size: 0.85rem;
+	}
+	.import-link {
+		color: var(--color-accent);
+		font-weight: 500;
+	}
+	.import-link:hover {
+		text-decoration: underline;
+	}
+	.import-or {
+		color: var(--color-text-2);
+	}
+
+	.provider-hint {
+		font-size: 0.8rem;
+		color: var(--color-text-2);
+	}
+
+	.provider-hint a {
+		color: var(--color-accent);
+		font-weight: 500;
+	}
+
+	.provider-hint a:hover {
+		text-decoration: underline;
 	}
 
 	.section-body {

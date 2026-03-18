@@ -3,7 +3,7 @@ import { createClient } from '@libsql/client';
 
 test.describe('Git Settings Screen', () => {
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -37,7 +37,7 @@ test.describe('Git Settings Screen', () => {
 		await page.getByRole('button', { name: /skip/i }).click();
 		await page.waitForURL('**/', { timeout: 60000 });
 
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute(
 			"INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_complete', 'true')"
 		);

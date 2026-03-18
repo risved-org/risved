@@ -45,7 +45,7 @@
 
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={1} />
+		<StepIndicator current={2} />
 
 		<header>
 			<h1>Configure your domain</h1>

@@ -33,6 +33,16 @@ export const GET: RequestHandler = async (event) => {
 			maxAge: 600
 		});
 
+		const returnTo = event.url.searchParams.get('redirect')
+		if (returnTo) {
+			event.cookies.set('gitlab_oauth_redirect', returnTo, {
+				path: '/',
+				httpOnly: true,
+				secure: false,
+				maxAge: 600
+			})
+		}
+
 		const redirectUri = `${event.url.origin}/api/git/gitlab?action=callback`;
 		const authUrl = getGitLabAuthUrl(clientId, redirectUri, state, instanceUrl);
 
@@ -102,7 +112,9 @@ export const GET: RequestHandler = async (event) => {
 			});
 		}
 
-		redirect(302, '/settings');
+		const returnTo = event.cookies.get('gitlab_oauth_redirect') || '/settings'
+		event.cookies.delete('gitlab_oauth_redirect', { path: '/' })
+		redirect(302, returnTo);
 	}
 
 	/* Default: list GitLab connections */

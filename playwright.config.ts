@@ -13,18 +13,22 @@ export default defineConfig({
 	workers: 1,
 	reporter: 'html',
 	use: {
-		baseURL: 'http://localhost:5173',
+		baseURL: 'http://localhost:5174',
 		trace: 'on-first-retry',
 		viewport: { width: 1366, height: 768 }
 	},
 
 	webServer: {
-		command: 'npx svelte-kit sync && npm run dev -- --host 0.0.0.0',
-		url: 'http://localhost:5173/login',
-		reuseExistingServer: true,
+		command: 'npx svelte-kit sync && npm run dev -- --host 0.0.0.0 --port 5174',
+		url: 'http://localhost:5174/login',
+		reuseExistingServer: !process.env.CI,
 		timeout: 120000,
 		stdout: 'pipe',
-		stderr: 'pipe'
+		stderr: 'pipe',
+		env: {
+			...process.env,
+			DATABASE_URL: 'file:test.db'
+		}
 	},
 
 	// NB: only chromium will run in Docker (arm64).

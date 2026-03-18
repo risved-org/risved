@@ -5,7 +5,7 @@ import { getSetting, setSetting } from '$lib/server/settings';
 import {
 	generateDnsRecords,
 	checkAllDnsRecords,
-	getServerIp,
+	getServerIps,
 	type DnsCheckResult
 } from '$lib/server/dns';
 import type { DomainConfig } from '../domain/+page.server';
@@ -33,13 +33,13 @@ export const load: PageServerLoad = async () => {
 		redirect(303, '/onboarding/deploy');
 	}
 
-	const serverIp = await getServerIp();
-	const records = generateDnsRecords(config.mode, config.baseDomain, config.prefix, serverIp);
+	const serverIps = await getServerIps();
+	const records = generateDnsRecords(config.mode, config.baseDomain, config.prefix, serverIps);
 	const dnsVerified = (await getSetting('dns_verified')) === 'true';
 
 	return {
 		domainConfig: config,
-		serverIp,
+		serverIps,
 		records,
 		dnsVerified
 	};
@@ -59,8 +59,8 @@ export const actions: Actions = {
 			redirect(303, '/onboarding/domain');
 		}
 
-		const serverIp = await getServerIp();
-		const records = generateDnsRecords(config.mode, config.baseDomain, config.prefix, serverIp);
+		const serverIps = await getServerIps();
+		const records = generateDnsRecords(config.mode, config.baseDomain, config.prefix, serverIps);
 		const results: DnsCheckResult[] = await checkAllDnsRecords(records);
 
 		const allResolved = results.length > 0 && results.every((r) => r.resolved);
@@ -72,10 +72,11 @@ export const actions: Actions = {
 		return {
 			results: results.map((r) => ({
 				name: r.record.name,
+				type: r.record.type,
 				resolved: r.resolved
 			})),
 			allResolved,
-			serverIp
+			serverIps
 		};
 	},
 

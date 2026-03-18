@@ -26,8 +26,8 @@
 		return 'ssl-pending';
 	}
 
-	function copyIp() {
-		navigator.clipboard.writeText(data.serverIp);
+	function copyIp(ip: string) {
+		navigator.clipboard.writeText(ip);
 		copied = true;
 		setTimeout(() => (copied = false), 2000);
 	}
@@ -198,25 +198,46 @@
 			<div class="dns-instructions" data-testid="dns-instructions">
 				<h3 class="subsection-title">DNS Configuration</h3>
 				<p class="dns-desc">
-					Point your domain to this server by creating an <strong>A record</strong>:
+					Point your domain to this server by creating DNS records:
 				</p>
-				<div class="dns-record-card" data-testid="dns-record">
-					<div class="dns-row">
-						<span class="dns-label">Type</span>
-						<span class="dns-value mono">A</span>
+				{#if data.serverIps.ipv4}
+					<div class="dns-record-card" data-testid="dns-record">
+						<div class="dns-row">
+							<span class="dns-label">Type</span>
+							<span class="dns-value mono">A</span>
+						</div>
+						<div class="dns-row">
+							<span class="dns-label">Name</span>
+							<span class="dns-value mono">{hostname || 'your-domain.com'}</span>
+						</div>
+						<div class="dns-row">
+							<span class="dns-label">Value</span>
+							<span class="dns-value mono" data-testid="server-ip">{data.serverIps.ipv4}</span>
+							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv4!)} data-testid="copy-ip-btn">
+								{copied ? 'Copied!' : 'Copy'}
+							</button>
+						</div>
 					</div>
-					<div class="dns-row">
-						<span class="dns-label">Name</span>
-						<span class="dns-value mono">{hostname || 'your-domain.com'}</span>
+				{/if}
+				{#if data.serverIps.ipv6}
+					<div class="dns-record-card" data-testid="dns-record-ipv6">
+						<div class="dns-row">
+							<span class="dns-label">Type</span>
+							<span class="dns-value mono">AAAA</span>
+						</div>
+						<div class="dns-row">
+							<span class="dns-label">Name</span>
+							<span class="dns-value mono">{hostname || 'your-domain.com'}</span>
+						</div>
+						<div class="dns-row">
+							<span class="dns-label">Value</span>
+							<span class="dns-value mono" data-testid="server-ipv6">{data.serverIps.ipv6}</span>
+							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv6!)} data-testid="copy-ipv6-btn">
+								{copied ? 'Copied!' : 'Copy'}
+							</button>
+						</div>
 					</div>
-					<div class="dns-row">
-						<span class="dns-label">Value</span>
-						<span class="dns-value mono" data-testid="server-ip">{data.serverIp}</span>
-						<button class="btn-copy" onclick={copyIp} data-testid="copy-ip-btn">
-							{copied ? 'Copied!' : 'Copy'}
-						</button>
-					</div>
-				</div>
+				{/if}
 			</div>
 
 			<!-- Routing diagram -->
@@ -230,7 +251,7 @@
 					<span class="diagram-arrow">→</span>
 					<div class="diagram-node">
 						<span class="diagram-icon">DNS</span>
-						<span class="diagram-label">A Record</span>
+						<span class="diagram-label">A / AAAA</span>
 					</div>
 					<span class="diagram-arrow">→</span>
 					<div class="diagram-node">

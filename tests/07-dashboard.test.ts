@@ -3,7 +3,7 @@ import { createClient } from '@libsql/client';
 
 test.describe('Dashboard Screen', () => {
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -35,7 +35,7 @@ test.describe('Dashboard Screen', () => {
 		await page.waitForURL('**/', { timeout: 60000 });
 
 		/* Mark onboarding complete */
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute(
 			"INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_complete', 'true')"
 		);
@@ -78,7 +78,7 @@ test.describe('Dashboard Screen', () => {
 
 	test('shows project rows after adding a project', async ({ page }) => {
 		/* Insert a test project directly */
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute(
 			"INSERT OR IGNORE INTO projects (id, name, slug, repo_url, branch, framework_id, created_at, updated_at) VALUES ('test-proj-1', 'My SvelteKit App', 'my-sveltekit-app', 'https://github.com/test/repo', 'main', 'sveltekit', '2026-03-10T00:00:00Z', '2026-03-10T00:00:00Z')"
 		);

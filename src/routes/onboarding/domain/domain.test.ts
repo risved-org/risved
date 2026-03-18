@@ -174,10 +174,10 @@ describe('domain action', () => {
 });
 
 describe('domain page source', () => {
-	it('includes step indicator at step 1', async () => {
+	it('includes step indicator at step 2', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('StepIndicator');
-		expect(mod.default).toContain('current={1}');
+		expect(mod.default).toContain('current={2}');
 	});
 
 	it('has three radio card options', async () => {

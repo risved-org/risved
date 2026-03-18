@@ -13,7 +13,7 @@ async function cli(...args: string[]) {
 	try {
 		const { stdout, stderr } = await exec('node', [CLI, ...args], {
 			cwd: resolve(__dirname, '..'),
-			env: { ...process.env, DATABASE_URL: 'file:local.db' }
+			env: { ...process.env, DATABASE_URL: 'file:test.db' }
 		});
 		return { stdout, stderr, code: 0 };
 	} catch (e: unknown) {
@@ -24,7 +24,7 @@ async function cli(...args: string[]) {
 
 test.describe('CLI Tool', () => {
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -57,7 +57,7 @@ test.describe('CLI Tool', () => {
 		await page.getByRole('button', { name: /skip/i }).click();
 		await page.waitForURL('**/', { timeout: 60000 });
 
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute(
 			"INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_complete', 'true')"
 		);

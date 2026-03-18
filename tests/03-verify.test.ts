@@ -3,7 +3,7 @@ import { createClient } from '@libsql/client';
 
 test.describe('Onboarding: DNS Verification', () => {
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -96,7 +96,7 @@ test.describe('Onboarding: DNS Verification', () => {
 		const response = await responsePromise;
 		expect(response.status()).toBe(303);
 
-		const client = (await import('@libsql/client')).createClient({ url: 'file:local.db' });
+		const client = (await import('@libsql/client')).createClient({ url: 'file:test.db' });
 		const result = await client.execute(
 			"SELECT value FROM settings WHERE key = 'dns_verified'"
 		);

@@ -12,7 +12,7 @@ export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: 'sqlite' }),
 	emailAndPassword: {
 		enabled: true,
-		minPasswordLength: 12,
+		minPasswordLength: 8,
 		autoSignIn: true
 	},
 	plugins: [passkey(), sveltekitCookies(getRequestEvent)]

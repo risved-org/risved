@@ -81,8 +81,8 @@ export const actions: Actions = {
 		if (!currentPassword) {
 			return fail(400, { passwordError: 'Current password is required' });
 		}
-		if (!newPassword || newPassword.length < 12) {
-			return fail(400, { passwordError: 'New password must be at least 12 characters' });
+		if (!newPassword || newPassword.length < 8) {
+			return fail(400, { passwordError: 'New password must be at least 8 characters' });
 		}
 		if (newPassword !== confirmPassword) {
 			return fail(400, { passwordError: 'Passwords do not match' });

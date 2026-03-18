@@ -37,7 +37,7 @@ vi.mock('$lib/server/db/schema', () => ({
 }));
 
 vi.mock('$lib/server/dns', () => ({
-	getServerIp: vi.fn().mockResolvedValue('1.2.3.4'),
+	getServerIps: vi.fn().mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null }),
 	checkDnsRecord: vi.fn().mockResolvedValue({ resolved: true })
 }));
 
@@ -90,11 +90,11 @@ describe('domains load', () => {
 		} as Parameters<typeof load>[0])) as {
 			project: { id: string; slug: string };
 			domains: Array<{ id: string; hostname: string }>;
-			serverIp: string;
+			serverIps: { ipv4: string | null; ipv6: string | null };
 		};
 
 		expect(result.project.slug).toBe('test');
-		expect(result.serverIp).toBe('1.2.3.4');
+		expect(result.serverIps).toEqual({ ipv4: '1.2.3.4', ipv6: null });
 	});
 
 	it('calls db.select for project lookup', async () => {

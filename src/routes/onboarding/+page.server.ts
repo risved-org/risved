@@ -23,8 +23,8 @@ export const actions: Actions = {
 			return fail(400, { email, error: 'Email is required.' });
 		}
 
-		if (password.length < 12) {
-			return fail(400, { email, error: 'Password must be at least 12 characters.' });
+		if (password.length < 8) {
+			return fail(400, { email, error: 'Password must be at least 8 characters.' });
 		}
 
 		if (password !== confirmPassword) {
@@ -48,6 +48,6 @@ export const actions: Actions = {
 			return fail(500, { email, error: 'An unexpected error occurred.' });
 		}
 
-		redirect(303, '/onboarding/domain');
+		redirect(303, '/onboarding/git');
 	}
 };

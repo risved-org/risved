@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { domains } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
-import { checkDnsRecord, getServerIp } from '$lib/server/dns';
+import { checkDnsRecord, getServerIps } from '$lib/server/dns';
 import type { RequestHandler } from './$types';
 
 /**
@@ -25,19 +25,23 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const domain = rows[0];
-	const serverIp = await getServerIp();
+	const serverIps = await getServerIps();
 
-	const result = await checkDnsRecord({
-		type: 'A',
-		name: domain.hostname,
-		value: serverIp,
-		purpose: 'Custom domain'
-	});
+	const checks = []
+	if (serverIps.ipv4) {
+		checks.push(checkDnsRecord({ type: 'A', name: domain.hostname, value: serverIps.ipv4, purpose: 'Custom domain' }))
+	}
+	if (serverIps.ipv6) {
+		checks.push(checkDnsRecord({ type: 'AAAA', name: domain.hostname, value: serverIps.ipv6, purpose: 'Custom domain (IPv6)' }))
+	}
+
+	const results = await Promise.all(checks)
+	const anyResolved = results.some((r) => r.resolved)
 
 	let sslStatus: string;
 	let verifiedAt: string | null = domain.verifiedAt;
 
-	if (result.resolved) {
+	if (anyResolved) {
 		sslStatus = domain.sslStatus === 'active' ? 'active' : 'provisioning';
 		verifiedAt = verifiedAt ?? new Date().toISOString();
 	} else {
@@ -52,7 +56,7 @@ export const POST: RequestHandler = async (event) => {
 
 	return json({
 		...updated,
-		dnsResolved: result.resolved,
-		expectedIp: serverIp
+		dnsResolved: anyResolved,
+		expectedIps: serverIps
 	});
 };

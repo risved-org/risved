@@ -10,13 +10,14 @@ test.describe('Onboarding: Create Admin Account', () => {
 		await expect(page.locator('input#confirmPassword')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible();
 
-		// Step indicator should show 4 steps
+		// Step indicator should show 5 steps
 		const steps = page.locator('.step-label');
-		await expect(steps).toHaveCount(4);
+		await expect(steps).toHaveCount(5);
 		await expect(steps.nth(0)).toHaveText('Account');
-		await expect(steps.nth(1)).toHaveText('Domain');
-		await expect(steps.nth(2)).toHaveText('Verify');
-		await expect(steps.nth(3)).toHaveText('Deploy');
+		await expect(steps.nth(1)).toHaveText('Git');
+		await expect(steps.nth(2)).toHaveText('Domain');
+		await expect(steps.nth(3)).toHaveText('Verify');
+		await expect(steps.nth(4)).toHaveText('Deploy');
 
 		// Take screenshot
 		await page.screenshot({ path: '.agent/screenshots/TASK-2-1.png', fullPage: true });

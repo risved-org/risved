@@ -6,7 +6,7 @@ test.describe('PR Status Checks Configuration', () => {
 	const SLUG = 'checks-app';
 
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -41,7 +41,7 @@ test.describe('PR Status Checks Configuration', () => {
 		await page.waitForURL('**/', { timeout: 60000 });
 
 		/* Seed test data */
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute(
 			"INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_complete', 'true')"
 		);

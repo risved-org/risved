@@ -7,7 +7,7 @@ test.describe('Build Log Screen', () => {
 	const SLUG = 'buildlog-app';
 
 	test.beforeAll(async ({ browser }) => {
-		const client = createClient({ url: 'file:local.db' });
+		const client = createClient({ url: 'file:test.db' });
 		await client.executeMultiple(`
 			DELETE FROM session;
 			DELETE FROM account;
@@ -40,7 +40,7 @@ test.describe('Build Log Screen', () => {
 		await page.waitForURL('**/', { timeout: 60000 });
 
 		/* Mark onboarding complete + seed test data */
-		const db = createClient({ url: 'file:local.db' });
+		const db = createClient({ url: 'file:test.db' });
 		await db.execute(
 			"INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_complete', 'true')"
 		);

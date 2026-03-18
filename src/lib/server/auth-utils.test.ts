@@ -47,9 +47,9 @@ describe('auth-utils', () => {
 });
 
 describe('auth configuration', () => {
-	it('requires 12 character minimum password', async () => {
+	it('requires 8 character minimum password', async () => {
 		const mod = await import('./auth.ts?raw');
-		expect(mod.default).toContain('minPasswordLength: 12');
+		expect(mod.default).toContain('minPasswordLength: 8');
 	});
 
 	it('does not include social providers', async () => {

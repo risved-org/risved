@@ -3,6 +3,7 @@
 
 	const steps: Step[] = [
 		{ label: 'Account', href: '/onboarding' },
+		{ label: 'Git', href: '/onboarding/git' },
 		{ label: 'Domain', href: '/onboarding/domain' },
 		{ label: 'Verify', href: '/onboarding/verify' },
 		{ label: 'Deploy', href: '/onboarding/deploy' }

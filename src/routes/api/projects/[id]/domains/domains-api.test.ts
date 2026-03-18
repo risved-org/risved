@@ -47,7 +47,7 @@ vi.mock('$lib/server/caddy', () => ({
 
 vi.mock('$lib/server/dns', () => ({
 	checkDnsRecord: vi.fn().mockResolvedValue({ resolved: true }),
-	getServerIp: vi.fn().mockResolvedValue('1.2.3.4')
+	getServerIps: vi.fn().mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null })
 }));
 
 /* ── Helpers ──────────────────────────────────────────────────────── */

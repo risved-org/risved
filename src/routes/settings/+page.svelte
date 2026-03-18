@@ -336,7 +336,7 @@
 						class="form-input"
 						data-testid="new-password-input"
 					/>
-					<p class="form-hint">Minimum 12 characters.</p>
+					<p class="form-hint">Minimum 8 characters.</p>
 				</div>
 
 				<div class="form-group">

@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { projects, domains } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getServerIp, checkDnsRecord } from '$lib/server/dns';
+import { getServerIps, checkDnsRecord } from '$lib/server/dns';
 import { CaddyClient } from '$lib/server/caddy';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const project = proj[0];
 	const doms = await db.select().from(domains).where(eq(domains.projectId, project.id));
-	const serverIp = await getServerIp();
+	const serverIps = await getServerIps();
 
 	return {
 		project: {
@@ -33,7 +33,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			verifiedAt: d.verifiedAt,
 			createdAt: d.createdAt
 		})),
-		serverIp
+		serverIps
 	};
 };
 
@@ -103,19 +103,23 @@ export const actions: Actions = {
 		}
 
 		const domain = rows[0];
-		const serverIp = await getServerIp();
+		const serverIps = await getServerIps();
 
-		const result = await checkDnsRecord({
-			type: 'A',
-			name: domain.hostname,
-			value: serverIp,
-			purpose: 'Custom domain'
-		});
+		const checks = []
+		if (serverIps.ipv4) {
+			checks.push(checkDnsRecord({ type: 'A', name: domain.hostname, value: serverIps.ipv4, purpose: 'Custom domain' }))
+		}
+		if (serverIps.ipv6) {
+			checks.push(checkDnsRecord({ type: 'AAAA', name: domain.hostname, value: serverIps.ipv6, purpose: 'Custom domain (IPv6)' }))
+		}
+
+		const results = await Promise.all(checks)
+		const anyResolved = results.some((r) => r.resolved)
 
 		let sslStatus: string;
 		let verifiedAt: string | null = domain.verifiedAt;
 
-		if (result.resolved) {
+		if (anyResolved) {
 			sslStatus = domain.sslStatus === 'active' ? 'active' : 'provisioning';
 			verifiedAt = verifiedAt ?? new Date().toISOString();
 		} else {
@@ -124,7 +128,7 @@ export const actions: Actions = {
 
 		await db.update(domains).set({ sslStatus, verifiedAt }).where(eq(domains.id, domainId));
 
-		return { verified: result.resolved, domainId, sslStatus };
+		return { verified: anyResolved, domainId, sslStatus };
 	},
 
 	/** Set a domain as primary. */
