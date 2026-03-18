@@ -47,6 +47,55 @@
 	);
 
 	let rollingBack = $state<string | null>(null);
+	let triggeringCron = $state<string | null>(null);
+	let expandedCron = $state<string | null>(null);
+
+	function cronStatusClass(status: string | undefined): string {
+		if (!status) return '';
+		if (status === 'success') return 'cron-success';
+		if (status === 'timeout') return 'cron-timeout';
+		return 'cron-failed';
+	}
+
+	function describeSchedule(expr: string): string {
+		const parts = expr.trim().split(/\s+/);
+		if (parts.length < 5) return expr;
+		const [min, hour, dom, mon, dow] = parts;
+
+		if (min === '*' && hour === '*') return 'Every minute';
+		if (min === '0' && hour === '*') return 'Every hour';
+		if (min === '0' && hour === '0' && dom === '*' && mon === '*' && dow === '*')
+			return 'Daily at midnight';
+		if (dom === '*' && mon === '*' && dow === '*' && hour !== '*')
+			return `Daily at ${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
+		if (dom === '*' && mon === '*' && dow === '1')
+			return `Mondays at ${hour.padStart(2, '0')}:${min.padStart(2, '0')}`;
+		return expr;
+	}
+
+	async function handleTriggerCron(jobId: string) {
+		triggeringCron = jobId;
+		try {
+			await fetch(`/api/projects/${data.project.id}/crons/${jobId}/trigger`, { method: 'POST' });
+			window.location.reload();
+		} finally {
+			triggeringCron = null;
+		}
+	}
+
+	async function handleDeleteCron(jobId: string) {
+		await fetch(`/api/projects/${data.project.id}/crons/${jobId}`, { method: 'DELETE' });
+		window.location.reload();
+	}
+
+	async function handleToggleCron(jobId: string, enabled: boolean) {
+		await fetch(`/api/projects/${data.project.id}/crons/${jobId}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ enabled })
+		});
+		window.location.reload();
+	}
 
 	function handleRedeploy() {
 		fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' });
@@ -234,7 +283,14 @@
 
 	<!-- Environment Variables -->
 	<section class="section" data-testid="env-section">
-		<h2 class="section-title">Environment Variables</h2>
+		<div class="section-header">
+			<h2 class="section-title">Environment Variables</h2>
+			<a
+				href={resolve(`/projects/${data.project.slug}/settings`)}
+				class="btn-sm"
+				data-testid="edit-env-btn">Edit</a
+			>
+		</div>
 		{#if data.envVars.length === 0}
 			<p class="empty-text">No environment variables configured.</p>
 		{:else}
@@ -244,6 +300,72 @@
 						<span class="env-key">{env.key}</span>
 						<span class="env-eq">=</span>
 						<span class="env-val" class:env-secret={env.isSecret}>{env.value}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	<!-- Cron Jobs -->
+	<section class="section" data-testid="crons-section">
+		<div class="section-header">
+			<h2 class="section-title">Scheduled Tasks</h2>
+			<a
+				href={resolve(`/projects/${data.project.slug}/crons`)}
+				class="btn-sm"
+				data-testid="manage-crons-btn">Manage</a
+			>
+		</div>
+		{#if data.cronJobs.length === 0}
+			<p class="empty-text">No scheduled tasks configured.</p>
+		{:else}
+			<div class="cron-list">
+				{#each data.cronJobs as job (job.id)}
+					<div class="cron-row" data-testid="cron-row">
+						<div class="cron-main">
+							<label class="cron-toggle">
+								<input
+									type="checkbox"
+									checked={job.enabled}
+									oninput={() => handleToggleCron(job.id, !job.enabled)}
+								/>
+							</label>
+							<div class="cron-info">
+								<span class="cron-name" class:cron-disabled={!job.enabled}>{job.name}</span>
+								<span class="cron-route mono">{job.method} {job.route}</span>
+							</div>
+							<span class="cron-schedule mono" title={job.schedule}>{describeSchedule(job.schedule)}</span>
+							{#if job.lastRun}
+								<span class="cron-last-run {cronStatusClass(job.lastRun.status)}">
+									{#if job.lastRun.statusCode}
+										{job.lastRun.statusCode}
+									{:else}
+										{job.lastRun.status}
+									{/if}
+								</span>
+								<span class="cron-last-time mono">{timeAgo(job.lastRun.startedAt)}</span>
+							{:else}
+								<span class="cron-last-run muted">—</span>
+								<span class="cron-last-time muted">never</span>
+							{/if}
+							<span class="cron-actions">
+								<button
+									class="btn-action"
+									data-testid="trigger-cron-btn"
+									disabled={triggeringCron === job.id}
+									onclick={() => handleTriggerCron(job.id)}
+								>
+									{triggeringCron === job.id ? 'Running…' : 'Trigger'}
+								</button>
+								<button
+									class="btn-action btn-action-danger"
+									onclick={() => handleDeleteCron(job.id)}
+									aria-label="Delete cron job {job.name}"
+								>
+									Delete
+								</button>
+							</span>
+						</div>
 					</div>
 				{/each}
 			</div>
@@ -670,6 +792,106 @@
 	}
 	.ssl-active {
 		color: var(--color-live);
+	}
+
+	/* Cron jobs */
+	.cron-list {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+	.cron-row {
+		border-bottom: 1px solid var(--color-border);
+	}
+	.cron-row:last-child {
+		border-bottom: none;
+	}
+	.cron-main {
+		display: grid;
+		grid-template-columns: 24px 1fr auto auto auto auto;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-3);
+		font-size: 0.8125rem;
+	}
+	.cron-toggle input[type='checkbox'] {
+		width: 16px;
+		height: 16px;
+		accent-color: var(--color-accent);
+		cursor: pointer;
+	}
+	.cron-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+	.cron-name {
+		font-weight: 500;
+		color: var(--color-text-0);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.cron-disabled {
+		color: var(--color-text-2);
+	}
+	.cron-route {
+		color: var(--color-text-2);
+		font-size: 0.75rem;
+	}
+	.cron-schedule {
+		color: var(--color-text-1);
+		white-space: nowrap;
+	}
+	.cron-last-run {
+		padding: 1px 6px;
+		border-radius: var(--radius-sm);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		white-space: nowrap;
+	}
+	.cron-success {
+		background: rgba(34, 197, 94, 0.15);
+		color: var(--color-live);
+	}
+	.cron-failed {
+		background: rgba(239, 68, 68, 0.15);
+		color: var(--color-failed);
+	}
+	.cron-timeout {
+		background: rgba(234, 179, 8, 0.15);
+		color: var(--color-building);
+	}
+	.cron-last-time {
+		color: var(--color-text-2);
+		white-space: nowrap;
+	}
+	.cron-actions {
+		display: flex;
+		gap: var(--space-1);
+	}
+	.btn-action {
+		padding: 2px 8px;
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-1);
+		font-size: 0.75rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.btn-action:hover {
+		border-color: var(--color-text-2);
+		color: var(--color-text-0);
+	}
+	.btn-action:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.btn-action-danger:hover {
+		border-color: var(--color-failed);
+		color: var(--color-failed);
 	}
 
 	/* Danger zone */

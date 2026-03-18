@@ -7,6 +7,7 @@ import { isOnboardingComplete } from '$lib/server/settings';
 import { getHealthMonitor } from '$lib/server/health';
 import { getMetricsCollector } from '$lib/server/metrics';
 import { getCleanupManager } from '$lib/server/cleanup';
+import { getCronScheduler } from '$lib/server/cron';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
@@ -17,6 +18,7 @@ if (!building) {
 	getHealthMonitor().start();
 	getMetricsCollector().start();
 	getCleanupManager().start();
+	getCronScheduler().start();
 }
 
 const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks'];

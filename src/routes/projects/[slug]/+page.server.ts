@@ -6,13 +6,17 @@ import {
 	domains,
 	envVars,
 	webhookDeliveries,
-	healthEvents
+	healthEvents,
+	cronJobs,
+	cronRuns
 } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { safeDecrypt } from '$lib/server/crypto';
 import { getHealthMonitor } from '$lib/server/health';
 import { getProjectMetrics } from '$lib/server/metrics';
 import type { PageServerLoad, Actions } from './$types';
+
+import { getCronScheduler } from '$lib/server/cron';
 
 const FRAMEWORK_NAMES: Record<string, string> = {
 	sveltekit: 'SvelteKit',
@@ -22,7 +26,9 @@ const FRAMEWORK_NAMES: Record<string, string> = {
 	nextjs: 'Next.js',
 	nuxt: 'Nuxt',
 	lume: 'Lume',
-	solidstart: 'SolidStart'
+	solidstart: 'SolidStart',
+	'tanstack-start': 'TanStack Start',
+	generic: 'Generic'
 };
 
 /** Mask a secret value, showing only the first 4 chars of the decrypted value. */
@@ -81,6 +87,40 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	/* Resource metrics (last 24h) */
 	const metrics = await getProjectMetrics(project.id, 24);
+
+	/* Cron jobs with latest run */
+	const crons = await db
+		.select()
+		.from(cronJobs)
+		.where(eq(cronJobs.projectId, project.id));
+
+	const cronJobsWithLastRun = await Promise.all(
+		crons.map(async (job) => {
+			const lastRun = await db
+				.select()
+				.from(cronRuns)
+				.where(eq(cronRuns.cronJobId, job.id))
+				.orderBy(desc(cronRuns.startedAt))
+				.limit(1);
+			return {
+				id: job.id,
+				name: job.name,
+				route: job.route,
+				method: job.method,
+				schedule: job.schedule,
+				timezone: job.timezone,
+				enabled: job.enabled,
+				lastRun: lastRun[0]
+					? {
+							status: lastRun[0].status,
+							statusCode: lastRun[0].statusCode,
+							startedAt: lastRun[0].startedAt,
+							durationMs: lastRun[0].durationMs
+						}
+					: null
+			};
+		})
+	);
 
 	/* Container health */
 	const monitor = getHealthMonitor();
@@ -143,7 +183,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			message: e.message,
 			createdAt: e.createdAt
 		})),
-		resourceMetrics: metrics
+		resourceMetrics: metrics,
+		cronJobs: cronJobsWithLastRun
 	};
 };
 
@@ -160,6 +201,7 @@ export const actions: Actions = {
 		const projectId = proj[0].id;
 
 		/* Delete associated data */
+		await getCronScheduler().deleteProjectJobs(projectId);
 		await db.delete(webhookDeliveries).where(eq(webhookDeliveries.projectId, projectId));
 		await db.delete(envVars).where(eq(envVars.projectId, projectId));
 		await db.delete(domains).where(eq(domains.projectId, projectId));

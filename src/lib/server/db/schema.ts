@@ -186,4 +186,36 @@ export const healthEvents = sqliteTable('health_events', {
 		.$defaultFn(() => new Date().toISOString())
 });
 
+export const cronJobs = sqliteTable('cron_jobs', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	projectId: text('project_id').notNull(),
+	name: text('name').notNull(),
+	route: text('route').notNull(),
+	method: text('method').notNull().default('GET'),
+	schedule: text('schedule').notNull(),
+	timezone: text('timezone').notNull().default('UTC'),
+	enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString()),
+	updatedAt: text('updated_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
+export const cronRuns = sqliteTable('cron_runs', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	cronJobId: text('cron_job_id').notNull(),
+	status: text('status').notNull(), // 'success' | 'failed' | 'timeout'
+	statusCode: integer('status_code'),
+	responseBody: text('response_body'),
+	durationMs: integer('duration_ms'),
+	startedAt: text('started_at').notNull(),
+	completedAt: text('completed_at')
+});
+
 export * from './auth.schema';

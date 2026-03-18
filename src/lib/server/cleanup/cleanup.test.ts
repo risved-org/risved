@@ -8,7 +8,8 @@ vi.mock('$lib/server/db', () => ({
 
 vi.mock('$lib/server/db/schema', () => ({
 	deployments: { id: 'id', createdAt: 'created_at' },
-	buildLogs: { deploymentId: 'deployment_id' }
+	buildLogs: { deploymentId: 'deployment_id' },
+	cronRuns: { startedAt: 'started_at' }
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -90,7 +91,8 @@ describe('CleanupManager', () => {
 		const result = await manager.runCleanup();
 
 		expect(result.deploymentsRemoved).toBe(2);
-		expect(mockDb.delete).toHaveBeenCalledTimes(2);
+		/* 3 deletes: cronRuns cleanup + buildLogs + deployments */
+		expect(mockDb.delete).toHaveBeenCalledTimes(3);
 	});
 
 	it('uses default retention when setting is invalid', async () => {

@@ -30,7 +30,16 @@ vi.mock('$lib/server/db/schema', () => ({
 	deployments: 'deployments_table',
 	domains: 'domains_table',
 	envVars: 'env_vars_table',
-	webhookDeliveries: 'webhook_deliveries_table'
+	webhookDeliveries: 'webhook_deliveries_table',
+	healthEvents: 'health_events_table',
+	cronJobs: 'cron_jobs_table',
+	cronRuns: 'cron_runs_table'
+}));
+
+vi.mock('$lib/server/cron', () => ({
+	getCronScheduler: vi.fn().mockReturnValue({
+		deleteProjectJobs: vi.fn().mockResolvedValue(undefined)
+	})
 }));
 
 import { db } from '$lib/server/db';
@@ -121,6 +130,13 @@ describe('project detail page source', () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('domains-section');
 		expect(mod.default).toContain('domain-row');
+	});
+
+	it('has cron jobs section', async () => {
+		const mod = await import('./+page.svelte?raw');
+		expect(mod.default).toContain('crons-section');
+		expect(mod.default).toContain('Scheduled Tasks');
+		expect(mod.default).toContain('cron-row');
 	});
 
 	it('has danger zone with delete', async () => {

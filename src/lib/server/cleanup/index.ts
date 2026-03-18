@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { deployments, buildLogs } from '$lib/server/db/schema';
+import { deployments, buildLogs, cronRuns } from '$lib/server/db/schema';
 import { lt, inArray } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import type { CleanupConfig, CleanupResult, DockerDiskUsage, DockerPruneResult } from './types';
@@ -69,6 +69,9 @@ export class CleanupManager {
 				.select({ id: deployments.id })
 				.from(deployments)
 				.where(lt(deployments.createdAt, cutoffISO));
+
+			/* Always clean up old cron runs regardless of deployments */
+			await db.delete(cronRuns).where(lt(cronRuns.startedAt, cutoffISO));
 
 			if (oldDeployments.length === 0) {
 				return { deploymentsRemoved: 0, buildLogsRemoved: 0, cutoffDate: cutoffISO };
