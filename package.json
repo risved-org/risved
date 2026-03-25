@@ -32,7 +32,8 @@
 		"@fontsource/mozilla-text": "^5.2.2",
 		"@libsql/client": "^0.17.0",
 		"croner": "^10.0.1",
-		"drizzle-orm": "^0.45.1"
+		"drizzle-orm": "^0.45.1",
+		"svelte-adapter-deno": "^0.9.1"
 	},
 	"devDependencies": {
 		"@better-auth/cli": "^1.4.21",
