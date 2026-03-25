@@ -36,7 +36,7 @@
 <div class="login">
 	<div class="login-card">
 		<header>
-			<h1 class="wordmark">RISVED</h1>
+			<h1 class="wordmark">Risved</h1>
 			<p class="subtitle">Sign in to your instance</p>
 		</header>
 
@@ -127,24 +127,25 @@
 
 	.login-card {
 		width: 100%;
-		max-width: 380px;
+		max-width: 24rem;
+		margin-bottom: 6rem;
 	}
 
 	header {
 		text-align: center;
-		margin-bottom: var(--space-8);
+		margin-bottom: var(--space-6);
 	}
 
 	.wordmark {
-		font-size: 2rem;
+		font-size: 3rem;
 		font-weight: 700;
-		letter-spacing: 0.12em;
+		letter-spacing: normal;
 		margin-bottom: var(--space-2);
 	}
 
 	.subtitle {
 		color: var(--color-text-1);
-		font-size: 0.9rem;
+		font-size: 1.25rem;
 	}
 
 	form {
@@ -160,7 +161,7 @@
 	}
 
 	label {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-1);
 	}
@@ -171,7 +172,7 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-0);
-		font-size: 0.9rem;
+		font-size: 1rem;
 		outline: none;
 		transition:
 			border-color 0.15s,
@@ -184,16 +185,16 @@
 
 	input:focus {
 		border-color: var(--color-accent);
-		box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
 	}
 
 	.form-error {
 		padding: var(--space-2) var(--space-3);
-		background: rgba(239, 68, 68, 0.1);
-		border: 1px solid rgba(239, 68, 68, 0.25);
+		background: color-mix(in srgb, var(--color-failed) 10%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-failed) 25%, transparent);
 		border-radius: var(--radius-md);
 		color: var(--color-failed);
-		font-size: 0.85rem;
+		font-size: .875rem;
 	}
 
 	button {
@@ -202,8 +203,8 @@
 		color: white;
 		border: none;
 		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
+		font-weight: 600;
+		font-size: 1rem;
 		cursor: pointer;
 		transition:
 			background 0.15s,
@@ -225,7 +226,7 @@
 		align-items: center;
 		gap: var(--space-3);
 		color: var(--color-text-2);
-		font-size: 0.8rem;
+		font-size: .875rem;
 	}
 	.divider::before,
 	.divider::after {
@@ -249,13 +250,13 @@
 
 	.forgot {
 		text-align: center;
-		font-size: 0.8rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 
 	.forgot code {
 		font-family: var(--font-mono);
-		font-size: 0.78rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		background: var(--color-bg-2);
 		padding: 0.1em 0.4em;
@@ -269,7 +270,7 @@
 		align-items: center;
 		gap: var(--space-2);
 		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 

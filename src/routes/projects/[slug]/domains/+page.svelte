@@ -34,7 +34,7 @@
 </script>
 
 <svelte:head>
-	<title>Domains — {data.project.name} — Risved</title>
+	<title>Domains – {data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="domains-page">
@@ -278,15 +278,15 @@
 	.domains-page {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -297,51 +297,29 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
 	}
 
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
-	}
-
-	/* Sections */
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
 	.section-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 	}
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-	}
 	.subsection-title {
-		font-size: 0.8125rem;
+		font-family: var(--font-sans);
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-1);
 		margin-bottom: var(--space-2);
 	}
-	.empty-text {
-		color: var(--color-text-2);
-		font-size: 0.85rem;
-	}
-
 	.btn-sm {
 		padding: var(--space-1) var(--space-3);
 		background: transparent;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 	}
 	.btn-sm:hover {
@@ -377,10 +355,10 @@
 	}
 	.primary-badge {
 		padding: 1px 6px;
-		background: rgba(59, 130, 246, 0.15);
+		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 		color: var(--color-accent);
 		border-radius: var(--radius-sm);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 		flex-shrink: 0;
 	}
@@ -395,17 +373,17 @@
 
 	/* SSL badges */
 	.ssl-badge {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
 	}
 	.ssl-active {
 		color: var(--color-live);
-		background: rgba(34, 197, 94, 0.12);
+		background: color-mix(in srgb, var(--color-live) 12%, transparent);
 	}
 	.ssl-provisioning {
 		color: var(--color-building);
-		background: rgba(234, 179, 8, 0.12);
+		background: color-mix(in srgb, var(--color-building) 12%, transparent);
 	}
 	.ssl-pending {
 		color: var(--color-text-2);
@@ -413,7 +391,7 @@
 	}
 	.ssl-error {
 		color: var(--color-failed);
-		background: rgba(239, 68, 68, 0.12);
+		background: color-mix(in srgb, var(--color-failed) 12%, transparent);
 	}
 
 	/* Action buttons */
@@ -423,7 +401,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		cursor: pointer;
 	}
 	.btn-action:hover {
@@ -456,7 +434,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-0);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.hostname-input:focus {
 		outline: none;
@@ -466,21 +444,13 @@
 		color: var(--color-text-2);
 	}
 	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
 		border: 1px solid var(--color-accent);
-		border-radius: var(--radius-md);
-		color: #fff;
-		font-size: 0.8125rem;
+		color: var(--color-bg-0);
 		font-weight: 500;
-		cursor: pointer;
 	}
-	.btn-primary:hover {
+	.btn-primary:hover:not(:disabled) {
 		opacity: 0.9;
-	}
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+		background: var(--color-accent);
 	}
 	.btn-cancel {
 		padding: var(--space-2) var(--space-3);
@@ -488,7 +458,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 	}
 	.btn-cancel:hover {
@@ -496,7 +466,7 @@
 	}
 	.form-error {
 		color: var(--color-failed);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 
 	/* DNS record card */
@@ -506,7 +476,7 @@
 		gap: var(--space-2);
 	}
 	.dns-desc {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		line-height: 1.5;
 	}
@@ -528,7 +498,7 @@
 	}
 	.dns-label {
 		width: 60px;
-		font-size: 0.75rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-2);
 		text-transform: uppercase;
@@ -544,7 +514,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		cursor: pointer;
 		flex-shrink: 0;
 	}
@@ -576,25 +546,25 @@
 		gap: 2px;
 	}
 	.diagram-icon {
-		font-size: 1.2rem;
+		font-size: 1.25rem;
 		line-height: 1;
 	}
 	.diagram-label {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}
 	.diagram-sub {
 		font-family: var(--font-mono);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 	.diagram-arrow {
 		color: var(--color-text-2);
-		font-size: 1.2rem;
+		font-size: 1.25rem;
 	}
 	.diagram-note {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		text-align: center;
 	}

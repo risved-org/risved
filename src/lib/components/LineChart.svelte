@@ -58,18 +58,19 @@
 </script>
 
 <div class="chart-container" data-testid="line-chart">
-	{#if label}
-		<span class="chart-label">{label}</span>
-	{/if}
 	{#if points.length === 0}
 		<div class="chart-empty" style="height: {height}px">No data yet</div>
 	{:else}
-		<svg
-			viewBox="0 0 {W} {height}"
-			preserveAspectRatio="none"
-			class="chart-svg"
-			style="height: {height}px"
-		>
+		<div class="chart-wrapper">
+			{#if label}
+				<span class="chart-label-inner">{label}</span>
+			{/if}
+			<svg
+				viewBox="0 0 {W} {height}"
+				preserveAspectRatio="none"
+				class="chart-svg"
+				style="height: {height}px"
+			>
 			<!-- Y-axis ticks -->
 			{#each yTicks as tick (tick)}
 				<line
@@ -112,6 +113,7 @@
 				>
 			{/if}
 		</svg>
+		</div>
 	{/if}
 </div>
 
@@ -122,12 +124,20 @@
 		gap: var(--space-1);
 	}
 
-	.chart-label {
-		font-size: 0.6875rem;
+	.chart-wrapper {
+		position: relative;
+	}
+
+	.chart-label-inner {
+		position: absolute;
+		top: var(--space-2);
+		right: var(--space-3);
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-2);
-		text-transform: uppercase;
+		font-family: var(--font-mono);
 		letter-spacing: 0.05em;
+		pointer-events: none;
 	}
 
 	.chart-svg {
@@ -145,11 +155,11 @@
 		border-radius: var(--radius-md);
 		background: var(--color-bg-1);
 		color: var(--color-text-2);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 
 	.tick-text {
-		font-size: 8px;
+		font-size: .875rem;
 		fill: var(--color-text-2);
 		font-family: var(--font-mono);
 	}

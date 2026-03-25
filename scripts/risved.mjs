@@ -367,6 +367,157 @@ async function cmdEnv(projectSlug, action, ...args) {
 	}
 }
 
+/* ── Update ───────────────────────────────────────────────────── */
+
+async function cmdUpdate(targetVersion) {
+	const db = getDb();
+	try {
+		const { execSync } = await import('node:child_process');
+		const { readFileSync, existsSync: fsExists } = await import('node:fs');
+		const { resolve: resolvePath } = await import('node:path');
+
+		/* Determine install directory */
+		const installDir = process.env.RISVED_DIR || (
+			fsExists('/opt/risved/package.json') ? '/opt/risved' : process.cwd()
+		);
+
+		/* Get current version */
+		let currentVersion = '0.0.1';
+		const versionRow = await db.execute("SELECT value FROM settings WHERE key = 'risved_version'");
+		if (versionRow.rows.length > 0 && versionRow.rows[0].value) {
+			currentVersion = versionRow.rows[0].value;
+		} else {
+			try {
+				const pkg = JSON.parse(readFileSync(resolvePath(installDir, 'package.json'), 'utf8'));
+				currentVersion = pkg.version || '0.0.1';
+			} catch { /* use default */ }
+		}
+
+		/* Determine target version */
+		if (!targetVersion) {
+			info('Checking for updates...');
+			try {
+				const res = await fetch('https://risved.com/version.json', {
+					signal: AbortSignal.timeout(10000)
+				});
+				if (!res.ok) {
+					err('Could not reach update server');
+					process.exit(1);
+				}
+				const manifest = await res.json();
+				targetVersion = manifest.version;
+
+				/* Check minimum version */
+				if (manifest.minVersion) {
+					const cParts = currentVersion.split('.').map(Number);
+					const mParts = manifest.minVersion.split('.').map(Number);
+					let tooOld = false;
+					for (let i = 0; i < 3; i++) {
+						if ((cParts[i] ?? 0) < (mParts[i] ?? 0)) { tooOld = true; break; }
+						if ((cParts[i] ?? 0) > (mParts[i] ?? 0)) break;
+					}
+					if (tooOld) {
+						err(`Current version ${currentVersion} is too old for direct update. Minimum: ${manifest.minVersion}`);
+						process.exit(1);
+					}
+				}
+
+				if (manifest.releaseNotes) {
+					console.log(`\n${BOLD}Release notes:${RESET}`);
+					console.log(`${DIM}${manifest.releaseNotes}${RESET}\n`);
+				}
+			} catch (e) {
+				err(`Failed to check for updates: ${e.message || e}`);
+				process.exit(1);
+			}
+		}
+
+		console.log(`\n${BOLD}Risved Update${RESET}\n`);
+		info(`Current version: ${currentVersion}`);
+		info(`Target version:  ${targetVersion}`);
+		console.log('');
+
+		if (currentVersion === targetVersion) {
+			ok('Already up to date');
+			return;
+		}
+
+		const answer = await prompt(`Update now? [y/N] `);
+		if (answer.toLowerCase() !== 'y') {
+			info('Update cancelled');
+			return;
+		}
+
+		/* Pull */
+		process.stdout.write(`${BLUE}▸${RESET} Pulling v${targetVersion}... `);
+		try {
+			execSync('git fetch origin --tags', { cwd: installDir, stdio: 'pipe' });
+			execSync(`git checkout v${targetVersion}`, { cwd: installDir, stdio: 'pipe' });
+			console.log(`${GREEN}done${RESET}`);
+		} catch (e) {
+			console.log(`${RED}failed${RESET}`);
+			err(e.message || 'Git pull failed');
+			process.exit(1);
+		}
+
+		/* Install dependencies */
+		process.stdout.write(`${BLUE}▸${RESET} Installing dependencies... `);
+		try {
+			execSync('deno install', { cwd: installDir, stdio: 'pipe', timeout: 120000 });
+			console.log(`${GREEN}done${RESET}`);
+		} catch (e) {
+			console.log(`${RED}failed${RESET}`);
+			err(e.message || 'Dependency install failed');
+			process.exit(1);
+		}
+
+		/* Build */
+		process.stdout.write(`${BLUE}▸${RESET} Building... `);
+		try {
+			execSync('deno task build', { cwd: installDir, stdio: 'pipe', timeout: 300000 });
+			console.log(`${GREEN}done${RESET}`);
+		} catch (e) {
+			console.log(`${RED}failed${RESET}`);
+			err(e.message || 'Build failed');
+			process.exit(1);
+		}
+
+		/* Run migrations */
+		process.stdout.write(`${BLUE}▸${RESET} Running migrations... `);
+		try {
+			execSync('deno task db:migrate', { cwd: installDir, stdio: 'pipe', timeout: 30000 });
+			console.log(`${GREEN}done${RESET}`);
+		} catch {
+			console.log(`${YELLOW}skipped${RESET}`);
+		}
+
+		/* Update version in DB */
+		await db.execute({
+			sql: "INSERT INTO settings (key, value) VALUES ('risved_version', ?) ON CONFLICT(key) DO UPDATE SET value = ?",
+			args: [targetVersion, targetVersion]
+		});
+		await db.execute({
+			sql: "INSERT INTO settings (key, value) VALUES ('update_available_version', '') ON CONFLICT(key) DO UPDATE SET value = ''",
+			args: []
+		});
+
+		/* Restart */
+		process.stdout.write(`${BLUE}▸${RESET} Restarting... `);
+		try {
+			execSync('systemctl restart risved', { stdio: 'pipe', timeout: 10000 });
+			console.log(`${GREEN}done${RESET}`);
+		} catch {
+			console.log(`${YELLOW}skipped (not using systemd)${RESET}`);
+			warn('Restart the Risved process manually to apply the update.');
+		}
+
+		console.log('');
+		ok(`Risved updated to ${targetVersion}`);
+	} finally {
+		db.close();
+	}
+}
+
 /* ── Usage ────────────────────────────────────────────────────── */
 
 function printUsage() {
@@ -380,6 +531,8 @@ ${BOLD}Commands:${RESET}
   ${GREEN}status${RESET}                      Show server and project status
   ${GREEN}deploy${RESET} <project>             Trigger a deployment
   ${GREEN}logs${RESET} <project>               Show build logs for latest deployment
+  ${GREEN}update${RESET}                       Update Risved to the latest version
+  ${GREEN}update${RESET} --version <ver>       Update to a specific version
   ${GREEN}reset-password${RESET}               Reset admin password from server terminal
   ${GREEN}env${RESET} <project>                List environment variables
   ${GREEN}env${RESET} <project> set KEY=VALUE  Set an environment variable
@@ -415,6 +568,12 @@ try {
 		case 'env':
 			await cmdEnv(rest[0], rest[1], ...rest.slice(2));
 			break;
+		case 'update': {
+			const versionIdx = rest.indexOf('--version');
+			const ver = versionIdx >= 0 ? rest[versionIdx + 1] : rest[0];
+			await cmdUpdate(ver);
+			break;
+		}
 		default:
 			err(`Unknown command: ${command}`);
 			printUsage();

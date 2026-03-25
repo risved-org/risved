@@ -5,7 +5,7 @@
 	let { data }: { data: PageData } = $props();
 
 	function timeAgo(dateStr: string | null): string {
-		if (!dateStr) return '—';
+		if (!dateStr) return '–';
 		const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
 		if (seconds < 60) return 'just now';
 		const minutes = Math.floor(seconds / 60);
@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-	<title>Deliveries — {data.project.name} — Risved</title>
+	<title>Deliveries – {data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="deliveries-page">
@@ -73,7 +73,7 @@
 								{statusLabel(del.signatureValid, del.actionTaken)}
 							</span>
 						</span>
-						<span class="col-action">{del.actionTaken ?? '—'}</span>
+						<span class="col-action">{del.actionTaken ?? '–'}</span>
 						<span class="col-time mono">{timeAgo(del.createdAt)}</span>
 					</a>
 				{/each}
@@ -86,15 +86,15 @@
 	.deliveries-page {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -105,33 +105,22 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
-	}
-
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
 	}
 
 	/* Empty state */
 	.empty-state {
-		padding: var(--space-6) var(--space-4);
+		padding: var(--space-5) var(--space-4);
 		text-align: center;
 	}
 	.empty-text {
 		color: var(--color-text-1);
-		font-size: 0.9rem;
+		font-size: 1rem;
 	}
 	.empty-hint {
 		color: var(--color-text-2);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		margin-top: var(--space-2);
 	}
 
@@ -147,7 +136,7 @@
 		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-2);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-2);
 		text-transform: uppercase;
@@ -159,7 +148,7 @@
 		align-items: center;
 		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-0);
 		text-decoration: none;
 		transition: background 0.1s;
@@ -177,7 +166,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.col-time {
 		color: var(--color-text-2);
@@ -188,19 +177,19 @@
 		display: inline-block;
 		padding: 1px 8px;
 		border-radius: var(--radius-sm);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 	}
 	.status-deployed {
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 	}
 	.status-rejected {
-		background: rgba(239, 68, 68, 0.15);
+		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
 		color: var(--color-failed);
 	}
 	.status-skipped {
-		background: rgba(250, 204, 21, 0.15);
+		background: color-mix(in srgb, var(--color-building) 15%, transparent);
 		color: var(--color-building);
 	}
 	.status-received {

@@ -8,7 +8,7 @@
 	let redelivered = $state(false);
 
 	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return '—';
+		if (!dateStr) return '–';
 		const d = new Date(dateStr);
 		return d.toLocaleString('en-US', {
 			year: 'numeric',
@@ -21,7 +21,7 @@
 		});
 	}
 
-	/** Simple JSON syntax colouring — returns HTML string. */
+	/** Simple JSON syntax colouring – returns HTML string. */
 	function syntaxHighlight(json: unknown): string {
 		const str = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
 		if (!str) return '';
@@ -46,7 +46,7 @@
 </script>
 
 <svelte:head>
-	<title>Delivery {data.delivery.id.slice(0, 8)} — {data.project.name} — Risved</title>
+	<title>Delivery {data.delivery.id.slice(0, 8)} – {data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="delivery-detail">
@@ -75,7 +75,7 @@
 			</div>
 			<div class="meta-item">
 				<span class="meta-label">Action</span>
-				<span class="meta-value">{data.delivery.actionTaken ?? '—'}</span>
+				<span class="meta-value">{data.delivery.actionTaken ?? '–'}</span>
 			</div>
 			<div class="meta-item">
 				<span class="meta-label">Signature</span>
@@ -151,15 +151,15 @@
 	.delivery-detail {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -170,27 +170,8 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
-	}
-
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-	}
-
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
 	}
 
 	/* Metadata grid */
@@ -209,14 +190,14 @@
 		border-radius: var(--radius-md);
 	}
 	.meta-label {
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 	}
 	.meta-value {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-0);
 		word-break: break-all;
 	}
@@ -227,15 +208,15 @@
 		width: fit-content;
 		padding: 1px 8px;
 		border-radius: var(--radius-sm);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 	}
 	.sig-valid {
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 	}
 	.sig-invalid {
-		background: rgba(239, 68, 68, 0.15);
+		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
 		color: var(--color-failed);
 	}
 
@@ -246,7 +227,7 @@
 		border-radius: var(--radius-md);
 		padding: var(--space-3);
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		line-height: 1.6;
 		overflow-x: auto;
 	}
@@ -301,7 +282,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		font-weight: 500;
 		cursor: pointer;
 	}

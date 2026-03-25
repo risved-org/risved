@@ -5,6 +5,7 @@ import { gitConnections, projects } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { GitLabClient } from '$lib/server/gitlab';
+import { safeDecrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
 /**
@@ -50,7 +51,7 @@ export const POST: RequestHandler = async (event) => {
 
 	const instanceUrl = env.GITLAB_INSTANCE_URL || 'https://gitlab.com';
 	const webhookUrl = `${event.url.origin}/api/webhooks/${projectId}`;
-	const client = new GitLabClient(connRows[0].accessToken, instanceUrl);
+	const client = new GitLabClient(safeDecrypt(connRows[0].accessToken), instanceUrl);
 
 	const result = await client.createWebhook({
 		projectId: gitlabProjectId as number,

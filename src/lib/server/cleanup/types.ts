@@ -20,6 +20,6 @@ export interface DockerDiskUsage {
 }
 
 export interface DockerPruneResult {
-	type: 'images' | 'containers' | 'volumes' | 'all';
+	type: 'images' | 'containers' | 'volumes' | 'buildcache' | 'all';
 	spaceReclaimed: string;
 }

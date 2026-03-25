@@ -130,7 +130,7 @@
 </script>
 
 <svelte:head>
-	<title>Build Log — {data.project.name} — Risved</title>
+	<title>Build Log – {data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="build-log">
@@ -188,7 +188,7 @@
 		{/if}
 		<div class="meta-item">
 			<span class="meta-label">Elapsed</span>
-			<span class="meta-value mono" data-testid="elapsed-time">{elapsed || '—'}</span>
+			<span class="meta-value mono" data-testid="elapsed-time">{elapsed || '–'}</span>
 		</div>
 	</div>
 
@@ -276,7 +276,7 @@
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 
@@ -316,24 +316,24 @@
 	.phase-step.completed .phase-dot {
 		background: var(--color-live);
 		border-color: var(--color-live);
-		box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--color-live) 40%, transparent);
 	}
 
 	.phase-step.active .phase-dot {
 		background: var(--color-building);
 		border-color: var(--color-building);
-		box-shadow: 0 0 6px rgba(234, 179, 8, 0.4);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--color-building) 40%, transparent);
 		animation: pulse 1.5s ease-in-out infinite;
 	}
 
 	.phase-step.failed .phase-dot {
 		background: var(--color-failed);
 		border-color: var(--color-failed);
-		box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--color-failed) 40%, transparent);
 	}
 
 	.phase-label {
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-2);
 		text-transform: uppercase;
@@ -372,12 +372,12 @@
 	.metadata-bar {
 		display: flex;
 		align-items: center;
-		gap: var(--space-6);
+		gap: var(--space-5);
 		padding: var(--space-2) var(--space-4);
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 
 	.meta-item {
@@ -389,7 +389,7 @@
 	.meta-label {
 		color: var(--color-text-2);
 		font-weight: 500;
-		font-size: 0.75rem;
+		font-size: .875rem;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
@@ -398,31 +398,26 @@
 		color: var(--color-text-0);
 	}
 
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-	}
-
 	.status-badge {
 		padding: 1px 8px;
 		border-radius: var(--radius-sm);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		font-weight: 600;
 		text-transform: uppercase;
 	}
 
 	.status-live {
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 	}
 
 	.status-failed {
-		background: rgba(239, 68, 68, 0.15);
+		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
 		color: var(--color-failed);
 	}
 
 	.status-building {
-		background: rgba(234, 179, 8, 0.15);
+		background: color-mix(in srgb, var(--color-building) 15%, transparent);
 		color: var(--color-building);
 	}
 
@@ -432,20 +427,20 @@
 		align-items: center;
 		gap: var(--space-3);
 		padding: var(--space-3) var(--space-4);
-		background: rgba(239, 68, 68, 0.08);
-		border: 1px solid rgba(239, 68, 68, 0.25);
+		background: color-mix(in srgb, var(--color-failed) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-failed) 25%, transparent);
 		border-radius: var(--radius-md);
 	}
 
 	.error-title {
 		font-weight: 600;
 		color: var(--color-failed);
-		font-size: 0.875rem;
+		font-size: .875rem;
 	}
 
 	.error-hint {
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		flex: 1;
 	}
 
@@ -455,7 +450,7 @@
 		border: 1px solid var(--color-failed);
 		border-radius: var(--radius-md);
 		color: var(--color-failed);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		font-weight: 500;
 		cursor: pointer;
 		white-space: nowrap;
@@ -463,7 +458,7 @@
 	}
 
 	.retry-btn:hover {
-		background: rgba(239, 68, 68, 0.1);
+		background: color-mix(in srgb, var(--color-failed) 10%, transparent);
 		text-decoration: none;
 	}
 
@@ -478,7 +473,7 @@
 		border-radius: var(--radius-md);
 		padding: var(--space-3);
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		line-height: 1.6;
 	}
 
@@ -518,7 +513,7 @@
 	.log-empty {
 		color: var(--color-term-dim);
 		text-align: center;
-		padding: var(--space-8);
+		padding: var(--space-6);
 	}
 
 	/* Cursor blink */
@@ -550,41 +545,13 @@
 	}
 
 	.btn-primary {
-		display: inline-flex;
-		align-items: center;
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: #fff;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: 0.875rem;
+		color: var(--color-bg-0);
+		font-size: .875rem;
 		font-weight: 500;
-		cursor: pointer;
-		text-decoration: none;
-	}
-
-	.btn-primary:hover {
-		background: var(--color-accent-dim);
-		text-decoration: none;
 	}
 
 	.btn-secondary {
-		display: inline-flex;
-		align-items: center;
-		padding: var(--space-2) var(--space-4);
-		background: transparent;
-		color: var(--color-text-1);
-		border: 1.5px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-size: 0.875rem;
+		font-size: .875rem;
 		font-weight: 500;
-		cursor: pointer;
-		text-decoration: none;
-	}
-
-	.btn-secondary:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-		text-decoration: none;
 	}
 </style>

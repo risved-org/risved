@@ -4,6 +4,7 @@ import { gitConnections } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { GitHubClient } from '$lib/server/github';
+import { safeDecrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
 /**
@@ -29,7 +30,7 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	const connection = rows[0];
-	const client = new GitHubClient(connection.accessToken);
+	const client = new GitHubClient(safeDecrypt(connection.accessToken));
 
 	const search = event.url.searchParams.get('search');
 	const page = parseInt(event.url.searchParams.get('page') ?? '1', 10);

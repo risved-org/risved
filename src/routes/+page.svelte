@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
 
 	let { data } = $props();
 
@@ -17,18 +18,6 @@
 		data.serverMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.memoryMb }))
 	);
 
-	function timeAgo(dateStr: string | null): string {
-		if (!dateStr) return '—';
-		const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-		if (seconds < 60) return 'just now';
-		const minutes = Math.floor(seconds / 60);
-		if (minutes < 60) return `${minutes}m ago`;
-		const hours = Math.floor(minutes / 60);
-		if (hours < 24) return `${hours}h ago`;
-		const days = Math.floor(hours / 24);
-		return `${days}d ago`;
-	}
-
 	function statusClass(status: string): string {
 		if (status === 'live') return 'status-live';
 		if (status === 'failed') return 'status-failed';
@@ -43,18 +32,19 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard — Risved</title>
+	<title>Dashboard – Risved</title>
 </svelte:head>
 
 <div class="dashboard">
 	<!-- Health bar -->
-	<div class="health-bar" data-testid="health-bar">
+	<header class="dashboard-header">
+		<div class="health-bar" data-testid="health-bar">
 		<div class="health-item">
 			<span class="health-label">CPU</span>
 			<span class="health-value" data-testid="cpu-value">{data.health.cpuPercent}%</span>
 		</div>
 		<div class="health-item">
-			<span class="health-label">MEM</span>
+			<span class="health-label">MEMORY</span>
 			<span class="health-value" data-testid="mem-value">{data.health.memoryPercent}%</span>
 		</div>
 		<div class="health-item">
@@ -70,23 +60,26 @@
 			<span class="health-value" data-testid="container-value">{data.health.containerCount}</span>
 		</div>
 	</div>
+		<nav class="header-nav">
+			<a href={resolve('/new')} class="btn-secondary btn-sm">New project</a>
+			<a href={resolve('/settings')} class="btn-secondary btn-sm">Settings</a>
+		</nav>
+	</header>
 
 	<!-- Resource overview -->
 	<div class="resource-overview" data-testid="resource-overview">
-		<h2 class="resource-title">Resource Usage (24h)</h2>
+		<h2 class="resource-title">Resource history</h2>
 		<div class="resource-charts">
 			<LineChart
 				points={serverCpuPoints}
-				label="CPU %"
+				label="CPU"
 				color="var(--color-accent)"
-				unit="%"
 				height={100}
 			/>
 			<LineChart
 				points={serverMemPoints}
-				label="Memory (MB)"
+				label="Memory"
 				color="var(--color-live)"
-				unit="MB"
 				height={100}
 			/>
 		</div>
@@ -95,7 +88,7 @@
 	<!-- Project list -->
 	{#if data.projects.length === 0}
 		<div class="empty-state" data-testid="empty-state">
-			<p class="empty-message">No projects yet. Deploy your first app to get started.</p>
+			<p class="empty-message">Nothing deployed yet. Connect a repo to get started.</p>
 			<a href={resolve('/new')} class="btn-primary">New Project</a>
 		</div>
 	{:else}
@@ -140,24 +133,24 @@
 								{project.domain}
 							</a>
 						{:else}
-							<span class="muted">—</span>
+							<span class="muted">–</span>
 						{/if}
 					</span>
 					<span class="col-commit mono">
 						{#if project.commitSha}
 							{project.commitSha.slice(0, 7)}
 						{:else}
-							<span class="muted">—</span>
+							<span class="muted">–</span>
 						{/if}
 					</span>
-					<span class="col-time mono">{timeAgo(project.lastDeployedAt)}</span>
+					<span class="col-time mono"><TimeAgo value={project.lastDeployedAt} /></span>
 					<span class="col-health" data-testid="health-indicator">
 						{#if project.status === 'live' && project.containerHealthy === true}
 							<span class="health-badge health-ok" title="Healthy">OK</span>
 						{:else if project.status === 'live' && project.containerHealthy === false}
 							<span class="health-badge health-failing" title="Unhealthy">FAIL</span>
 						{:else}
-							<span class="health-badge health-na">—</span>
+							<span class="health-badge health-na">–</span>
 						{/if}
 						{#if project.totalRestarts > 0}
 							<span class="restart-count" title="{project.totalRestarts} restart(s)"
@@ -204,17 +197,17 @@
 		width: 100%;
 	}
 
-	/* Health bar — single horizontal strip */
+	/* Health bar – single horizontal strip */
 	.health-bar {
 		display: flex;
 		align-items: center;
-		gap: var(--space-6);
+		gap: var(--space-5);
 		padding: var(--space-3) var(--space-4);
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		font-size: .875rem;
 	}
 
 	.health-item {
@@ -233,6 +226,23 @@
 		color: var(--color-text-0);
 	}
 
+	.dashboard-header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+	}
+
+	.header-nav {
+		margin-left: auto;
+		display: flex;
+		gap: var(--space-2);
+	}
+
+	.btn-sm {
+		font-size: .875rem;
+		padding: var(--space-1) var(--space-2);
+	}
+
 	/* Resource overview */
 	.resource-overview {
 		display: flex;
@@ -241,8 +251,9 @@
 	}
 
 	.resource-title {
-		font-size: 0.6875rem;
-		font-weight: 500;
+		font-family: var(--font-sans);
+		font-size: .875rem;
+		font-weight: 600;
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
@@ -273,26 +284,7 @@
 
 	.empty-message {
 		color: var(--color-text-2);
-		font-size: 0.9375rem;
-	}
-
-	.btn-primary {
-		display: inline-flex;
-		align-items: center;
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: #fff;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		text-decoration: none;
-	}
-
-	.btn-primary:hover {
-		background: var(--color-accent-dim);
-		text-decoration: none;
+		font-size: 1rem;
 	}
 
 	/* Project table */
@@ -316,7 +308,7 @@
 
 	.table-header {
 		background: var(--color-bg-2);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-2);
 		text-transform: uppercase;
@@ -327,7 +319,7 @@
 	.table-row {
 		background: var(--color-bg-1);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 		transition: background 0.1s;
 	}
@@ -389,7 +381,7 @@
 		padding: 1px 6px;
 		background: var(--color-bg-3);
 		border-radius: var(--radius-sm);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 	}
 
@@ -404,11 +396,6 @@
 		white-space: nowrap;
 	}
 
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-	}
-
 	.muted {
 		color: var(--color-text-2);
 	}
@@ -419,7 +406,7 @@
 		align-items: center;
 		gap: var(--space-1);
 		white-space: nowrap;
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-family: var(--font-mono);
 	}
 
@@ -431,12 +418,12 @@
 	}
 
 	.health-ok {
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 	}
 
 	.health-failing {
-		background: rgba(239, 68, 68, 0.15);
+		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
 		color: var(--color-failed);
 	}
 
@@ -446,7 +433,7 @@
 
 	.restart-count {
 		color: var(--color-building);
-		font-size: 0.625rem;
+		font-size: .875rem;
 	}
 
 	/* Actions */
@@ -467,7 +454,7 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
 		cursor: pointer;
-		font-size: 0.875rem;
+		font-size: .875rem;
 		text-decoration: none;
 		transition: all 0.1s;
 	}

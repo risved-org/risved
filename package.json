@@ -27,6 +27,9 @@
 	"dependencies": {
 		"@better-auth/core": "^1.5.5",
 		"@better-auth/passkey": "^1.5.5",
+		"@fontsource/bbh-hegarty": "^5.2.1",
+		"@fontsource/cascadia-code": "^5.2.3",
+		"@fontsource/mozilla-text": "^5.2.2",
 		"@libsql/client": "^0.17.0",
 		"croner": "^10.0.1",
 		"drizzle-orm": "^0.45.1"

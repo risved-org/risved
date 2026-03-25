@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>Status Checks — {data.project.name} — Risved</title>
+	<title>Status Checks – {data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="checks-config">
@@ -29,7 +29,7 @@
 			<div class="pr-mock-check">
 				<span class="check-icon check-pass">&#10003;</span>
 				<span class="check-name">risved/deploy-preview</span>
-				<span class="check-sep">—</span>
+				<span class="check-sep">–</span>
 				<span class="check-desc">Deploy preview ready</span>
 				<a href="https://{data.previewUrlFormat}" class="check-link" data-testid="mock-preview-link"
 					>Details</a
@@ -38,7 +38,7 @@
 			<div class="pr-mock-check">
 				<span class="check-icon check-pass">&#10003;</span>
 				<span class="check-name">risved/build</span>
-				<span class="check-sep">—</span>
+				<span class="check-sep">–</span>
 				<span class="check-desc">Build succeeded</span>
 			</div>
 			<div class="pr-mock-footer">
@@ -156,15 +156,15 @@
 	.checks-config {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -175,33 +175,14 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
 	}
 
 	.page-desc {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		margin-top: var(--space-1);
-	}
-
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-	}
-
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
 	}
 
 	/* PR Mock */
@@ -217,13 +198,13 @@
 		padding: var(--space-3);
 		background: var(--color-bg-1);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.85rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}
 	.pr-mock-icon {
 		color: #3fb950;
-		font-size: 0.75rem;
+		font-size: .875rem;
 	}
 	.pr-mock-check {
 		display: flex;
@@ -231,10 +212,10 @@
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.check-icon {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		flex-shrink: 0;
 	}
 	.check-pass {
@@ -252,7 +233,7 @@
 	}
 	.check-link {
 		margin-left: auto;
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-accent);
 	}
 	.pr-mock-footer {
@@ -260,7 +241,7 @@
 		background: var(--color-bg-1);
 	}
 	.pr-mock-hint {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 
@@ -278,13 +259,13 @@
 		color: var(--color-text-0);
 	}
 	.info-desc {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		line-height: 1.5;
 	}
 	.info-desc code {
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		background: var(--color-bg-2);
 		padding: 0.1em 0.3em;
@@ -324,60 +305,35 @@
 		gap: 2px;
 	}
 	.toggle-label {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}
 	.toggle-hint {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		line-height: 1.4;
 	}
 
 	/* Form inputs */
 	.form-group {
-		display: flex;
-		flex-direction: column;
 		gap: var(--space-2);
 	}
-	.form-label {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-1);
-	}
 	.form-input {
-		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-0);
-		font-size: 0.8125rem;
-	}
-	.form-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
+		border-width: 1px;
+		font-size: .875rem;
 	}
 	.num-input {
 		width: 80px;
-	}
-	.form-hint {
-		font-size: 0.75rem;
-		color: var(--color-text-2);
-	}
-
-	/* Actions */
-	.form-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
 	}
 	.btn-save {
 		padding: var(--space-2) var(--space-4);
 		background: var(--color-accent);
 		border: none;
 		border-radius: var(--radius-md);
-		color: #fff;
-		font-size: 0.8125rem;
+		color: var(--color-bg-0);
+		font-size: 1rem;
 		font-weight: 500;
 		cursor: pointer;
 	}
@@ -385,7 +341,7 @@
 		background: var(--color-accent-dim);
 	}
 	.saved-msg {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: #3fb950;
 	}
 </style>

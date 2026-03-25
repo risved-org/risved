@@ -97,33 +97,19 @@
 </div>
 
 <style>
-	.onboarding {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		padding: var(--space-4);
-	}
-
 	.onboarding-card {
 		width: 100%;
 		max-width: 420px;
 	}
 
 	header {
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 2rem;
 		font-weight: 600;
 		margin-bottom: var(--space-2);
-	}
-
-	.subtitle {
-		color: var(--color-text-1);
-		font-size: 0.9rem;
-		line-height: 1.5;
 	}
 
 	form {
@@ -132,14 +118,8 @@
 		gap: var(--space-4);
 	}
 
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-
 	label {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-1);
 	}
@@ -150,7 +130,7 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-0);
-		font-size: 0.9rem;
+		font-size: 1rem;
 		outline: none;
 		transition:
 			border-color 0.15s,
@@ -163,11 +143,11 @@
 
 	input:focus {
 		border-color: var(--color-accent);
-		box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
 	}
 
 	.hint {
-		font-size: 0.78rem;
+		font-size: .875rem;
 		font-family: var(--font-mono);
 	}
 
@@ -179,23 +159,14 @@
 		color: var(--color-live);
 	}
 
-	.form-error {
-		padding: var(--space-2) var(--space-3);
-		background: rgba(239, 68, 68, 0.1);
-		border: 1px solid rgba(239, 68, 68, 0.25);
-		border-radius: var(--radius-md);
-		color: var(--color-failed);
-		font-size: 0.85rem;
-	}
-
 	button {
 		padding: var(--space-2) var(--space-4);
 		background: var(--color-accent);
 		color: white;
 		border: none;
 		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
+		font-weight: 600;
+		font-size: 1rem;
 		cursor: pointer;
 		transition:
 			background 0.15s,

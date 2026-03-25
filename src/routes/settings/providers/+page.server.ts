@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { gitConnections } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyForgejoToken } from '$lib/server/forgejo';
+import { encrypt } from '$lib/server/crypto';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -56,11 +57,13 @@ export const actions: Actions = {
 			.where(eq(gitConnections.accountName, user.login))
 			.limit(1);
 
+		const encryptedToken = encrypt(token)
+
 		if (existing.length > 0) {
 			await db
 				.update(gitConnections)
 				.set({
-					accessToken: token,
+					accessToken: encryptedToken,
 					instanceUrl: instanceUrl.replace(/\/+$/, ''),
 					avatarUrl: user.avatar_url,
 					updatedAt: new Date().toISOString()
@@ -71,7 +74,7 @@ export const actions: Actions = {
 				provider: 'forgejo',
 				accountName: user.login,
 				instanceUrl: instanceUrl.replace(/\/+$/, ''),
-				accessToken: token,
+				accessToken: encryptedToken,
 				avatarUrl: user.avatar_url
 			});
 		}

@@ -8,6 +8,7 @@ import { allocatePort } from '$lib/server/pipeline/port';
 import { runPipeline } from '$lib/server/pipeline';
 import { createCommandRunner } from '$lib/server/pipeline/docker';
 import { detectors } from '$lib/server/detection/detectors';
+import { gitConnections } from '$lib/server/db/schema';
 import { getSetting } from '$lib/server/settings';
 import type { FrameworkId, Tier } from '$lib/server/detection/types';
 import type { PageServerLoad, Actions } from './$types';
@@ -21,7 +22,15 @@ const FRAMEWORK_OPTIONS = detectors.map((d) => ({
 
 export const load: PageServerLoad = async () => {
 	const domain = await getSetting('risved_domain');
-	return { frameworks: FRAMEWORK_OPTIONS, domain };
+	const connections = await db
+		.select({
+			id: gitConnections.id,
+			provider: gitConnections.provider,
+			accountName: gitConnections.accountName,
+			avatarUrl: gitConnections.avatarUrl
+		})
+		.from(gitConnections);
+	return { frameworks: FRAMEWORK_OPTIONS, domain, connections };
 };
 
 export const actions: Actions = {

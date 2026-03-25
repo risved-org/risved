@@ -92,6 +92,36 @@ export function decrypt(encoded: string, keyPath?: string): string {
 }
 
 /**
+ * Decrypt a callback token from risved.com.
+ * risved.com encrypts with Web Crypto (AES-256-GCM) which produces:
+ *   base64(iv[12] + ciphertext[n] + authTag[16])
+ * Node's createDecipheriv requires splitting authTag from ciphertext manually.
+ * The CALLBACK_SECRET is a hex-encoded 32-byte key.
+ */
+export function decryptCallbackToken(encoded: string, secret: string): string {
+	const key = Buffer.from(secret, 'hex')
+	if (key.length !== KEY_LENGTH) {
+		throw new Error(`Invalid CALLBACK_SECRET: expected ${KEY_LENGTH} bytes, got ${key.length}`)
+	}
+
+	const combined = Buffer.from(encoded, 'base64')
+	if (combined.length < IV_LENGTH + AUTH_TAG_LENGTH) {
+		throw new Error('Invalid callback token: too short')
+	}
+
+	const iv = combined.subarray(0, IV_LENGTH)
+	const ciphertextWithTag = combined.subarray(IV_LENGTH)
+	const authTag = ciphertextWithTag.subarray(ciphertextWithTag.length - AUTH_TAG_LENGTH)
+	const ciphertext = ciphertextWithTag.subarray(0, ciphertextWithTag.length - AUTH_TAG_LENGTH)
+
+	const decipher = createDecipheriv(ALGORITHM, key, iv)
+	decipher.setAuthTag(authTag)
+
+	const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()])
+	return decrypted.toString('utf8')
+}
+
+/**
  * Check if a value looks like an encrypted string (base64 with minimum length).
  * Used during migration to detect already-encrypted values.
  */

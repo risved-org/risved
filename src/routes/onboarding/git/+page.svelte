@@ -58,14 +58,14 @@
 			</a>
 
 			<a
-				href={resolve('/settings/providers')}
+				href={resolve('/settings/git')}
 				class="provider-card"
 				data-testid="forgejo-card"
 			>
 				<span class="provider-icon forgejo">{providerIcon.forgejo}</span>
 				<div>
 					<h2 class="card-name">Forgejo / Gitea</h2>
-					<p class="card-desc">API token · set up in settings</p>
+					<p class="card-desc">API token</p>
 				</div>
 			</a>
 		</section>
@@ -97,7 +97,7 @@
 			{/if}
 			<form method="post" action="?/skip">
 				<button type="submit" class="btn-skip" data-testid="skip-btn">
-					{hasConnections ? 'Skip provider setup' : 'Skip — set up later'}
+					{hasConnections ? 'Skip provider setup' : 'Skip – set up later'}
 				</button>
 			</form>
 		</div>
@@ -105,33 +105,19 @@
 </div>
 
 <style>
-	.onboarding {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		padding: var(--space-4);
-	}
-
 	.onboarding-card {
 		width: 100%;
 		max-width: 480px;
 	}
 
 	header {
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 2rem;
 		font-weight: 600;
 		margin-bottom: var(--space-2);
-	}
-
-	.subtitle {
-		color: var(--color-text-1);
-		font-size: 0.9rem;
-		line-height: 1.5;
 	}
 
 	/* Provider cards */
@@ -139,7 +125,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	.provider-card {
@@ -159,16 +145,17 @@
 
 	.provider-card:hover {
 		border-color: var(--color-accent);
-		background: rgba(59, 130, 246, 0.05);
+		background: color-mix(in srgb, var(--color-accent) 5%, transparent);
 	}
 
 	.card-name {
-		font-size: 0.9rem;
+		font-family: var(--font-sans);
+		font-size: 1rem;
 		font-weight: 600;
 	}
 
 	.card-desc {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		margin-top: 2px;
 	}
@@ -180,8 +167,8 @@
 		width: 36px;
 		height: 36px;
 		border-radius: var(--radius-md);
-		font-size: 0.75rem;
-		font-weight: 700;
+		font-size: .875rem;
+		font-weight: 600;
 		flex-shrink: 0;
 	}
 
@@ -203,16 +190,17 @@
 	.provider-icon.sm {
 		width: 28px;
 		height: 28px;
-		font-size: 0.65rem;
+		font-size: .875rem;
 	}
 
 	/* Connected section */
 	.connected {
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	.section-title {
-		font-size: 0.8125rem;
+		font-family: var(--font-sans);
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-2);
 		text-transform: uppercase;
@@ -237,13 +225,13 @@
 	}
 
 	.account-name {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}
 
 	.account-provider {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		margin-left: auto;
 	}
@@ -256,45 +244,8 @@
 		align-items: stretch;
 	}
 
-	.btn-primary {
-		display: block;
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
-		cursor: pointer;
-		text-align: center;
-		text-decoration: none;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
-	}
-
-	.btn-primary:hover {
-		background: var(--color-accent-dim);
-	}
-
 	.btn-skip {
 		width: 100%;
-		padding: var(--space-2) var(--space-4);
-		background: transparent;
-		color: var(--color-text-1);
-		border: 1.5px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
-		cursor: pointer;
-		transition:
-			border-color 0.15s,
-			color 0.15s;
-	}
-
-	.btn-skip:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
 	}
 
 	form {

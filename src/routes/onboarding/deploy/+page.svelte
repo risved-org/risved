@@ -128,40 +128,26 @@
 
 		<div class="skip-section">
 			<form method="post" action="?/skip">
-				<button type="submit" class="btn-secondary">Skip — go to dashboard</button>
+				<button type="submit" class="btn-secondary">Skip – go to dashboard</button>
 			</form>
 		</div>
 	</div>
 </div>
 
 <style>
-	.onboarding {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		padding: var(--space-4);
-	}
-
 	.onboarding-card {
 		width: 100%;
 		max-width: 540px;
 	}
 
 	header {
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 2rem;
 		font-weight: 600;
 		margin-bottom: var(--space-2);
-	}
-
-	.subtitle {
-		color: var(--color-text-1);
-		font-size: 0.9rem;
-		line-height: 1.5;
 	}
 
 	form {
@@ -188,8 +174,8 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.85rem;
-		font-weight: 500;
+		font-size: .875rem;
+		font-weight: 600;
 		cursor: pointer;
 		transition:
 			border-color 0.15s,
@@ -204,14 +190,14 @@
 	.path-tab.active {
 		border-color: var(--color-accent);
 		color: var(--color-text-0);
-		background: rgba(59, 130, 246, 0.05);
+		background: color-mix(in srgb, var(--color-accent) 5%, transparent);
 	}
 
 	.tab-badge {
-		font-size: 0.7rem;
+		font-size: .875rem;
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 		font-weight: 500;
 	}
@@ -245,7 +231,7 @@
 
 	.template-card.selected {
 		border-color: var(--color-accent);
-		background: rgba(59, 130, 246, 0.05);
+		background: color-mix(in srgb, var(--color-accent) 5%, transparent);
 	}
 
 	.template-header {
@@ -256,17 +242,17 @@
 
 	.template-name {
 		font-weight: 600;
-		font-size: 0.95rem;
+		font-size: 1rem;
 	}
 
 	.template-time {
 		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 
 	.template-desc {
-		font-size: 0.8rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		line-height: 1.4;
 	}
@@ -282,14 +268,8 @@
 		border-radius: var(--radius-md);
 	}
 
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-
 	label {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		font-weight: 500;
 		color: var(--color-text-1);
 	}
@@ -300,7 +280,7 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-0);
-		font-size: 0.9rem;
+		font-size: 1rem;
 		outline: none;
 		transition:
 			border-color 0.15s,
@@ -313,31 +293,7 @@
 
 	input[type='text']:focus {
 		border-color: var(--color-accent);
-		box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
-	}
-
-	/* Buttons */
-	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		background: var(--color-accent-dim);
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
 	}
 
 	.skip-section {
@@ -345,32 +301,4 @@
 		text-align: center;
 	}
 
-	.btn-secondary {
-		padding: var(--space-2) var(--space-4);
-		background: transparent;
-		color: var(--color-text-1);
-		border: 1.5px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
-		cursor: pointer;
-		transition:
-			border-color 0.15s,
-			color 0.15s;
-	}
-
-	.btn-secondary:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-	}
-
-	/* Form error */
-	.form-error {
-		padding: var(--space-2) var(--space-3);
-		background: rgba(239, 68, 68, 0.1);
-		border: 1px solid rgba(239, 68, 68, 0.25);
-		border-radius: var(--radius-md);
-		color: var(--color-failed);
-		font-size: 0.85rem;
-	}
 </style>

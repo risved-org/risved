@@ -76,14 +76,14 @@
 					`Set Target URL to: ${url}`,
 					`Set Secret to: ${secret}`,
 					'Set Content type to: application/json',
-					'Codeberg uses the Gitea webhook format — select "Push Events" and "Pull Request"',
+					'Codeberg uses the Gitea webhook format – select "Push Events" and "Pull Request"',
 					'Click "Add Webhook"'
 				];
 			case 'bitbucket':
 				return [
 					'Go to your repository → Repository settings → Webhooks → Add webhook',
 					`Set URL to: ${url}`,
-					'Note: Bitbucket Cloud does not support webhook secrets natively — use IP allowlisting or a reverse proxy for security',
+					'Note: Bitbucket Cloud does not support webhook secrets natively – use IP allowlisting or a reverse proxy for security',
 					'Under Triggers, select "Repository push" and "Pull request merged"',
 					'Click "Save"'
 				];
@@ -94,7 +94,7 @@
 </script>
 
 <svelte:head>
-	<title>Webhooks — {data.project.name} — Risved</title>
+	<title>Webhooks – {data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="webhook-config">
@@ -230,15 +230,15 @@
 	.webhook-config {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -249,27 +249,8 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
-	}
-
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-	}
-
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
 	}
 
 	/* Copy field */
@@ -302,7 +283,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 		white-space: nowrap;
 	}
@@ -325,7 +306,7 @@
 		border: none;
 		border-bottom: 2px solid transparent;
 		color: var(--color-text-2);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 		white-space: nowrap;
 	}
@@ -351,7 +332,7 @@
 		gap: var(--space-2);
 	}
 	.guide-step {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		line-height: 1.5;
 		word-break: break-all;
@@ -364,30 +345,12 @@
 		gap: var(--space-4);
 	}
 	.form-group {
-		display: flex;
-		flex-direction: column;
 		gap: var(--space-2);
 	}
-	.form-label {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-1);
-	}
 	.form-input {
-		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-0);
-		font-size: 0.8125rem;
-	}
-	.form-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
-	}
-	.form-hint {
-		font-size: 0.75rem;
-		color: var(--color-text-2);
+		border-width: 1px;
+		font-size: .875rem;
 	}
 
 	/* Toggles */
@@ -401,7 +364,7 @@
 		align-items: center;
 		gap: var(--space-2);
 		cursor: pointer;
-		font-size: 0.85rem;
+		font-size: .875rem;
 	}
 	.toggle-row input[type='checkbox'] {
 		width: 16px;
@@ -411,6 +374,7 @@
 	}
 	.toggle-label {
 		color: var(--color-text-1);
+		font-size: 1rem;
 	}
 
 	/* Delivery link */
@@ -425,7 +389,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 		text-decoration: none;
 	}
@@ -442,8 +406,8 @@
 		background: var(--color-accent);
 		border: none;
 		border-radius: var(--radius-md);
-		color: #fff;
-		font-size: 0.8125rem;
+		color: var(--color-bg-0);
+		font-size: 1rem;
 		font-weight: 500;
 		cursor: pointer;
 	}

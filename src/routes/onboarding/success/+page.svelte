@@ -11,7 +11,7 @@
 	<div class="onboarding-card">
 		<div class="success-icon" aria-hidden="true">
 			<svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-				<circle cx="24" cy="24" r="24" fill="rgba(34, 197, 94, 0.12)" />
+				<circle cx="24" cy="24" r="24" fill="color-mix(in srgb, var(--color-live) 12%, transparent)" />
 				<path
 					d="M15 25l6 6 12-14"
 					stroke="var(--color-live)"
@@ -119,14 +119,6 @@
 </div>
 
 <style>
-	.onboarding {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		padding: var(--space-4);
-	}
-
 	.onboarding-card {
 		width: 100%;
 		max-width: 540px;
@@ -137,19 +129,13 @@
 	}
 
 	header {
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 2rem;
 		font-weight: 600;
 		margin-bottom: var(--space-2);
-	}
-
-	.subtitle {
-		color: var(--color-text-1);
-		font-size: 0.9rem;
-		line-height: 1.5;
 	}
 
 	/* App URL display */
@@ -161,11 +147,11 @@
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	.url-label {
-		font-size: 0.8rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		font-weight: 500;
 		white-space: nowrap;
@@ -173,7 +159,7 @@
 
 	.url-link {
 		font-family: var(--font-mono);
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-accent);
 		text-decoration: none;
 		overflow: hidden;
@@ -187,11 +173,12 @@
 
 	/* What's next section */
 	.next-cards {
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	.next-heading {
-		font-size: 0.9rem;
+		font-family: var(--font-sans);
+		font-size: 1rem;
 		font-weight: 600;
 		color: var(--color-text-1);
 		margin-bottom: var(--space-3);
@@ -219,13 +206,14 @@
 	}
 
 	.next-card h3 {
-		font-size: 0.85rem;
+		font-family: var(--font-sans);
+		font-size: .875rem;
 		font-weight: 600;
 		color: var(--color-text-0);
 	}
 
 	.next-card p {
-		font-size: 0.8rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		line-height: 1.4;
 	}
@@ -234,28 +222,5 @@
 	form {
 		display: flex;
 		flex-direction: column;
-	}
-
-	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		background: var(--color-accent-dim);
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 </style>

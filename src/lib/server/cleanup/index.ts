@@ -108,11 +108,11 @@ export class CleanupManager {
 			const lines = stdout.trim().split('\n').filter(Boolean);
 
 			const usage: DockerDiskUsage = {
-				images: { count: 0, sizeFormatted: '0B' },
-				containers: { count: 0, sizeFormatted: '0B' },
-				volumes: { count: 0, sizeFormatted: '0B' },
-				buildCache: { sizeFormatted: '0B' },
-				totalFormatted: '0B'
+				images: { count: 0, sizeFormatted: '0 B' },
+				containers: { count: 0, sizeFormatted: '0 B' },
+				volumes: { count: 0, sizeFormatted: '0 B' },
+				buildCache: { sizeFormatted: '0 B' },
+				totalFormatted: '0 B'
 			};
 
 			let totalBytes = 0;
@@ -140,11 +140,11 @@ export class CleanupManager {
 			return usage;
 		} catch {
 			return {
-				images: { count: 0, sizeFormatted: '0B' },
-				containers: { count: 0, sizeFormatted: '0B' },
-				volumes: { count: 0, sizeFormatted: '0B' },
-				buildCache: { sizeFormatted: '0B' },
-				totalFormatted: '0B'
+				images: { count: 0, sizeFormatted: '0 B' },
+				containers: { count: 0, sizeFormatted: '0 B' },
+				volumes: { count: 0, sizeFormatted: '0 B' },
+				buildCache: { sizeFormatted: '0 B' },
+				totalFormatted: '0 B'
 			};
 		}
 	}
@@ -152,7 +152,7 @@ export class CleanupManager {
 	/**
 	 * Run Docker prune for the specified resource type.
 	 */
-	async dockerPrune(type: 'images' | 'containers' | 'volumes' | 'all'): Promise<DockerPruneResult> {
+	async dockerPrune(type: 'images' | 'containers' | 'volumes' | 'buildcache' | 'all'): Promise<DockerPruneResult> {
 		const { execFile } = await import('node:child_process');
 		const { promisify } = await import('node:util');
 		const execFileAsync = promisify(execFile);
@@ -171,6 +171,9 @@ export class CleanupManager {
 				stdout = result.stdout;
 			} else if (type === 'volumes') {
 				const result = await execFileAsync('docker', ['volume', 'prune', '-af']);
+				stdout = result.stdout;
+			} else if (type === 'buildcache') {
+				const result = await execFileAsync('docker', ['builder', 'prune', '-af']);
 				stdout = result.stdout;
 			}
 
@@ -205,11 +208,12 @@ export function parseDockerSize(size: string): number {
 
 /** Format bytes to a human-readable string. */
 export function formatBytes(bytes: number): string {
-	if (bytes === 0) return '0B';
+	if (bytes === 0) return '0 B';
 	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(1000));
 	const val = bytes / Math.pow(1000, i);
-	return `${val.toFixed(val >= 100 ? 0 : val >= 10 ? 1 : 2)}${units[i]}`;
+	const decimals = i >= 3 ? 1 : 0;
+	return `${val.toFixed(decimals)} ${units[i]}`;
 }
 
 /* Singleton */

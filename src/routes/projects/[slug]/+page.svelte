@@ -9,7 +9,7 @@
 	let deleting = $state(false);
 
 	function timeAgo(dateStr: string | null): string {
-		if (!dateStr) return '—';
+		if (!dateStr) return '–';
 		const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
 		if (seconds < 60) return 'just now';
 		const minutes = Math.floor(seconds / 60);
@@ -20,7 +20,7 @@
 	}
 
 	function duration(start: string | null, end: string | null): string {
-		if (!start) return '—';
+		if (!start) return '–';
 		const endTime = end ? new Date(end).getTime() : Date.now();
 		const secs = Math.floor((endTime - new Date(start).getTime()) / 1000);
 		const mins = Math.floor(secs / 60);
@@ -117,7 +117,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.project.name} — Risved</title>
+	<title>{data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="project-detail">
@@ -161,7 +161,7 @@
 						data-testid="deploy-row"
 					>
 						<span class="status-dot {statusClass(dep.status)}"></span>
-						<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '—'}</span>
+						<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
 						<span class="deploy-status">
 							{dep.status}
 							{#if dep.triggerType === 'rollback'}
@@ -201,7 +201,7 @@
 						{data.containerHealth.healthy ? 'Healthy' : 'Unhealthy'}
 					</span>
 					{#if data.containerHealth.lastCheckAt}
-						<span class="muted">— Last check {timeAgo(data.containerHealth.lastCheckAt)}</span>
+						<span class="muted">– Last check {timeAgo(data.containerHealth.lastCheckAt)}</span>
 					{/if}
 				</div>
 				<div class="health-meta">
@@ -272,7 +272,7 @@
 				<span class="status-dot dot-live"></span>
 				<span>Webhook active</span>
 				{#if data.lastWebhookAt}
-					<span class="muted">— Last received {timeAgo(data.lastWebhookAt)}</span>
+					<span class="muted">– Last received {timeAgo(data.lastWebhookAt)}</span>
 				{/if}
 			{:else}
 				<span class="status-dot dot-stopped"></span>
@@ -345,7 +345,7 @@
 								</span>
 								<span class="cron-last-time mono">{timeAgo(job.lastRun.startedAt)}</span>
 							{:else}
-								<span class="cron-last-run muted">—</span>
+								<span class="cron-last-run muted">–</span>
 								<span class="cron-last-time muted">never</span>
 							{/if}
 							<span class="cron-actions">
@@ -451,15 +451,15 @@
 	.project-detail {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -475,19 +475,14 @@
 		gap: var(--space-2);
 	}
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
 	}
 
 	.domain-link {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-accent);
 		margin-top: var(--space-1);
-	}
-
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
 	}
 
 	.status-dot {
@@ -515,35 +510,18 @@
 		padding: 1px 8px;
 		background: var(--color-bg-3);
 		border-radius: var(--radius-sm);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 	}
 
-	/* Sections */
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
 	.section-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 	}
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-	}
-	.empty-text {
-		color: var(--color-text-2);
-		font-size: 0.85rem;
-	}
 	.muted {
 		color: var(--color-text-2);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 
 	.btn-sm {
@@ -552,7 +530,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 	}
 	.btn-sm:hover {
@@ -573,7 +551,7 @@
 		padding: var(--space-2) var(--space-3);
 		gap: var(--space-2);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-0);
 		text-decoration: none;
 		transition: background 0.1s;
@@ -600,10 +578,10 @@
 	}
 	.trigger-badge {
 		padding: 1px 6px;
-		background: rgba(59, 130, 246, 0.15);
+		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 		color: var(--color-accent);
 		border-radius: var(--radius-sm);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 	}
 	.btn-rollback {
@@ -612,7 +590,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		cursor: pointer;
 		white-space: nowrap;
 	}
@@ -646,7 +624,7 @@
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.health-status-row {
 		display: flex;
@@ -659,7 +637,7 @@
 	.health-meta {
 		display: flex;
 		gap: var(--space-4);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 	.health-meta-item strong {
@@ -677,7 +655,7 @@
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.75rem;
+		font-size: .875rem;
 	}
 	.health-event-row:last-child {
 		border-bottom: none;
@@ -685,22 +663,22 @@
 	.event-badge {
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
-		font-size: 0.625rem;
+		font-size: .875rem;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		white-space: nowrap;
 	}
 	.event-check_failed {
-		background: rgba(239, 68, 68, 0.15);
+		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
 		color: var(--color-failed);
 	}
 	.event-restarted {
-		background: rgba(234, 179, 8, 0.15);
+		background: color-mix(in srgb, var(--color-building) 15%, transparent);
 		color: var(--color-building);
 	}
 	.event-recovered {
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 	}
 	.event-msg {
@@ -723,7 +701,7 @@
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 
 	/* Env block */
@@ -733,7 +711,7 @@
 		border-radius: var(--radius-md);
 		overflow: hidden;
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.env-line {
 		display: flex;
@@ -770,7 +748,7 @@
 		gap: var(--space-3);
 		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--color-border);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.domain-row:last-child {
 		border-bottom: none;
@@ -780,14 +758,14 @@
 	}
 	.primary-badge {
 		padding: 1px 6px;
-		background: rgba(59, 130, 246, 0.15);
+		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 		color: var(--color-accent);
 		border-radius: var(--radius-sm);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 	}
 	.ssl-badge {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 	.ssl-active {
@@ -812,7 +790,7 @@
 		align-items: center;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-3);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.cron-toggle input[type='checkbox'] {
 		width: 16px;
@@ -838,7 +816,7 @@
 	}
 	.cron-route {
 		color: var(--color-text-2);
-		font-size: 0.75rem;
+		font-size: .875rem;
 	}
 	.cron-schedule {
 		color: var(--color-text-1);
@@ -847,20 +825,20 @@
 	.cron-last-run {
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
-		font-size: 0.6875rem;
+		font-size: .875rem;
 		font-weight: 500;
 		white-space: nowrap;
 	}
 	.cron-success {
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 	}
 	.cron-failed {
-		background: rgba(239, 68, 68, 0.15);
+		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
 		color: var(--color-failed);
 	}
 	.cron-timeout {
-		background: rgba(234, 179, 8, 0.15);
+		background: color-mix(in srgb, var(--color-building) 15%, transparent);
 		color: var(--color-building);
 	}
 	.cron-last-time {
@@ -877,7 +855,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		cursor: pointer;
 		white-space: nowrap;
 	}
@@ -904,19 +882,19 @@
 		justify-content: space-between;
 		gap: var(--space-4);
 		padding: var(--space-4);
-		background: rgba(239, 68, 68, 0.05);
-		border: 1px solid rgba(239, 68, 68, 0.2);
+		background: color-mix(in srgb, var(--color-failed) 5%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-failed) 20%, transparent);
 		border-radius: var(--radius-md);
 	}
 	.danger-info {
 		flex: 1;
 	}
 	.danger-info strong {
-		font-size: 0.9rem;
+		font-size: 1rem;
 	}
 	.danger-info p {
 		margin-top: var(--space-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		line-height: 1.5;
 	}
 
@@ -927,18 +905,18 @@
 		border: 1px solid var(--color-failed);
 		border-radius: var(--radius-md);
 		color: var(--color-failed);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		font-weight: 500;
 		cursor: pointer;
 		white-space: nowrap;
 	}
 	.btn-danger:hover,
 	.btn-danger-confirm:hover {
-		background: rgba(239, 68, 68, 0.1);
+		background: color-mix(in srgb, var(--color-failed) 10%, transparent);
 	}
 	.btn-danger-confirm {
 		background: var(--color-failed);
-		color: #fff;
+		color: var(--color-bg-0);
 	}
 	.btn-danger-confirm:hover {
 		background: #dc2626;
@@ -958,7 +936,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		cursor: pointer;
 	}
 	.btn-cancel:hover {

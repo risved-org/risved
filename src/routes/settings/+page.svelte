@@ -1,13 +1,18 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { authClient } from '$lib/auth-client';
+	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import TimezonePicker from '$lib/components/TimezonePicker.svelte';
 	import type { PageData, ActionData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let hostname = $state(data.hostname ?? '');
-	let timezone = $state(data.timezone ?? 'UTC');
+	let timezone = $state(
+		data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+	);
 	let email = $state(data.user?.email ?? '');
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -21,6 +26,13 @@
 	let newlyGeneratedToken = $state<string | null>(null);
 	let retentionDays = $state(data.retentionDays ?? 30);
 	let retentionSaving = $state(false);
+
+	/* Update state */
+	let updateInfo = $state(data.updateInfo);
+	let updateChecking = $state(false);
+	let updateStep = $state<string | null>(null);
+	let updateError = $state<string | null>(null);
+	let showReleaseNotes = $state(false);
 
 	/* Docker disk usage state */
 	interface DiskEntry {
@@ -54,6 +66,41 @@
 	let passkeySuccess = $state<string | null>(null);
 	let passkeyName = $state('');
 
+	let showGeneralSaved = $state(false)
+	let showEmailSaved = $state(false)
+	let showPasswordChanged = $state(false)
+	let showRetentionSaved = $state(false)
+
+	$effect(() => {
+		if (form?.generalSaved) {
+			showGeneralSaved = true
+			setTimeout(() => { showGeneralSaved = false }, 3000)
+		}
+	})
+	$effect(() => {
+		if (form?.emailSaved) {
+			showEmailSaved = true
+			setTimeout(() => { showEmailSaved = false }, 3000)
+		}
+	})
+	$effect(() => {
+		if (form?.passwordChanged) {
+			showPasswordChanged = true
+			setTimeout(() => { showPasswordChanged = false }, 3000)
+		}
+	})
+	$effect(() => {
+		if (form?.retentionSaved) {
+			showRetentionSaved = true
+			setTimeout(() => { showRetentionSaved = false }, 3000)
+		}
+	})
+
+	onMount(() => {
+		loadPasskeys()
+		loadDiskUsage()
+	})
+
 	async function loadPasskeys() {
 		passkeysLoading = true;
 		try {
@@ -76,6 +123,7 @@
 				passkeyError = error.message || 'Failed to register passkey';
 			} else {
 				passkeySuccess = 'Passkey registered';
+				setTimeout(() => { passkeySuccess = null }, 3000);
 				passkeyName = '';
 				await loadPasskeys();
 			}
@@ -118,6 +166,7 @@
 			if (res.ok) {
 				const d = await res.json();
 				pruneResult = `Reclaimed: ${d.result.spaceReclaimed}`;
+				setTimeout(() => { pruneResult = null }, 3000);
 				await loadDiskUsage();
 			}
 		} finally {
@@ -137,27 +186,90 @@
 			if (res.ok) {
 				const d = await res.json();
 				cleanupResult = `Removed ${d.result.deploymentsRemoved} deployments, ${d.result.buildLogsRemoved} logs`;
+				setTimeout(() => { cleanupResult = null }, 3000);
 			}
 		} finally {
 			cleanupRunning = false;
 		}
 	}
 
-	const timezones = [
-		'UTC',
-		'America/New_York',
-		'America/Chicago',
-		'America/Denver',
-		'America/Los_Angeles',
-		'Europe/London',
-		'Europe/Berlin',
-		'Europe/Paris',
-		'Asia/Tokyo',
-		'Asia/Shanghai',
-		'Asia/Kolkata',
-		'Australia/Sydney',
-		'Pacific/Auckland'
-	];
+	let showUpToDate = $state(false)
+
+	async function checkForUpdates() {
+		updateChecking = true
+		updateError = null
+		showUpToDate = false
+		try {
+			const res = await fetch(resolve('/api/system/update/check'), { method: 'POST' })
+			if (res.ok) {
+				updateInfo = await res.json()
+				if (!updateInfo?.updateAvailable) {
+					showUpToDate = true
+					setTimeout(() => { showUpToDate = false }, 3000)
+				}
+			} else {
+				const body = await res.json().catch(() => ({}))
+				updateError = body.error || 'Failed to check for updates'
+			}
+		} catch {
+			updateError = 'Could not reach update server'
+		} finally {
+			updateChecking = false
+		}
+	}
+
+	async function triggerUpdate() {
+		if (!updateInfo?.updateAvailable || !updateInfo.latestVersion) return
+		if (!confirm(`Update Risved to ${updateInfo.latestVersion}? The dashboard will briefly restart.`)) return
+
+		updateStep = 'Checking...'
+		updateError = null
+
+		try {
+			const res = await fetch(resolve('/api/system/update'), { method: 'POST' })
+			const body = await res.json()
+
+			if (!res.ok) {
+				updateError = body.error || 'Update failed'
+				updateStep = null
+				return
+			}
+
+			updateStep = 'Updating Risved...'
+
+			/* Poll until the new version responds or timeout */
+			const targetVersion = body.targetVersion
+			let attempts = 0
+			const maxAttempts = 60
+
+			const poll = setInterval(async () => {
+				attempts++
+				try {
+					const checkRes = await fetch(resolve('/api/system/update'))
+					if (checkRes.ok) {
+						const info = await checkRes.json()
+						if (info.currentVersion === targetVersion) {
+							clearInterval(poll)
+							updateStep = null
+							updateInfo = info
+							return
+						}
+					}
+				} catch {
+					/* Server might be restarting */
+				}
+
+				if (attempts >= maxAttempts) {
+					clearInterval(poll)
+					updateStep = null
+					updateError = 'Update timed out. Check the server manually.'
+				}
+			}, 3000)
+		} catch {
+			updateError = 'Failed to start update'
+			updateStep = null
+		}
+	}
 
 	function copyToken() {
 		if (newlyGeneratedToken) {
@@ -169,24 +281,37 @@
 </script>
 
 <svelte:head>
-	<title>Settings — Risved</title>
+	<title>Settings – Risved</title>
 </svelte:head>
 
-<div class="settings-page">
+<article class="settings-page">
 	<header class="page-header">
 		<a href={resolve('/')} class="back-link">← Dashboard</a>
 		<h1>Settings</h1>
 	</header>
 
-	<!-- Navigation -->
-	<nav class="settings-nav" data-testid="settings-nav">
-		<a href={resolve('/settings/providers')} class="nav-link" data-testid="providers-link">
-			Git Providers
-		</a>
-		<a href={resolve('/settings/git')} class="nav-link" data-testid="git-settings-link">
-			Git Settings
-		</a>
-	</nav>
+	<!-- Git -->
+	<section class="section" data-testid="git-section">
+		<h2 class="section-title">Git</h2>
+		<div class="form-card">
+			{#if data.connections && data.connections.length > 0}
+				<div class="git-provider-info">
+					<span class="form-label">Git provider</span>
+					<span class="git-provider-value">
+						{#each data.connections as conn, i (conn.id)}
+							{#if i > 0}, {/if}
+							{conn.accountName}
+						{/each}
+					</span>
+				</div>
+			{:else}
+				<p class="card-desc">No git providers connected.</p>
+			{/if}
+			<a href={resolve('/settings/git')} class="btn-secondary" data-testid="git-settings-link">
+				Git settings
+			</a>
+		</div>
+	</section>
 
 	<!-- General Settings -->
 	<section class="section" data-testid="general-section">
@@ -203,11 +328,10 @@
 			}}
 		>
 			<div class="form-card">
-				<div class="form-group">
-					<label for="hostname" class="form-label">Hostname</label>
+				<label class="form-group">
+					<span class="form-label">Hostname</span>
 					<input
 						type="text"
-						id="hostname"
 						name="hostname"
 						bind:value={hostname}
 						placeholder="risved.example.com"
@@ -215,22 +339,12 @@
 						data-testid="hostname-input"
 					/>
 					<p class="form-hint">The public hostname where Risved is accessible.</p>
-				</div>
+				</label>
 
-				<div class="form-group">
-					<label for="timezone" class="form-label">Timezone</label>
-					<select
-						id="timezone"
-						name="timezone"
-						bind:value={timezone}
-						class="form-input"
-						data-testid="timezone-select"
-					>
-						{#each timezones as tz (tz)}
-							<option value={tz}>{tz}</option>
-						{/each}
-					</select>
-				</div>
+				<label class="form-group">
+					<span class="form-label">Timezone</span>
+					<TimezonePicker bind:value={timezone} name="timezone" />
+				</label>
 
 				<div class="form-actions">
 					<button
@@ -241,7 +355,7 @@
 					>
 						{generalSaving ? 'Saving…' : 'Save changes'}
 					</button>
-					{#if form?.generalSaved}
+					{#if showGeneralSaved}
 						<span class="save-success" data-testid="general-saved">Saved</span>
 					{/if}
 				</div>
@@ -251,7 +365,7 @@
 
 	<!-- Admin Email -->
 	<section class="section" data-testid="email-section">
-		<h2 class="section-title">Admin Email</h2>
+		<h2 class="section-title">Admin email</h2>
 		<form
 			method="post"
 			action="?/email"
@@ -264,17 +378,16 @@
 			}}
 		>
 			<div class="form-card">
-				<div class="form-group">
-					<label for="email" class="form-label">Email address</label>
+				<label class="form-group">
+					<span class="form-label">Email address</span>
 					<input
 						type="email"
-						id="email"
 						name="email"
 						bind:value={email}
 						class="form-input mono"
 						data-testid="email-input"
 					/>
-				</div>
+				</label>
 
 				<div class="form-actions">
 					<button
@@ -285,7 +398,7 @@
 					>
 						{emailSaving ? 'Saving…' : 'Update email'}
 					</button>
-					{#if form?.emailSaved}
+					{#if showEmailSaved}
 						<span class="save-success" data-testid="email-saved">Updated</span>
 					{/if}
 					{#if form?.emailError}
@@ -298,7 +411,7 @@
 
 	<!-- Change Password -->
 	<section class="section" data-testid="password-section">
-		<h2 class="section-title">Change Password</h2>
+		<h2 class="section-title">Change password</h2>
 		<form
 			method="post"
 			action="?/password"
@@ -314,42 +427,39 @@
 			}}
 		>
 			<div class="form-card">
-				<div class="form-group">
-					<label for="currentPassword" class="form-label">Current password</label>
+				<label class="form-group">
+					<span class="form-label">Current password</span>
 					<input
 						type="password"
-						id="currentPassword"
 						name="currentPassword"
 						bind:value={currentPassword}
 						class="form-input"
 						data-testid="current-password-input"
 					/>
-				</div>
+				</label>
 
-				<div class="form-group">
-					<label for="newPassword" class="form-label">New password</label>
+				<label class="form-group">
+					<span class="form-label">New password</span>
 					<input
 						type="password"
-						id="newPassword"
 						name="newPassword"
 						bind:value={newPassword}
 						class="form-input"
 						data-testid="new-password-input"
 					/>
 					<p class="form-hint">Minimum 8 characters.</p>
-				</div>
+				</label>
 
-				<div class="form-group">
-					<label for="confirmPassword" class="form-label">Confirm new password</label>
+				<label class="form-group">
+					<span class="form-label">Confirm new password</span>
 					<input
 						type="password"
-						id="confirmPassword"
 						name="confirmPassword"
 						bind:value={confirmPassword}
 						class="form-input"
 						data-testid="confirm-password-input"
 					/>
-				</div>
+				</label>
 
 				<div class="form-actions">
 					<button
@@ -360,7 +470,7 @@
 					>
 						{passwordSaving ? 'Changing…' : 'Change password'}
 					</button>
-					{#if form?.passwordChanged}
+					{#if showPasswordChanged}
 						<span class="save-success" data-testid="password-changed">Password changed</span>
 					{/if}
 					{#if form?.passwordError}
@@ -381,8 +491,8 @@
 						<div class="passkey-item">
 							<div class="passkey-info">
 								<span class="passkey-name">{pk.name || 'Unnamed passkey'}</span>
-								<span class="passkey-date mono">
-									{pk.createdAt ? new Date(pk.createdAt).toLocaleDateString() : ''}
+								<span class="passkey-date">
+									<TimeAgo value={pk.createdAt} />
 								</span>
 							</div>
 							<button
@@ -400,17 +510,16 @@
 			{/if}
 
 			<div class="passkey-register">
-				<div class="form-group">
-					<label for="passkeyName" class="form-label">Passkey name (optional)</label>
+				<label class="form-group">
+					<span class="form-label">Passkey name (optional)</span>
 					<input
 						type="text"
-						id="passkeyName"
 						bind:value={passkeyName}
 						placeholder="e.g. MacBook fingerprint"
 						class="form-input"
 						data-testid="passkey-name-input"
 					/>
-				</div>
+				</label>
 				<div class="form-actions">
 					<button
 						class="btn-primary"
@@ -441,15 +550,15 @@
 
 	<!-- API Token -->
 	<section class="section" data-testid="token-section">
-		<h2 class="section-title">API Token</h2>
+		<h2 class="section-title">API token</h2>
 		<div class="form-card">
 			{#if newlyGeneratedToken}
 				<div class="token-display" data-testid="new-token-display">
-					<p class="token-warning">Copy this token now — it won't be shown again.</p>
+					<p class="token-warning">Copy this token now – it won't be shown again.</p>
 					<div class="token-row">
 						<code class="token-value mono" data-testid="token-value">{newlyGeneratedToken}</code>
 						<button class="btn-copy" onclick={copyToken} data-testid="copy-token-btn">
-							{tokenCopied ? 'Copied!' : 'Copy'}
+							{tokenCopied ? 'Copied' : 'Copy'}
 						</button>
 					</div>
 				</div>
@@ -520,7 +629,7 @@
 
 	<!-- Build Log Retention -->
 	<section class="section" data-testid="retention-section">
-		<h2 class="section-title">Build Log Retention</h2>
+		<h2 class="section-title">Build log retention</h2>
 		<form
 			method="post"
 			action="?/retention"
@@ -533,23 +642,21 @@
 			}}
 		>
 			<div class="form-card">
-				<div class="form-group">
-					<label for="retentionDays" class="form-label">Retention period (days)</label>
+				<label class="form-group">
+					<span class="form-label">Retention in days</span>
 					<input
 						type="number"
-						id="retentionDays"
 						name="retentionDays"
 						bind:value={retentionDays}
 						min="1"
 						max="365"
-						class="form-input"
-						style="max-width: 120px;"
+						class="form-input retention-input"
 						data-testid="retention-input"
 					/>
 					<p class="form-hint">
-						Deployments and build logs older than this will be automatically cleaned up.
+						Deployments and build logs are automatically cleaned up after the retention period.
 					</p>
-				</div>
+				</label>
 
 				<div class="form-actions">
 					<button
@@ -569,7 +676,7 @@
 					>
 						{cleanupRunning ? 'Running…' : 'Run cleanup now'}
 					</button>
-					{#if form?.retentionSaved}
+					{#if showRetentionSaved}
 						<span class="save-success" data-testid="retention-saved">Saved</span>
 					{/if}
 					{#if form?.retentionError}
@@ -583,9 +690,90 @@
 		</form>
 	</section>
 
+	<!-- System Update -->
+	<section class="section" data-testid="update-section">
+		<h2 class="section-title">System update</h2>
+		<div class="form-card">
+			<div class="update-version" data-testid="update-version">
+				<span class="form-label">Risved</span>
+				{#if updateInfo?.updateAvailable && updateInfo.latestVersion}
+					<span class="version-info">
+						<code class="mono">{updateInfo.currentVersion}</code>
+						<span class="version-arrow">&rarr;</span>
+						<code class="mono version-new">{updateInfo.latestVersion}</code>
+						<span class="update-badge">Update available</span>
+					</span>
+				{:else}
+					<span class="version-info">
+						<code class="mono">{updateInfo?.currentVersion ?? '–'}</code>
+						{#if showUpToDate}
+							<span class="version-ok">Up to date</span>
+						{/if}
+					</span>
+				{/if}
+			</div>
+
+			{#if updateInfo?.checkedAt}
+				<p class="form-hint">
+					Last checked: <TimeAgo value={updateInfo.checkedAt} includeTime />
+				</p>
+			{/if}
+
+			{#if updateInfo?.updateAvailable && updateInfo.releaseNotes}
+				<button
+					class="btn-link"
+					onclick={() => showReleaseNotes = !showReleaseNotes}
+					data-testid="toggle-release-notes"
+				>
+					{showReleaseNotes ? 'Hide' : 'View'} release notes
+				</button>
+				{#if showReleaseNotes}
+					<div class="release-notes mono" data-testid="release-notes">
+						{updateInfo.releaseNotes}
+					</div>
+				{/if}
+			{/if}
+
+			{#if updateStep}
+				<div class="update-progress" data-testid="update-progress">
+					<span class="update-spinner"></span>
+					<span>{updateStep}</span>
+				</div>
+			{/if}
+
+			<div class="form-actions">
+				<button
+					class="btn-secondary"
+					disabled={updateChecking || !!updateStep}
+					onclick={checkForUpdates}
+					data-testid="check-updates-btn"
+				>
+					{updateChecking ? 'Checking...' : 'Check for updates'}
+				</button>
+				{#if updateInfo?.updateAvailable}
+					<button
+						class="btn-primary"
+						disabled={!!updateStep}
+						onclick={triggerUpdate}
+						data-testid="update-now-btn"
+					>
+						Update to {updateInfo.latestVersion}
+					</button>
+				{/if}
+			</div>
+
+			{#if updateError}
+				<span class="form-error" role="alert" data-testid="update-error">{updateError}</span>
+			{/if}
+			{#if updateInfo?.error && !updateError}
+				<span class="form-error" role="alert">{updateInfo.error}</span>
+			{/if}
+		</div>
+	</section>
+
 	<!-- Docker Disk Usage -->
 	<section class="section" data-testid="docker-section">
-		<h2 class="section-title">Docker Resources</h2>
+		<h2 class="section-title">Docker resources</h2>
 		<div class="form-card">
 			{#if diskUsage}
 				<div class="disk-grid" data-testid="disk-usage">
@@ -593,99 +781,96 @@
 						<span class="disk-label">Images</span>
 						<span class="disk-count mono">{diskUsage.images.count}</span>
 						<span class="disk-size mono">{diskUsage.images.sizeFormatted}</span>
+						<button
+							class="btn-prune"
+							disabled={pruning !== null}
+							onclick={() => runPrune('images')}
+							data-testid="prune-images-btn"
+						>
+							{pruning === 'images' ? 'Pruning…' : 'Prune'}
+						</button>
 					</div>
 					<div class="disk-row">
 						<span class="disk-label">Containers</span>
 						<span class="disk-count mono">{diskUsage.containers.count}</span>
 						<span class="disk-size mono">{diskUsage.containers.sizeFormatted}</span>
+						<button
+							class="btn-prune"
+							disabled={pruning !== null}
+							onclick={() => runPrune('containers')}
+							data-testid="prune-containers-btn"
+						>
+							{pruning === 'containers' ? 'Pruning…' : 'Prune'}
+						</button>
 					</div>
 					<div class="disk-row">
 						<span class="disk-label">Volumes</span>
 						<span class="disk-count mono">{diskUsage.volumes.count}</span>
 						<span class="disk-size mono">{diskUsage.volumes.sizeFormatted}</span>
+						<button
+							class="btn-prune"
+							disabled={pruning !== null}
+							onclick={() => runPrune('volumes')}
+							data-testid="prune-volumes-btn"
+						>
+							{pruning === 'volumes' ? 'Pruning…' : 'Prune'}
+						</button>
 					</div>
 					<div class="disk-row">
-						<span class="disk-label">Build Cache</span>
-						<span class="disk-count mono">—</span>
+						<span class="disk-label">Build cache</span>
+						<span class="disk-count mono">–</span>
 						<span class="disk-size mono">{diskUsage.buildCache.sizeFormatted}</span>
+						<button
+							class="btn-prune"
+							disabled={pruning !== null}
+							onclick={() => runPrune('buildcache')}
+							data-testid="prune-buildcache-btn"
+						>
+							{pruning === 'buildcache' ? 'Pruning…' : 'Prune'}
+						</button>
 					</div>
 					<div class="disk-row disk-total">
 						<span class="disk-label">Total</span>
 						<span class="disk-count mono"></span>
 						<span class="disk-size mono">{diskUsage.totalFormatted}</span>
+						<span></span>
 					</div>
 				</div>
 			{:else}
 				<p class="empty-text">
-					{diskLoading
-						? 'Loading Docker disk usage…'
-						: 'Click "Load usage" to view Docker disk usage.'}
+					{diskLoading ? 'Loading Docker disk usage…' : 'No Docker disk data available.'}
 				</p>
 			{/if}
 
-			<div class="docker-actions">
+			<div class="form-actions">
 				<button
 					class="btn-secondary"
-					disabled={diskLoading}
-					onclick={loadDiskUsage}
-					data-testid="load-disk-btn"
-				>
-					{diskLoading ? 'Loading…' : 'Load usage'}
-				</button>
-				<button
-					class="btn-secondary"
-					disabled={pruning !== null}
-					onclick={() => runPrune('images')}
-					data-testid="prune-images-btn"
-				>
-					{pruning === 'images' ? 'Pruning…' : 'Prune images'}
-				</button>
-				<button
-					class="btn-secondary"
-					disabled={pruning !== null}
-					onclick={() => runPrune('containers')}
-					data-testid="prune-containers-btn"
-				>
-					{pruning === 'containers' ? 'Pruning…' : 'Prune containers'}
-				</button>
-				<button
-					class="btn-secondary"
-					disabled={pruning !== null}
-					onclick={() => runPrune('volumes')}
-					data-testid="prune-volumes-btn"
-				>
-					{pruning === 'volumes' ? 'Pruning…' : 'Prune volumes'}
-				</button>
-				<button
-					class="btn-danger-sm"
 					disabled={pruning !== null}
 					onclick={() => runPrune('all')}
 					data-testid="prune-all-btn"
 				>
 					{pruning === 'all' ? 'Pruning…' : 'Prune all'}
 				</button>
+				{#if pruneResult}
+					<span class="save-success" data-testid="prune-result">{pruneResult}</span>
+				{/if}
 			</div>
-
-			{#if pruneResult}
-				<span class="save-success" data-testid="prune-result">{pruneResult}</span>
-			{/if}
 		</div>
 	</section>
-</div>
+</article>
 
 <style>
 	.settings-page {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
-		max-width: 640px;
-		margin: 0 auto;
+		margin: var(--space-4) auto var(--space-8);
+		max-width: 40rem;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -696,147 +881,42 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
-		font-weight: 600;
+		font-size: 2rem;
 	}
 
-	/* Settings nav */
-	.settings-nav {
-		display: flex;
-		gap: var(--space-2);
-	}
-	.nav-link {
-		padding: var(--space-2) var(--space-3);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: 0.8125rem;
-		font-weight: 500;
-		text-decoration: none;
-	}
-	.nav-link:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
+	@media (min-width: 768px) {
+		h1 {
+			font-size: 3rem;
+		}
 	}
 
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
-	}
-
-	/* Sections */
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
+	.card-desc {
+		font-size: .875rem;
 		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
 	}
 
-	/* Form card */
-	.form-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-4);
-		padding: var(--space-4);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-	}
-
-	.form-group {
+	.git-provider-info {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 	}
-	.form-label {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-1);
+
+	.git-provider-value {
+		font-size: 1rem;
+		color: var(--color-text-0);
 	}
+
+	.form-card .btn-secondary {
+		align-self: flex-start;
+	}
+
 	.form-input {
-		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-0);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-0);
-		font-size: 0.8125rem;
-	}
-	.form-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
-	}
-	.form-hint {
-		font-size: 0.75rem;
-		color: var(--color-text-2);
-		margin-top: 2px;
+		border-width: 1px;
 	}
 
-	.form-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-	}
-
-	/* Buttons */
-	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		border: 1px solid var(--color-accent);
-		border-radius: var(--radius-md);
-		color: #fff;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		cursor: pointer;
-	}
-	.btn-primary:hover {
-		opacity: 0.9;
-	}
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.btn-secondary {
-		padding: var(--space-2) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: 0.8125rem;
-		font-weight: 500;
-		cursor: pointer;
-	}
-	.btn-secondary:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-	}
-	.btn-secondary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.btn-danger-sm {
-		padding: var(--space-2) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-failed);
-		border-radius: var(--radius-md);
-		color: var(--color-failed);
-		font-size: 0.8125rem;
-		cursor: pointer;
-	}
-	.btn-danger-sm:hover {
-		background: rgba(239, 68, 68, 0.1);
-	}
-	.btn-danger-sm:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+	.retention-input {
+		max-width: 120px;
 	}
 
 	.btn-copy {
@@ -845,7 +925,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		cursor: pointer;
 		flex-shrink: 0;
 	}
@@ -854,20 +934,10 @@
 		color: var(--color-text-0);
 	}
 
-	/* Feedback */
-	.save-success {
-		font-size: 0.8125rem;
-		color: var(--color-live);
-	}
 	.form-error {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-failed);
 	}
-	.empty-text {
-		color: var(--color-text-2);
-		font-size: 0.85rem;
-	}
-
 	/* Token display */
 	.token-display {
 		display: flex;
@@ -875,7 +945,7 @@
 		gap: var(--space-2);
 	}
 	.token-warning {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-building);
 		font-weight: 500;
 	}
@@ -914,10 +984,11 @@
 	}
 	.disk-row {
 		display: grid;
-		grid-template-columns: 1fr 60px 80px;
+		grid-template-columns: 5fr 1fr 1fr 1fr;
+		column-gap: var(--space-3);
 		align-items: center;
 		padding: var(--space-1) 0;
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.disk-total {
 		border-top: 1px solid var(--color-border);
@@ -935,10 +1006,97 @@
 		text-align: right;
 		color: var(--color-text-0);
 	}
-	.docker-actions {
+	.btn-prune {
+		padding: .125rem var(--space-1);
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-2);
+		font-size: .75rem;
+		cursor: pointer;
+		justify-self: end;
+	}
+	.btn-prune:hover:not(:disabled) {
+		border-color: var(--color-text-2);
+		color: var(--color-text-0);
+	}
+	.btn-prune:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Update styles */
+	.update-version {
 		display: flex;
-		flex-wrap: wrap;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.version-info {
+		display: flex;
+		align-items: center;
 		gap: var(--space-2);
+		font-size: 1rem;
+	}
+	.version-arrow {
+		color: var(--color-text-2);
+	}
+	.version-new {
+		color: var(--color-accent);
+		font-weight: 500;
+	}
+	.version-ok {
+		color: var(--color-live);
+		font-size: 1rem;
+	}
+	.update-badge {
+		padding: 1px var(--space-2);
+		background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+		border: 1px solid var(--color-accent);
+		border-radius: var(--radius-sm);
+		color: var(--color-accent);
+		font-size: 1rem;
+		font-weight: 500;
+	}
+	.btn-link {
+		background: none;
+		border: none;
+		color: var(--color-accent);
+		font-size: 1rem;
+		cursor: pointer;
+		padding: 0;
+		text-align: left;
+	}
+	.btn-link:hover {
+		text-decoration: underline;
+	}
+	.release-notes {
+		padding: var(--space-3);
+		background: var(--color-bg-0);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font-size: 1rem;
+		line-height: 1.6;
+		white-space: pre-wrap;
+		max-height: 200px;
+		overflow-y: auto;
+	}
+	.update-progress {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: 1rem;
+		color: var(--color-building);
+	}
+	.update-spinner {
+		width: 14px;
+		height: 14px;
+		border: 2px solid var(--color-border);
+		border-top-color: var(--color-building);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 
 	/* Passkey styles */
@@ -963,12 +1121,12 @@
 		gap: 2px;
 	}
 	.passkey-name {
-		font-size: 0.8125rem;
+		font-size: 1rem;
 		color: var(--color-text-0);
 		font-weight: 500;
 	}
 	.passkey-date {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 	.passkey-register {

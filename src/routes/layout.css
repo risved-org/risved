@@ -1,54 +1,87 @@
 :root {
 	/* Typography */
-	--font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
-	--font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+	--font-heading: 'BBH Hegarty', sans-serif;
+	--font-sans: 'Mozilla Text', system-ui, -apple-system, sans-serif;
+	--font-mono: 'Cascadia Code', ui-monospace, 'Source Code Pro', Menlo, Consolas, monospace;
 
-	/* Dark palette — tinted neutrals, never pure black or grey */
-	--color-bg-0: #111110;
-	--color-bg-1: #191918;
-	--color-bg-2: #222221;
-	--color-bg-3: #2a2a29;
+	/* Warm cream palette — light default */
+	--color-bg-0: #ece4df;
+	--color-bg-1: #f2ebe7;
+	--color-bg-2: #e5dcd6;
+	--color-bg-3: #ddd3cc;
 
-	--color-text-0: #ededec;
-	--color-text-1: #a1a09e;
-	--color-text-2: #6f6e6b;
+	--color-text-0: #2d1606;
+	--color-text-1: color-mix(in srgb, #2d1606 75%, transparent);
+	--color-text-2: color-mix(in srgb, #2d1606 50%, transparent);
 
-	/* Accent — single colour, used sparingly */
-	--color-accent: #3b82f6;
-	--color-accent-dim: #2563eb;
+	/* Accent — purple from product palette */
+	--color-accent: #7a3ba0;
+	--color-accent-dim: #6a2d90;
 
-	/* Status */
-	--color-live: #22c55e;
-	--color-failed: #ef4444;
-	--color-stopped: #6f6e6b;
-	--color-building: #eab308;
+	/* Status — adjusted for warm light background contrast */
+	--color-live: #2d8a4e;
+	--color-failed: #c53030;
+	--color-stopped: color-mix(in srgb, #2d1606 40%, transparent);
+	--color-building: #b8860b;
 
-	/* Terminal */
-	--color-term-bg: #111110;
-	--color-term-cmd: #60a5fa;
-	--color-term-success: #4ade80;
-	--color-term-error: #f87171;
-	--color-term-dim: #52524f;
+	/* Terminal — stays dark-themed for readability */
+	--color-term-bg: #2a211b;
+	--color-term-cmd: #7a3ba0;
+	--color-term-success: #2d8a4e;
+	--color-term-error: #c53030;
+	--color-term-dim: color-mix(in srgb, #2d1606 30%, transparent);
 
 	/* Borders */
-	--color-border: #2a2a29;
+	--color-border: color-mix(in srgb, currentColor 15%, transparent);
 
 	/* Spacing scale */
 	--space-1: 0.25rem;
 	--space-2: 0.5rem;
 	--space-3: 0.75rem;
 	--space-4: 1rem;
-	--space-6: 1.5rem;
-	--space-8: 2rem;
+	--space-5: 1.5rem;
+	--space-6: 2rem;
+	--space-7: 3rem;
+	--space-8: 6rem;
 
-	/* Radius */
+	/* Radius — updated per DESIGN.md */
 	--radius-sm: 4px;
-	--radius-md: 6px;
-	--radius-lg: 8px;
+	--radius-md: 8px;
+	--radius-lg: 12px;
+	--radius-xl: 1.5rem;
 
 	font-family: var(--font-sans);
+	font-size: 16px;
+	font-weight: 500;
 	color: var(--color-text-0);
-	color-scheme: dark;
+	color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-bg-0: #201813;
+		--color-bg-1: #2a211b;
+		--color-bg-2: #342a23;
+		--color-bg-3: #3e332b;
+
+		--color-text-0: #f9e1d2;
+		--color-text-1: color-mix(in srgb, #f9e1d2 75%, transparent);
+		--color-text-2: color-mix(in srgb, #f9e1d2 50%, transparent);
+
+		--color-accent: #c6a7dc;
+		--color-accent-dim: #b08fcf;
+
+		--color-live: #4ade80;
+		--color-failed: #f87171;
+		--color-stopped: color-mix(in srgb, #f9e1d2 40%, transparent);
+		--color-building: #eab308;
+
+		--color-term-bg: #201813;
+		--color-term-cmd: #c6a7dc;
+		--color-term-success: #4ade80;
+		--color-term-error: #f87171;
+		--color-term-dim: color-mix(in srgb, #f9e1d2 30%, transparent);
+	}
 }
 
 * {
@@ -64,6 +97,15 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
+h1, h2, h3, h4, h5, h6 {
+	font-family: var(--font-heading);
+	font-weight: 500;
+}
+
+h2 {
+	font-weight: 600;
+}
+
 a {
 	color: var(--color-accent);
 	text-decoration: none;
@@ -77,11 +119,204 @@ code, pre, kbd {
 	font-family: var(--font-mono);
 }
 
-input, button {
+input, button, select {
 	font-size: inherit;
 	font-family: inherit;
 }
 
 button:focus:not(:focus-visible) {
 	outline: none;
+}
+
+/* --- Shared component styles --- */
+
+/* Buttons */
+.btn-primary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-2) var(--space-4);
+	background: var(--color-accent);
+	color: white;
+	border: none;
+	border-radius: var(--radius-md);
+	font-weight: 600;
+	font-size: 1rem;
+	cursor: pointer;
+	text-decoration: none;
+	transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-primary:hover:not(:disabled) {
+	background: var(--color-accent-dim);
+	text-decoration: none;
+}
+
+.btn-primary:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn-secondary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-2) var(--space-3);
+	background: transparent;
+	color: var(--color-text-1);
+	border: 1.5px solid var(--color-border);
+	border-radius: var(--radius-md);
+	font-weight: 600;
+	font-size: 1rem;
+	cursor: pointer;
+	text-decoration: none;
+	transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+	border-color: var(--color-text-2);
+	color: var(--color-text-0);
+	text-decoration: none;
+}
+
+.btn-secondary:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn-danger-sm {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-2) var(--space-3);
+	background: transparent;
+	border: 1.5px solid color-mix(in srgb, var(--color-failed) 50%, transparent);
+	border-radius: var(--radius-md);
+	color: var(--color-failed);
+	font-size: 1rem;
+	font-weight: 600;
+	cursor: pointer;
+	text-decoration: none;
+	transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-danger-sm:hover:not(:disabled) {
+	border-color: var(--color-failed);
+	color: var(--color-failed);
+}
+
+.btn-danger-sm:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Form elements */
+.field,
+.form-group {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+
+.form-label {
+	font-size: .875rem;
+	font-weight: 500;
+	color: var(--color-text-1);
+}
+
+.form-input {
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-bg-2);
+	border: 1.5px solid var(--color-border);
+	border-radius: var(--radius-md);
+	color: var(--color-text-0);
+	font-size: 1rem;
+	outline: none;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-input:focus {
+	border-color: var(--color-accent);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.form-input::placeholder {
+	color: var(--color-text-2);
+}
+
+.form-hint {
+	font-size: .875rem;
+	color: var(--color-text-2);
+}
+
+.form-error {
+	padding: var(--space-2) var(--space-3);
+	background: color-mix(in srgb, var(--color-failed) 10%, transparent);
+	border: 1px solid color-mix(in srgb, var(--color-failed) 25%, transparent);
+	border-radius: var(--radius-md);
+	color: var(--color-failed);
+	font-size: .875rem;
+}
+
+.form-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+}
+
+.form-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	padding: var(--space-4);
+	background: var(--color-bg-1);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+}
+
+/* Layout patterns */
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.section-title {
+	font-family: var(--font-sans);
+	font-size: .875rem;
+	font-weight: 600;
+	color: var(--color-text-2);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+.subtitle {
+	margin-top: var(--space-2);
+	color: var(--color-text-1);
+	font-size: 1.25rem;
+	line-height: 1.5;
+	text-wrap: balance;
+}
+
+.onboarding {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+	padding: var(--space-4);
+}
+
+/* Utility */
+.mono {
+	font-family: var(--font-mono);
+}
+
+.save-success {
+	font-size: .875rem;
+	color: var(--color-live);
+}
+
+.empty-text {
+	color: var(--color-text-2);
+	font-size: .875rem;
 }

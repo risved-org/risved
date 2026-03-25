@@ -87,7 +87,7 @@
 </script>
 
 <svelte:head>
-	<title>Import Repository — Risved</title>
+	<title>Import Repository – Risved</title>
 </svelte:head>
 
 <div class="import-page">
@@ -99,7 +99,7 @@
 	{#if data.connections.length === 0}
 		<div class="empty-state" data-testid="no-providers">
 			<p>No Git providers connected.</p>
-			<a href={resolve('/settings/providers')} class="btn-primary">Connect a provider</a>
+			<a href={resolve('/settings/git')} class="btn-primary">Connect a provider</a>
 		</div>
 	{:else}
 		<!-- Account selector -->
@@ -275,7 +275,7 @@
 	.import-page {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 720px;
 		margin: 0 auto;
 		width: 100%;
@@ -283,7 +283,7 @@
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -294,32 +294,14 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
-	}
-
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.8125rem;
-	}
-
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
 	}
 
 	/* Empty state */
 	.empty-state {
 		text-align: center;
-		padding: var(--space-8) var(--space-4);
+		padding: var(--space-6) var(--space-4);
 		color: var(--color-text-2);
 		display: flex;
 		flex-direction: column;
@@ -362,7 +344,7 @@
 		text-align: left;
 		color: var(--color-text-0);
 		width: 100%;
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 	.repo-row:last-child {
 		border-bottom: none;
@@ -382,7 +364,7 @@
 		color: var(--color-text-0);
 	}
 	.repo-desc {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		white-space: nowrap;
 		overflow: hidden;
@@ -395,39 +377,34 @@
 		flex-shrink: 0;
 	}
 	.repo-lang {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 	.repo-date {
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 	.repo-badge {
-		font-size: 0.65rem;
+		font-size: .875rem;
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
-		background: rgba(255, 255, 255, 0.06);
+		background: color-mix(in srgb, var(--color-text-0) 6%, transparent);
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 	}
 	.repo-badge.private {
-		background: rgba(239, 68, 68, 0.1);
+		background: color-mix(in srgb, var(--color-failed) 10%, transparent);
 		color: var(--color-failed);
 	}
 
 	.loading-hint {
 		font-weight: 400;
-		font-size: 0.75rem;
+		font-size: .875rem;
 		text-transform: none;
 		letter-spacing: 0;
 		margin-left: var(--space-2);
 	}
-	.empty-text {
-		color: var(--color-text-2);
-		font-size: 0.85rem;
-	}
-
 	/* Config panel */
 	.selected-repo-header {
 		display: flex;
@@ -440,87 +417,45 @@
 		display: block;
 	}
 
-	.form-card {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-4);
-		padding: var(--space-4);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-	}
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-	.form-label {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-1);
-	}
 	.form-input {
-		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-0);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-0);
-		font-size: 0.8125rem;
-	}
-	.form-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
+		border-width: 1px;
+		font-size: .875rem;
 	}
 
 	.checkbox-row {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		cursor: pointer;
 	}
 
 	.form-error {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-failed);
 	}
 
 	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
 		border: 1px solid var(--color-accent);
-		border-radius: var(--radius-md);
-		color: #fff;
-		font-size: 0.8125rem;
+		color: var(--color-bg-0);
 		font-weight: 500;
-		cursor: pointer;
 	}
-	.btn-primary:hover {
+	.btn-primary:hover:not(:disabled) {
 		opacity: 0.9;
-	}
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+		background: var(--color-accent);
 	}
 
 	.btn-secondary {
-		padding: var(--space-2) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: 0.8125rem;
-		cursor: pointer;
-	}
-	.btn-secondary:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
+		border-width: 1px;
+		font-size: .875rem;
+		font-weight: 500;
 	}
 
 	.btn-sm {
 		padding: var(--space-1) var(--space-2);
-		font-size: 0.75rem;
+		font-size: .875rem;
 	}
 
 	.btn-deploy {

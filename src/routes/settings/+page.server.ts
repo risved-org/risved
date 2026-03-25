@@ -1,15 +1,16 @@
 import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { user as userTable } from '$lib/server/db/schema';
+import { user as userTable, gitConnections } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { auth } from '$lib/server/auth';
+import { getUpdateChecker } from '$lib/server/update';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const currentUser = locals.user;
 	if (!currentUser) {
-		return { user: null, hostname: null, timezone: null, apiToken: null, retentionDays: 30 };
+		return { user: null, hostname: null, timezone: null, apiToken: null, retentionDays: 30, connections: [] };
 	}
 
 	const hostname = await getSetting('hostname');
@@ -18,6 +19,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const retentionSetting = await getSetting('log_retention_days');
 	const retentionDays = retentionSetting ? parseInt(retentionSetting, 10) : 30;
 
+	const connections = await db
+		.select({
+			id: gitConnections.id,
+			provider: gitConnections.provider,
+			accountName: gitConnections.accountName
+		})
+		.from(gitConnections);
+
+	const updateInfo = await getUpdateChecker().getCachedUpdateInfo();
+
 	return {
 		user: {
 			id: currentUser.id,
@@ -25,9 +36,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 			name: currentUser.name
 		},
 		hostname: hostname ?? '',
-		timezone: timezone ?? 'UTC',
+		timezone: timezone ?? '',
 		apiToken: apiToken ? maskToken(apiToken) : null,
-		retentionDays: isNaN(retentionDays) ? 30 : retentionDays
+		retentionDays: isNaN(retentionDays) ? 30 : retentionDays,
+		connections,
+		updateInfo
 	};
 };
 

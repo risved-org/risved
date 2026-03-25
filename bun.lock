@@ -7,6 +7,9 @@
       "dependencies": {
         "@better-auth/core": "^1.5.5",
         "@better-auth/passkey": "^1.5.5",
+        "@fontsource/bbh-hegarty": "^5.2.1",
+        "@fontsource/cascadia-code": "^5.2.3",
+        "@fontsource/mozilla-text": "^5.2.2",
         "@libsql/client": "^0.17.0",
         "croner": "^10.0.1",
         "drizzle-orm": "^0.45.1",
@@ -221,6 +224,12 @@
     "@eslint/object-schema": ["@eslint/object-schema@2.1.7", "", {}, "sha512-VtAOaymWVfZcmZbp6E2mympDIHvyjXs/12LqWYjVw6qjrfF+VK+fyG33kChz3nnK+SU5/NeHOqrTEHS8sXO3OA=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
+
+    "@fontsource/bbh-hegarty": ["@fontsource/bbh-hegarty@5.2.1", "", {}, "sha512-52URqPY0y25Lx5BETsHyyrsD2e3UejUeeLYAlMiGoB/VVa7j7Cngkob6k7r+cQbZa6FjLUQDLuUgUhieyx+lZg=="],
+
+    "@fontsource/cascadia-code": ["@fontsource/cascadia-code@5.2.3", "", {}, "sha512-jnKfdZ+0UL25XUqYV7iq9gDlaUMWXxZNA7KnYzO4v8De6jBJmTkLHxDXs+1iZwl/8w7eKlDrTJWcyalOHdE2eg=="],
+
+    "@fontsource/mozilla-text": ["@fontsource/mozilla-text@5.2.2", "", {}, "sha512-mWVUbEzbNMlwajXQ96vEXPKgLOSEAOTcDjvzZQLBQv6P91dzOKosAwMTCtYxWep0wp2ZLqnL7nhBWkSZepxFtA=="],
 
     "@hexagon/base64": ["@hexagon/base64@1.1.28", "", {}, "sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw=="],
 

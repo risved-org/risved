@@ -4,6 +4,7 @@ import { gitConnections } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { verifyForgejoToken } from '$lib/server/forgejo';
+import { encrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
 /**
@@ -58,11 +59,13 @@ export const POST: RequestHandler = async (event) => {
 		.where(and(eq(gitConnections.provider, 'forgejo'), eq(gitConnections.accountName, user.login)))
 		.limit(1);
 
+	const encryptedToken = encrypt(token)
+
 	if (existing.length > 0) {
 		await db
 			.update(gitConnections)
 			.set({
-				accessToken: token,
+				accessToken: encryptedToken,
 				avatarUrl: user.avatar_url,
 				updatedAt: new Date().toISOString()
 			})
@@ -71,7 +74,7 @@ export const POST: RequestHandler = async (event) => {
 		await db.insert(gitConnections).values({
 			provider: 'forgejo',
 			accountName: user.login,
-			accessToken: token,
+			accessToken: encryptedToken,
 			avatarUrl: user.avatar_url
 		});
 	}

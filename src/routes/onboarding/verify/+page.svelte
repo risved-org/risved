@@ -139,7 +139,7 @@
 
 		<div class="wildcard-note">
 			<strong>*.{data.domainConfig.baseDomain}</strong> enables automatic subdomains for every deployed
-			app and PR preview — no extra DNS changes needed after setup.
+			app and PR preview – no extra DNS changes needed after setup.
 		</div>
 
 		<div class="provider-section">
@@ -178,7 +178,7 @@
 					</svg>
 				</div>
 				<div>
-					<p class="ssl-title">DNS verified — SSL certificates will be provisioned automatically</p>
+					<p class="ssl-title">DNS verified – SSL certificates will be provisioned automatically</p>
 					<p class="ssl-desc">
 						Caddy will obtain and renew Let's Encrypt certificates for your domains.
 					</p>
@@ -219,32 +219,24 @@
 </div>
 
 <style>
-	.onboarding {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		padding: var(--space-4);
-	}
-
 	.onboarding-card {
 		width: 100%;
 		max-width: 560px;
 	}
 
 	header {
-		margin-bottom: var(--space-6);
+		margin-bottom: var(--space-5);
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 2rem;
 		font-weight: 600;
 		margin-bottom: var(--space-2);
 	}
 
 	.subtitle {
 		color: var(--color-text-1);
-		font-size: 0.9rem;
+		font-size: 1.25rem;
 		line-height: 1.5;
 	}
 
@@ -261,7 +253,7 @@
 	}
 
 	.ip-label {
-		font-size: 0.8rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
@@ -270,7 +262,7 @@
 
 	.ip-value {
 		font-family: var(--font-mono);
-		font-size: 0.9rem;
+		font-size: 1rem;
 		color: var(--color-text-0);
 		flex: 1;
 	}
@@ -289,7 +281,7 @@
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-2);
-		font-size: 0.75rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
@@ -307,19 +299,19 @@
 	}
 
 	.dns-row.resolved {
-		background: rgba(34, 197, 94, 0.04);
+		background: color-mix(in srgb, var(--color-live) 4%, transparent);
 	}
 
 	.dns-cell code {
 		font-family: var(--font-mono);
-		font-size: 0.82rem;
+		font-size: .875rem;
 		color: var(--color-text-0);
 		word-break: break-all;
 	}
 
 	.dns-purpose {
 		padding: 0 var(--space-3) var(--space-2);
-		font-size: 0.78rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		background: var(--color-bg-1);
 		border-top: none;
@@ -327,24 +319,24 @@
 
 	/* Status badges */
 	.status-badge {
-		font-size: 0.72rem;
+		font-size: .875rem;
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
 		font-weight: 500;
 	}
 
 	.status-badge.resolved {
-		background: rgba(34, 197, 94, 0.15);
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
 		color: var(--color-live);
 	}
 
 	.status-badge.pending {
-		background: rgba(239, 68, 68, 0.1);
+		background: color-mix(in srgb, var(--color-failed) 10%, transparent);
 		color: var(--color-failed);
 	}
 
 	.status-badge.waiting {
-		background: rgba(111, 110, 107, 0.15);
+		background: color-mix(in srgb, var(--color-stopped) 15%, transparent);
 		color: var(--color-text-2);
 	}
 
@@ -355,7 +347,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: 0.72rem;
+		font-size: .875rem;
 		cursor: pointer;
 		transition:
 			border-color 0.15s,
@@ -370,10 +362,10 @@
 	/* Wildcard note */
 	.wildcard-note {
 		padding: var(--space-3);
-		background: rgba(59, 130, 246, 0.06);
-		border: 1px solid rgba(59, 130, 246, 0.15);
+		background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-accent) 15%, transparent);
 		border-radius: var(--radius-md);
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		line-height: 1.5;
 		margin-bottom: var(--space-4);
@@ -381,7 +373,7 @@
 
 	.wildcard-note strong {
 		font-family: var(--font-mono);
-		font-size: 0.82rem;
+		font-size: .875rem;
 		color: var(--color-accent);
 	}
 
@@ -391,7 +383,7 @@
 	}
 
 	.provider-label {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		font-weight: 500;
 		margin-bottom: var(--space-2);
@@ -410,7 +402,7 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: 0.8rem;
+		font-size: .875rem;
 		cursor: pointer;
 		transition:
 			border-color 0.15s,
@@ -424,7 +416,7 @@
 	.provider-chip.active {
 		border-color: var(--color-accent);
 		color: var(--color-accent);
-		background: rgba(59, 130, 246, 0.08);
+		background: color-mix(in srgb, var(--color-accent) 8%, transparent);
 	}
 
 	.provider-hint {
@@ -432,7 +424,7 @@
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		line-height: 1.5;
 	}
@@ -443,8 +435,8 @@
 		align-items: flex-start;
 		gap: var(--space-3);
 		padding: var(--space-3);
-		background: rgba(34, 197, 94, 0.06);
-		border: 1px solid rgba(34, 197, 94, 0.2);
+		background: color-mix(in srgb, var(--color-live) 6%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-live) 20%, transparent);
 		border-radius: var(--radius-md);
 		margin-bottom: var(--space-4);
 	}
@@ -456,45 +448,21 @@
 	}
 
 	.ssl-title {
-		font-size: 0.9rem;
+		font-size: 1rem;
 		font-weight: 500;
 		color: var(--color-live);
 		margin-bottom: var(--space-1);
 	}
 
 	.ssl-desc {
-		font-size: 0.82rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 	}
 
-	/* Buttons */
 	.check-actions {
 		display: flex;
 		gap: var(--space-3);
 		align-items: center;
-	}
-
-	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		background: var(--color-accent-dim);
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 
 	.btn-secondary {
@@ -503,8 +471,8 @@
 		color: var(--color-text-1);
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
-		font-weight: 500;
-		font-size: 0.9rem;
+		font-weight: 600;
+		font-size: 1rem;
 		cursor: pointer;
 		transition:
 			border-color 0.15s,
@@ -518,7 +486,7 @@
 
 	.check-hint {
 		margin-top: var(--space-3);
-		font-size: 0.82rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 

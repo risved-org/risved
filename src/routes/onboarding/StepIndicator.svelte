@@ -34,7 +34,7 @@
 
 <style>
 	.step-indicator {
-		margin-bottom: var(--space-8);
+		margin-bottom: var(--space-6);
 	}
 
 	ol {
@@ -58,7 +58,7 @@
 		width: 28px;
 		height: 28px;
 		border-radius: 50%;
-		font-size: 0.8rem;
+		font-size: .875rem;
 		font-weight: 600;
 		font-family: var(--font-mono);
 		border: 1.5px solid var(--color-border);
@@ -71,7 +71,7 @@
 	}
 
 	.step-label {
-		font-size: 0.85rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		transition: color 0.2s;
 	}
@@ -79,7 +79,7 @@
 	.step.active .step-number {
 		border-color: var(--color-accent);
 		color: var(--color-accent);
-		background: rgba(59, 130, 246, 0.1);
+		background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 	}
 
 	.step.active .step-label {

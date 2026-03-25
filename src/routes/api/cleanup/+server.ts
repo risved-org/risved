@@ -48,7 +48,7 @@ export const POST: RequestHandler = async (event) => {
 
 	if (action === 'dockerPrune') {
 		const type = body.type;
-		if (!['images', 'containers', 'volumes', 'all'].includes(type)) {
+		if (!['images', 'containers', 'volumes', 'buildcache', 'all'].includes(type)) {
 			return jsonError(400, 'Invalid prune type');
 		}
 		const manager = getCleanupManager();

@@ -51,7 +51,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings — {data.project.name} — Risved</title>
+	<title>Settings – {data.project.name} – Risved</title>
 </svelte:head>
 
 <div class="settings-page">
@@ -155,15 +155,15 @@
 	.settings-page {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-8);
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		max-width: 800px;
 		margin: 0 auto;
 		width: 100%;
-		gap: var(--space-6);
+		gap: var(--space-5);
 	}
 
 	.back-link {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -174,21 +174,8 @@
 	}
 
 	h1 {
-		font-size: 1.4rem;
+		font-size: 1.5rem;
 		font-weight: 600;
-	}
-
-	.section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-	.section-title {
-		font-size: 0.8125rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
 	}
 
 	/* Env editor */
@@ -207,7 +194,7 @@
 		gap: 0;
 		border-bottom: 1px solid var(--color-border);
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 	}
 
 	.env-key {
@@ -218,7 +205,7 @@
 		border-right: 1px solid var(--color-border);
 		color: var(--color-term-cmd);
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		outline: none;
 	}
 	.env-key::placeholder {
@@ -238,7 +225,7 @@
 		border: none;
 		color: var(--color-term-success);
 		font-family: var(--font-mono);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		outline: none;
 	}
 	.env-value.secret {
@@ -260,7 +247,7 @@
 		border: none;
 		color: var(--color-text-2);
 		cursor: pointer;
-		font-size: 0.875rem;
+		font-size: .875rem;
 		transition: color 0.1s;
 	}
 	.env-secret-toggle:hover,
@@ -274,7 +261,7 @@
 	.env-empty {
 		padding: var(--space-3);
 		color: var(--color-text-2);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		text-align: center;
 	}
 
@@ -284,7 +271,7 @@
 		border: none;
 		border-top: 1px solid var(--color-border);
 		color: var(--color-accent);
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		font-weight: 500;
 		cursor: pointer;
 		text-align: left;
@@ -303,30 +290,20 @@
 	}
 
 	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
 		border: 1px solid var(--color-accent);
-		border-radius: var(--radius-md);
-		color: #fff;
-		font-size: 0.8125rem;
+		color: var(--color-bg-0);
 		font-weight: 500;
-		cursor: pointer;
 	}
-	.btn-primary:hover {
+	.btn-primary:hover:not(:disabled) {
 		opacity: 0.9;
-	}
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+		background: var(--color-accent);
 	}
 
 	.save-success {
-		font-size: 0.8125rem;
-		color: var(--color-live);
 		font-weight: 500;
 	}
 	.save-error {
-		font-size: 0.8125rem;
+		font-size: .875rem;
 		color: var(--color-failed);
 	}
 

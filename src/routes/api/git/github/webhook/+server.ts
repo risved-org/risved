@@ -4,6 +4,7 @@ import { gitConnections, projects } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { GitHubClient } from '$lib/server/github';
+import { safeDecrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
 /**
@@ -44,7 +45,7 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const webhookUrl = `${event.url.origin}/api/webhooks/${projectId}`;
-	const client = new GitHubClient(connRows[0].accessToken);
+	const client = new GitHubClient(safeDecrypt(connRows[0].accessToken));
 
 	const result = await client.createWebhook({
 		owner,

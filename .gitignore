@@ -18,7 +18,8 @@ Thumbs.db
 !.env.example
 !.env.test
 
-# Test database
+# Databases
+local.db
 test.db
 
 # Vite

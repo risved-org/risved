@@ -60,7 +60,7 @@ test.describe('Settings Screen', () => {
 
 		await expect(page.getByTestId('general-section')).toBeVisible();
 		await expect(page.getByTestId('hostname-input')).toBeVisible();
-		await expect(page.getByTestId('timezone-select')).toBeVisible();
+		await expect(page.getByTestId('timezone-trigger')).toBeVisible();
 		await expect(page.getByTestId('save-general-btn')).toBeVisible();
 
 		await page.screenshot({
