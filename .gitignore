@@ -18,8 +18,12 @@ Thumbs.db
 !.env.example
 !.env.test
 
+# Data
+data/*
+!data/.gitkeep
+
 # Databases
-local.db
+risved.db
 test.db
 
 # Vite

@@ -83,7 +83,7 @@ cp .env.example .env
 
 ```sh
 # .env
-DATABASE_URL=file:local.db
+DATABASE_URL=file:risved.db
 ORIGIN="http://localhost:5173"
 BETTER_AUTH_SECRET="your-secret-here"
 

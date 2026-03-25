@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 
 const exec = promisify(execFile);
 const CLI = resolve(import.meta.dirname, '../../scripts/risved.mjs');
-const DB_URL = 'file:local.db';
+const DB_URL = 'file:risved.db';
 
 async function run(...args: string[]) {
 	try {
