@@ -8,6 +8,24 @@ export default defineConfig({
 		sveltekit(),
 		paraglideVitePlugin({ project: './project.inlang', outdir: './src/lib/paraglide' })
 	],
+	resolve: {
+		alias: {
+			zlib: 'node:zlib',
+			stream: 'node:stream',
+			buffer: 'node:buffer',
+			crypto: 'node:crypto',
+			events: 'node:events',
+			util: 'node:util',
+			path: 'node:path',
+			fs: 'node:fs',
+			os: 'node:os',
+			net: 'node:net',
+			http: 'node:http',
+			https: 'node:https',
+			url: 'node:url',
+			querystring: 'node:querystring'
+		}
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
