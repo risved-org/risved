@@ -1,0 +1,21 @@
+[Unit]
+Description=Risved Control Plane
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/risved
+EnvironmentFile=/opt/risved/.env
+ExecStart=/usr/bin/node /opt/risved/build
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/risved/data /opt/risved/risved.db /opt/risved/risved.db-journal /opt/risved/.risved-encryption.key /var/run/docker.sock
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
