@@ -36,7 +36,7 @@ vi.mock('$lib/server/db/schema', () => ({
 }));
 
 import { db } from '$lib/server/db';
-import { load, getSystemHealth, FRAMEWORK_NAMES } from './+page.server';
+import { load, _getSystemHealth as getSystemHealth, _FRAMEWORK_NAMES as FRAMEWORK_NAMES } from './+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
 

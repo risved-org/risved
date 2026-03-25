@@ -8,7 +8,7 @@ import { execSync } from 'node:child_process';
 import os from 'node:os';
 
 /** Map framework IDs to display names */
-export const FRAMEWORK_NAMES: Record<string, string> = {
+export const __FRAMEWORK_NAMES: Record<string, string> = {
 	sveltekit: 'SvelteKit',
 	fresh: 'Fresh',
 	astro: 'Astro',
@@ -20,7 +20,7 @@ export const FRAMEWORK_NAMES: Record<string, string> = {
 };
 
 /** Reads system health metrics from OS APIs and shell commands */
-export function getSystemHealth() {
+export function _getSystemHealth() {
 	const cpus = os.cpus();
 	const cpuUsage =
 		cpus.length > 0
@@ -68,7 +68,7 @@ export function getSystemHealth() {
 }
 
 export const load: PageServerLoad = async () => {
-	const health = getSystemHealth();
+	const health = _getSystemHealth();
 
 	/* Fetch all projects */
 	const allProjects = await db.select().from(projects).orderBy(desc(projects.createdAt));
@@ -110,7 +110,7 @@ export const load: PageServerLoad = async () => {
 			id: p.id,
 			name: p.name,
 			slug: p.slug,
-			framework: p.frameworkId ? (FRAMEWORK_NAMES[p.frameworkId] ?? p.frameworkId) : null,
+			framework: p.frameworkId ? (_FRAMEWORK_NAMES[p.frameworkId] ?? p.frameworkId) : null,
 			frameworkId: p.frameworkId,
 			domain: domainMap.get(p.id) ?? p.domain ?? null,
 			status: dep?.status ?? 'stopped',
