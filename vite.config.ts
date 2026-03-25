@@ -11,7 +11,9 @@ const NODE_BUILTINS = [
 	'assert', 'buffer', 'child_process', 'cluster', 'crypto', 'dgram', 'dns',
 	'events', 'fs', 'http', 'http2', 'https', 'net', 'os', 'path', 'perf_hooks',
 	'process', 'querystring', 'readline', 'stream', 'string_decoder', 'timers',
-	'tls', 'tty', 'url', 'util', 'v8', 'vm', 'worker_threads', 'zlib'
+	'tls', 'tty', 'url', 'util', 'v8', 'vm', 'worker_threads', 'zlib',
+	'punycode', 'constants', 'module', 'sys', 'async_hooks', 'diagnostics_channel',
+	'inspector', 'trace_events', 'wasi'
 ]
 
 function denoNodePrefix(): Plugin {
