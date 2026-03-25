@@ -10,6 +10,8 @@ EnvironmentFile=/opt/risved/.env
 ExecStart=/usr/bin/node /opt/risved/build
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=10
+KillSignal=SIGINT
 
 [Install]
 WantedBy=multi-user.target

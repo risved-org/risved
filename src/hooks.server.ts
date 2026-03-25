@@ -21,6 +21,18 @@ if (!building) {
 	getCleanupManager().start();
 	getCronScheduler().start();
 	getUpdateChecker().start();
+
+	/* Graceful shutdown */
+	function shutdown() {
+		getHealthMonitor().stop();
+		getMetricsCollector().stop();
+		getCleanupManager().stop();
+		getCronScheduler().stop();
+		getUpdateChecker().stop();
+		process.exit(0);
+	}
+	process.on('SIGINT', shutdown);
+	process.on('SIGTERM', shutdown);
 }
 
 const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks'];
