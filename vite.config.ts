@@ -1,31 +1,78 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+/**
+ * Vite plugin that rewrites bare Node built-in imports to use the node: prefix.
+ * Required for Deno compatibility — some npm packages import e.g. "zlib" instead of "node:zlib".
+ */
+const NODE_BUILTINS = [
+	'assert', 'buffer', 'child_process', 'cluster', 'crypto', 'dgram', 'dns',
+	'events', 'fs', 'http', 'http2', 'https', 'net', 'os', 'path', 'perf_hooks',
+	'process', 'querystring', 'readline', 'stream', 'string_decoder', 'timers',
+	'tls', 'tty', 'url', 'util', 'v8', 'vm', 'worker_threads', 'zlib'
+]
+
+function denoNodePrefix(): Plugin {
+	return {
+		name: 'deno-node-prefix',
+		enforce: 'pre',
+		resolveId(source) {
+			if (NODE_BUILTINS.includes(source)) {
+				return { id: `node:${source}`, external: true }
+			}
+		},
+		closeBundle: {
+			sequential: true,
+			order: 'post',
+			async handler() {
+				const { readdir, readFile, writeFile } = await import('node:fs/promises')
+				const { join } = await import('node:path')
+
+				async function fixDir(dir: string) {
+					let entries
+					try { entries = await readdir(dir, { withFileTypes: true }) } catch { return }
+					for (const entry of entries) {
+						const full = join(dir, entry.name)
+						if (entry.isDirectory()) {
+							await fixDir(full)
+						} else if (entry.name.endsWith('.js')) {
+							let code = await readFile(full, 'utf8')
+							let changed = false
+							for (const mod of NODE_BUILTINS) {
+								const patterns = [
+									[`from '${mod}'`, `from 'node:${mod}'`],
+									[`from "${mod}"`, `from "node:${mod}"`],
+									[`import '${mod}'`, `import 'node:${mod}'`],
+									[`import "${mod}"`, `import "node:${mod}"`],
+									[`require('${mod}')`, `require('node:${mod}')`],
+									[`require("${mod}")`, `require("node:${mod}")`]
+								] as const
+								for (const [from, to] of patterns) {
+									if (code.includes(from)) {
+										code = code.replaceAll(from, to)
+										changed = true
+									}
+								}
+							}
+							if (changed) await writeFile(full, code)
+						}
+					}
+				}
+
+				await fixDir('build')
+			}
+		}
+	}
+}
+
 export default defineConfig({
 	plugins: [
+		denoNodePrefix(),
 		sveltekit(),
 		paraglideVitePlugin({ project: './project.inlang', outdir: './src/lib/paraglide' })
 	],
-	resolve: {
-		alias: {
-			zlib: 'node:zlib',
-			stream: 'node:stream',
-			buffer: 'node:buffer',
-			crypto: 'node:crypto',
-			events: 'node:events',
-			util: 'node:util',
-			path: 'node:path',
-			fs: 'node:fs',
-			os: 'node:os',
-			net: 'node:net',
-			http: 'node:http',
-			https: 'node:https',
-			url: 'node:url',
-			querystring: 'node:querystring'
-		}
-	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
