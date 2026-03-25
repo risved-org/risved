@@ -182,7 +182,7 @@ describe('verify page source', () => {
 	it('includes step indicator at step 3', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('StepIndicator');
-		expect(mod.default).toContain('current={3}');
+		expect(mod.default).toContain('current={2}');
 	});
 
 	it('has DNS records display', async () => {
