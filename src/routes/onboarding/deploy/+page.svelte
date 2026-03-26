@@ -19,7 +19,7 @@
 
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={3} />
+		<StepIndicator current={4} />
 
 		<header>
 			<h1>Deploy your first app</h1>

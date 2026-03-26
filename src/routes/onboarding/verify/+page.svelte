@@ -54,7 +54,7 @@
 
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={2} />
+		<StepIndicator current={3} />
 
 		<header>
 			<h1>Verify DNS records</h1>

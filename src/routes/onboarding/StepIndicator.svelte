@@ -5,6 +5,7 @@
 		{ label: 'Account', href: '/onboarding' },
 		{ label: 'Git', href: '/onboarding/git' },
 		{ label: 'Domain', href: '/onboarding/domain' },
+		{ label: 'Verify', href: '/onboarding/verify' },
 		{ label: 'Deploy', href: '/onboarding/deploy' }
 	];
 
@@ -22,7 +23,9 @@
 				aria-current={i === current ? 'step' : undefined}
 			>
 				<span class="step-number">{i + 1}</span>
-				<span class="step-label">{step.label}</span>
+				{#if i === current}
+					<span class="step-label">{step.label}</span>
+				{/if}
 			</li>
 			{#if i < steps.length - 1}
 				<li class="connector" class:completed={i < current} aria-hidden="true"></li>
