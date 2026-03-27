@@ -92,16 +92,18 @@ export class CaddyClient {
 				return { success: true };
 			}
 
-			/* Path apps/http/servers may not exist yet — PUT the full structure */
-			const createRes = await this.fetchFn(`${this.adminUrl}/config/apps`, {
+			/* Config may be empty — POST the full config with apps structure */
+			const createRes = await this.fetchFn(`${this.adminUrl}/config/`, {
 				method: 'PATCH',
 				headers: this.headers(),
 				body: JSON.stringify({
-					http: {
-						servers: {
-							srv0: {
-								listen: [':443', ':80'],
-								routes: []
+					apps: {
+						http: {
+							servers: {
+								srv0: {
+									listen: [':443', ':80'],
+									routes: []
+								}
 							}
 						}
 					}
