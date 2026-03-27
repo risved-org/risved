@@ -169,12 +169,12 @@ describe('verify skip action', () => {
 		vi.clearAllMocks();
 	});
 
-	it('redirects to git without setting dns_verified', async () => {
+	it('sets dns_verified and redirects to git', async () => {
 		await expect(actions.skip(makeActionEvent('skip'))).rejects.toMatchObject({
 			status: 303,
 			location: '/onboarding/git'
 		});
-		expect(setSetting).not.toHaveBeenCalled();
+		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
 	});
 });
 
