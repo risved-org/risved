@@ -2,7 +2,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile, mkdir, rm, access } from 'node:fs/promises';
 import { db } from '$lib/server/db';
-import { deployments, projects } from '$lib/server/db/schema';
+import { deployments, projects, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import { detectFramework, createFsContext } from '../detection';
@@ -103,8 +103,21 @@ export async function runPipeline(
 			.set({ frameworkId, tier, updatedAt: new Date().toISOString() })
 			.where(eq(projects.id, config.projectId));
 
+		/* ── Fetch project env vars ─────────────────────── */
+		const projectEnvVars = await db
+			.select({ key: envVars.key, value: envVars.value })
+			.from(envVars)
+			.where(eq(envVars.projectId, config.projectId))
+		const envMap: Record<string, string> = {}
+		for (const row of projectEnvVars) {
+			envMap[row.key] = row.value
+		}
+
 		/* ── Phase 3: Build ──────────────────────────────── */
 		emit('build', 'Generating Dockerfile…');
+		if (projectEnvVars.length > 0) {
+			emit('build', `Injecting ${projectEnvVars.length} env var(s)`)
+		}
 
 		/* Detect lockfile to pick the right package manager */
 		const lockfiles = ['bun.lockb', 'bun.lock', 'pnpm-lock.yaml', 'yarn.lock', 'package-lock.json'] as const
@@ -121,6 +134,14 @@ export async function runPipeline(
 		const dockerfile = generateDockerfile({ frameworkId, tier, lockfile });
 		await writeFile(join(cloneDir, 'Dockerfile'), dockerfile.content);
 		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
+
+		/* Write .env file for build-time access (Vite reads this automatically) */
+		if (Object.keys(envMap).length > 0) {
+			const envFileContent = Object.entries(envMap)
+				.map(([k, v]) => `${k}=${v}`)
+				.join('\n') + '\n'
+			await writeFile(join(cloneDir, '.env'), envFileContent)
+		}
 
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
 		emit('build', `Building image ${imageTag}…`);
@@ -147,7 +168,8 @@ export async function runPipeline(
 		const runResult = await dockerRun(runner, {
 			imageTag,
 			containerName,
-			port: config.port
+			port: config.port,
+			env: envMap
 		});
 		if (!runResult.success) {
 			/* Restore old container name if rename succeeded */

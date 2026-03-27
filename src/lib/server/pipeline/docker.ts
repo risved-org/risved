@@ -13,15 +13,17 @@ export async function dockerBuild(
 	runner: CommandRunner,
 	options: DockerBuildOptions
 ): Promise<{ success: boolean; error?: string }> {
-	const { contextDir, imageTag, onLine } = options;
+	const { contextDir, imageTag, buildArgs, onLine } = options;
 
-	const result = await runner.exec('docker', [
-		'build',
-		'--progress=plain',
-		'-t',
-		imageTag,
-		contextDir
-	], { onLine });
+	const args = ['build', '--progress=plain', '-t', imageTag]
+	if (buildArgs) {
+		for (const [key, val] of Object.entries(buildArgs)) {
+			args.push('--build-arg', `${key}=${val}`)
+		}
+	}
+	args.push(contextDir)
+
+	const result = await runner.exec('docker', args, { onLine });
 
 	if (result.exitCode !== 0) {
 		return { success: false, error: result.stderr || result.stdout };

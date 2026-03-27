@@ -18,10 +18,12 @@ vi.mock('$lib/server/db', () => {
 	});
 	mockDb.select.mockReturnValue({
 		from: vi.fn().mockReturnValue({
-			where: vi.fn().mockReturnValue({
-				orderBy: vi.fn().mockResolvedValue([]),
-				limit: vi.fn().mockResolvedValue([])
-			})
+			where: vi.fn().mockReturnValue(
+				Object.assign(Promise.resolve([]), {
+					orderBy: vi.fn().mockResolvedValue([]),
+					limit: vi.fn().mockResolvedValue([])
+				})
+			)
 		})
 	});
 	return { db: mockDb };
@@ -36,7 +38,8 @@ vi.mock('$lib/server/db/schema', () => ({
 		updatedAt: 'updated_at'
 	},
 	deployments: { id: 'id' },
-	buildLogs: {}
+	buildLogs: {},
+	envVars: { key: 'key', value: 'value', projectId: 'project_id' }
 }));
 
 vi.mock('$lib/server/settings', () => ({
