@@ -1,4 +1,5 @@
-import { resolve4, resolve6 } from 'node:dns/promises';
+import { resolve4, resolve6 } from 'node:dns/promises'
+import { isIPv6 } from 'node:net'
 
 export interface DnsRecord {
 	type: 'A' | 'AAAA' | 'CNAME';
@@ -19,6 +20,18 @@ export interface ServerIps {
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/
 const IPV6_RE = /^[0-9a-fA-F:]+$/
+
+/** Expand an IPv6 address to its full 8-group lowercase form for reliable comparison. */
+function normalizeIPv6(addr: string): string {
+	if (!isIPv6(addr)) return addr.toLowerCase()
+	const halves = addr.split('::')
+	const expand = (s: string) => s ? s.split(':') : []
+	const left = expand(halves[0])
+	const right = halves.length > 1 ? expand(halves[1]) : []
+	const missing = 8 - left.length - right.length
+	const full = [...left, ...Array(missing).fill('0'), ...right]
+	return full.map(g => g.padStart(4, '0').toLowerCase()).join(':')
+}
 
 /**
  * Generates the required DNS records based on domain configuration.
@@ -79,7 +92,10 @@ export async function checkDnsRecord(
 
 	try {
 		const addresses = await resolver(hostname)
-		const resolved = addresses.includes(record.value)
+		const expected = record.type === 'AAAA' ? normalizeIPv6(record.value) : record.value
+		const resolved = record.type === 'AAAA'
+			? addresses.some(a => normalizeIPv6(a) === expected)
+			: addresses.includes(expected)
 		return { record, resolved }
 	} catch {
 		return { record, resolved: false }

@@ -169,12 +169,12 @@ describe('verify skip action', () => {
 		vi.clearAllMocks();
 	});
 
-	it('sets dns_verified and redirects to git', async () => {
+	it('redirects to git without setting dns_verified', async () => {
 		await expect(actions.skip(makeActionEvent('skip'))).rejects.toMatchObject({
 			status: 303,
 			location: '/onboarding/git'
 		});
-		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).not.toHaveBeenCalled();
 	});
 });
 
@@ -198,10 +198,10 @@ describe('verify page source', () => {
 		expect(mod.default).toContain('Route53');
 	});
 
-	it('has SSL status section', async () => {
+	it('has check DNS and actions', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('ssl-status');
-		expect(mod.default).toContain("Let's Encrypt");
+		expect(mod.default).toContain('check-dns');
+		expect(mod.default).toContain('check-actions');
 	});
 
 	it('has check and skip buttons', async () => {

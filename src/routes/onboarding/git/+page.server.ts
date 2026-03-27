@@ -3,6 +3,7 @@ import { env } from '$env/dynamic/private'
 import { db } from '$lib/server/db'
 import { gitConnections } from '$lib/server/db/schema'
 import { isFirstRun } from '$lib/server/auth-utils'
+import { getSetting } from '$lib/server/settings'
 import { connectForgejo, saveGithubApp, saveGitlabApp } from '$lib/server/git-actions'
 import type { PageServerLoad, Actions } from './$types'
 
@@ -23,7 +24,13 @@ export const load: PageServerLoad = async () => {
 
 	const isCloud = env.RISVED_MODE === 'cloud'
 
-	return { connections, isCloud }
+	let domainMode = 'subdomain'
+	try {
+		const raw = await getSetting('domain_config')
+		if (raw) domainMode = JSON.parse(raw).mode ?? 'subdomain'
+	} catch { /* use default */ }
+
+	return { connections, isCloud, domainMode }
 }
 
 export const actions: Actions = {

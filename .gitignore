@@ -24,6 +24,7 @@ data/*
 
 # Databases
 risved.db
+local.db
 test.db
 
 # Vite

@@ -41,14 +41,21 @@
 
 	async function copyToClipboard(text: string, index: number) {
 		try {
-			await navigator.clipboard.writeText(text);
-			copiedIndex = index;
-			setTimeout(() => {
-				if (copiedIndex === index) copiedIndex = null;
-			}, 2000);
+			await navigator.clipboard.writeText(text)
 		} catch {
-			/* clipboard API may not be available */
+			const ta = document.createElement('textarea')
+			ta.value = text
+			ta.style.position = 'fixed'
+			ta.style.opacity = '0'
+			document.body.appendChild(ta)
+			ta.select()
+			document.execCommand('copy')
+			document.body.removeChild(ta)
 		}
+		copiedIndex = index
+		setTimeout(() => {
+			if (copiedIndex === index) copiedIndex = null
+		}, 2000)
 	}
 </script>
 
@@ -68,32 +75,36 @@
 			</p>
 		</header>
 
-		{#if data.serverIps.ipv4}
-			<div class="server-ip">
-				<span class="ip-label">IPv4</span>
-				<code class="ip-value">{data.serverIps.ipv4}</code>
-				<button
-					type="button"
-					class="copy-btn"
-					onclick={() => copyToClipboard(data.serverIps.ipv4!, -1)}
-					aria-label="Copy IPv4 address"
-				>
-					{copiedIndex === -1 ? 'Copied' : 'Copy'}
-				</button>
-			</div>
-		{/if}
-		{#if data.serverIps.ipv6}
-			<div class="server-ip">
-				<span class="ip-label">IPv6</span>
-				<code class="ip-value">{data.serverIps.ipv6}</code>
-				<button
-					type="button"
-					class="copy-btn"
-					onclick={() => copyToClipboard(data.serverIps.ipv6!, -2)}
-					aria-label="Copy IPv6 address"
-				>
-					{copiedIndex === -2 ? 'Copied' : 'Copy'}
-				</button>
+		{#if hasV4 || hasV6}
+			<div class="server-ips">
+				{#if hasV4}
+					<div class="server-ip">
+						<span class="ip-label">IPv4</span>
+						<code class="ip-value">{data.serverIps.ipv4}</code>
+						<button
+							type="button"
+							class="copy-btn"
+							onclick={() => copyToClipboard(data.serverIps.ipv4!, -1)}
+							aria-label="Copy IPv4 address"
+						>
+							{copiedIndex === -1 ? 'Copied' : 'Copy'}
+						</button>
+					</div>
+				{/if}
+				{#if hasV6}
+					<div class="server-ip">
+						<span class="ip-label">IPv6</span>
+						<code class="ip-value">{data.serverIps.ipv6}</code>
+						<button
+							type="button"
+							class="copy-btn"
+							onclick={() => copyToClipboard(data.serverIps.ipv6!, -2)}
+							aria-label="Copy IPv6 address"
+						>
+							{copiedIndex === -2 ? 'Copied' : 'Copy'}
+						</button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -215,16 +226,24 @@
 		line-height: 1.5;
 	}
 
-	/* Server IP */
+	/* Server IPs */
+	.server-ips {
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		margin-bottom: var(--space-4);
+	}
+
 	.server-ip {
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-3);
 		padding: var(--space-3);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--space-4);
+	}
+
+	.server-ip + .server-ip {
+		border-top: 1px solid var(--color-border);
 	}
 
 	.ip-label {

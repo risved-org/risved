@@ -29,9 +29,16 @@ export const load: PageServerLoad = async () => {
 		})
 		.from(gitConnections)
 
+	let domainMode = 'subdomain'
+	try {
+		const raw = await getSetting('domain_config')
+		if (raw) domainMode = JSON.parse(raw).mode ?? 'subdomain'
+	} catch { /* use default */ }
+
 	return {
 		templates: STARTER_TEMPLATES,
-		connections
+		connections,
+		domainMode
 	}
 };
 

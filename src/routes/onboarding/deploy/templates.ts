@@ -12,7 +12,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
 		id: 'fresh',
 		name: 'Fresh',
 		framework: 'fresh',
-		description: 'Deno-native full-stack framework with island architecture',
+		description: 'A deno-native server-side framework with islands',
 		repoUrl: 'https://github.com/risved/starter-fresh',
 		estimatedTime: '~10s'
 	},
@@ -20,7 +20,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
 		id: 'hono',
 		name: 'Hono',
 		framework: 'hono',
-		description: 'Ultrafast web framework for the edge and Deno',
+		description: 'Fast, lightweight server-side framework with middleware',
 		repoUrl: 'https://github.com/risved/starter-hono',
 		estimatedTime: '~8s'
 	},
@@ -28,7 +28,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
 		id: 'sveltekit',
 		name: 'SvelteKit',
 		framework: 'sveltekit',
-		description: 'Full-stack framework with SSR, routing, and adapters',
+		description: 'A hybrid server- and client-side framework with great syntax',
 		repoUrl: 'https://github.com/risved/starter-sveltekit',
 		estimatedTime: '~25s'
 	},
@@ -36,7 +36,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
 		id: 'astro',
 		name: 'Astro',
 		framework: 'astro',
-		description: 'Content-focused framework with zero JS by default',
+		description: 'A server-side framework for building content-driven websites',
 		repoUrl: 'https://github.com/risved/starter-astro',
 		estimatedTime: '~20s'
 	}

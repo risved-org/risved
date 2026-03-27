@@ -149,6 +149,30 @@ describe('checkDnsRecord', () => {
 		const result = await checkDnsRecord(aaaa, resolveFn)
 		expect(result.resolved).toBe(true)
 	})
+
+	it('matches AAAA records with different IPv6 formats', async () => {
+		const aaaa: DnsRecord = {
+			type: 'AAAA',
+			name: 'risved.example.com',
+			value: '2001:db8::1',
+			purpose: 'test'
+		}
+		const resolveFn = vi.fn().mockResolvedValue(['2001:0db8:0000:0000:0000:0000:0000:0001'])
+		const result = await checkDnsRecord(aaaa, resolveFn)
+		expect(result.resolved).toBe(true)
+	})
+
+	it('matches expanded IPv6 value against compressed resolver result', async () => {
+		const aaaa: DnsRecord = {
+			type: 'AAAA',
+			name: 'risved.example.com',
+			value: '2001:0db8:0000:0000:0000:0000:0000:0001',
+			purpose: 'test'
+		}
+		const resolveFn = vi.fn().mockResolvedValue(['2001:db8::1'])
+		const result = await checkDnsRecord(aaaa, resolveFn)
+		expect(result.resolved).toBe(true)
+	})
 })
 
 describe('checkAllDnsRecords', () => {

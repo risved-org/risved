@@ -295,7 +295,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
-		padding: var(--space-3);
+		padding: var(--space-4);
+		padding-bottom: var(--space-5);
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
@@ -369,7 +370,8 @@
 
 	/* URL preview */
 	.url-preview {
-		padding: var(--space-3);
+		padding: var(--space-4);
+		padding-bottom: var(--space-5);
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
@@ -385,8 +387,11 @@
 	}
 
 	.preview-label {
-		font-size: .875rem;
+		font-size: .75rem;
 		color: var(--color-text-2);
+		font-weight: 600;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 		min-width: 70px;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;

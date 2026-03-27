@@ -1,5 +1,7 @@
 <script lang="ts">
-	type Step = { label: string; href: string };
+	import { resolve } from '$app/paths'
+
+	type Step = { label: string; href: string }
 
 	const steps: Step[] = [
 		{ label: 'Account', href: '/onboarding' },
@@ -7,9 +9,16 @@
 		{ label: 'Verify', href: '/onboarding/verify' },
 		{ label: 'Git', href: '/onboarding/git' },
 		{ label: 'Deploy', href: '/onboarding/deploy' }
-	];
+	]
 
-	let { current = 0 }: { current?: number } = $props();
+	let { current = 0, skipVerify = false }: { current?: number; skipVerify?: boolean } = $props()
+
+	function isClickable(i: number): boolean {
+		if (i >= current) return false
+		if (i === 0) return false
+		if (i === 2 && skipVerify) return false
+		return true
+	}
 </script>
 
 <nav class="step-indicator" aria-label="Onboarding progress">
@@ -22,8 +31,15 @@
 				class:upcoming={i > current}
 				aria-current={i === current ? 'step' : undefined}
 			>
-				<span class="step-number">{i + 1}</span>
-				<span class="step-label">{step.label}</span>
+				{#if isClickable(i)}
+					<a href={resolve(step.href)} class="step-link">
+						<span class="step-number">{i + 1}</span>
+						<span class="step-label">{step.label}</span>
+					</a>
+				{:else}
+					<span class="step-number">{i + 1}</span>
+					<span class="step-label">{step.label}</span>
+				{/if}
 			</li>
 		{/each}
 	</ol>
@@ -60,13 +76,15 @@
 		font-size: .875rem;
 		font-weight: 600;
 		font-family: var(--font-mono);
-		color: var(--color-text-2);
+		color: var(--color-text-0);
+		opacity: 0.75;
 	}
 
 	.step-label {
 		font-size: .875rem;
 		font-weight: 600;
-		color: var(--color-text-2);
+		color: var(--color-text-0);
+		opacity: 0.5;
 	}
 
 	.step.active {
@@ -74,18 +92,27 @@
 	}
 
 	.step.active .step-number {
-		color: var(--color-accent);
+		opacity: 1;
 	}
 
 	.step.active .step-label {
-		color: var(--color-text-0);
+		opacity: 0.75;
 	}
 
-	.step.completed .step-number {
-		color: var(--color-live);
+	.step-link {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		text-decoration: none;
+		color: inherit;
 	}
 
-	.step.completed .step-label {
-		color: var(--color-text-1);
+	.step-link:hover {
+		text-decoration: none;
+	}
+
+	.step:has(.step-link):hover {
+		background: var(--color-bg-2);
+		cursor: pointer;
 	}
 </style>
