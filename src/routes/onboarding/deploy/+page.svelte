@@ -93,9 +93,13 @@
 	const canSubmitRepo = $derived((path === 'provider' || path === 'manual') && !!repoUrl.trim())
 </script>
 
+<svelte:head>
+	<title>First deploy – Risved</title>
+</svelte:head>
+
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={4} />
+		<StepIndicator current={4} skipVerify={data.domainMode === 'ip'} />
 
 		<header>
 			<h1>Deploy your first app</h1>
@@ -111,7 +115,7 @@
 				class:active={path === 'starter'}
 				onclick={() => (path = 'starter')}
 			>
-				Starter template
+				<span>Starter template</span>
 			</button>
 			<button
 				type="button"
@@ -119,7 +123,7 @@
 				class:active={path === 'provider'}
 				onclick={() => (path = 'provider')}
 			>
-				Git provider
+				<span>Git provider</span>
 			</button>
 			<button
 				type="button"
@@ -127,7 +131,7 @@
 				class:active={path === 'manual'}
 				onclick={() => (path = 'manual')}
 			>
-				Manually
+				<span>Git manually</span>
 			</button>
 		</nav>
 
@@ -151,7 +155,7 @@
 							type="button"
 							class="template-card"
 							class:selected={selectedTemplate === template.id}
-							onclick={() => (selectedTemplate = template.id)}
+							onclick={() => (selectedTemplate = selectedTemplate === template.id ? null : template.id)}
 						>
 							<div class="template-header">
 								<span class="template-name">{template.name}</span>
@@ -166,15 +170,23 @@
 					<p class="form-error" role="alert">{form.error}</p>
 				{/if}
 
-				<button type="submit" class="btn-primary" disabled={submitting || !canSubmitStarter}>
-					{submitting ? 'Deploying…' : 'Deploy starter'}
-				</button>
+				<div class="deploy-actions">
+					<button type="submit" class="btn-primary" disabled={submitting || !canSubmitStarter}>
+						{submitting ? 'Deploying…' : 'Deploy starter'}
+					</button>
+					<button type="submit" formaction="?/skip" class="btn-secondary">Skip for now</button>
+				</div>
 			</form>
 		{:else if path === 'provider'}
 			{#if data.connections.length === 0}
 				<div class="provider-empty">
 					<p>No git providers connected yet.</p>
-					<a href={resolve('/onboarding/git')} class="btn-secondary">Connect a provider</a>
+					<a href={resolve('/onboarding/git')} class="btn-connect">Connect a provider</a>
+				</div>
+				<div class="deploy-actions standalone">
+					<form method="post" action="?/skip">
+						<button type="submit" class="btn-secondary">Skip for now</button>
+					</form>
 				</div>
 			{:else}
 				<form
@@ -258,9 +270,12 @@
 						<p class="form-error" role="alert">{form.error}</p>
 					{/if}
 
-					<button type="submit" class="btn-primary" disabled={submitting || !canSubmitRepo}>
-						{submitting ? 'Deploying…' : 'Deploy'}
-					</button>
+					<div class="deploy-actions">
+						<button type="submit" class="btn-primary" disabled={submitting || !canSubmitRepo}>
+							{submitting ? 'Deploying…' : 'Deploy'}
+						</button>
+						<button type="submit" formaction="?/skip" class="btn-secondary">Skip for now</button>
+					</div>
 				</form>
 			{/if}
 		{:else}
@@ -296,24 +311,21 @@
 					<p class="form-error" role="alert">{form.error}</p>
 				{/if}
 
-				<button type="submit" class="btn-primary" disabled={submitting || !canSubmitRepo}>
-					{submitting ? 'Deploying…' : 'Deploy from repo'}
-				</button>
+				<div class="deploy-actions">
+					<button type="submit" class="btn-primary" disabled={submitting || !canSubmitRepo}>
+						{submitting ? 'Deploying…' : 'Deploy from repo'}
+					</button>
+					<button type="submit" formaction="?/skip" class="btn-secondary">Skip for now</button>
+				</div>
 			</form>
 		{/if}
-
-		<div class="skip-section">
-			<form method="post" action="?/skip">
-				<button type="submit" class="btn-secondary">Skip – go to dashboard</button>
-			</form>
-		</div>
 	</div>
 </div>
 
 <style>
 	.onboarding-card {
 		width: 100%;
-		max-width: 540px;
+		max-width: 560px;
 	}
 
 	header {
@@ -347,24 +359,32 @@
 		background: transparent;
 		border: none;
 		border-right: 1.5px solid var(--color-border);
-		color: var(--color-text-2);
 		font-size: .875rem;
 		font-weight: 600;
 		cursor: pointer;
-		transition: background 0.15s, color 0.15s;
+		transition: background 0.15s;
+	}
+
+	.tab span {
+		color: var(--color-text-0);
+		opacity: 0.5;
+		transition: opacity 0.15s;
 	}
 
 	.tab:last-child {
 		border-right: none;
 	}
 
-	.tab:hover:not(.active) {
-		color: var(--color-text-0);
+	.tab:hover:not(.active) span {
+		opacity: 0.75;
 	}
 
 	.tab.active {
 		background: var(--color-bg-2);
-		color: var(--color-text-0);
+	}
+
+	.tab.active span {
+		opacity: 0.75;
 	}
 
 	/* Template grid */
@@ -628,9 +648,40 @@
 		color: var(--color-text-0);
 	}
 
-	.skip-section {
-		margin-top: var(--space-4);
-		text-align: center;
+	.deploy-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+	}
+
+	.deploy-actions.standalone {
+		margin-top: var(--space-5);
+	}
+
+	.deploy-actions form {
+		display: contents;
+	}
+
+	.btn-connect {
+		display: inline-flex;
+		align-items: center;
+		padding: var(--space-2) var(--space-3);
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-1);
+		font-size: .875rem;
+		font-weight: 600;
+		cursor: pointer;
+		text-decoration: none;
+		transition:
+			border-color 0.15s,
+			color 0.15s;
+	}
+
+	.btn-connect:hover {
+		border-color: var(--color-text-2);
+		color: var(--color-text-0);
 	}
 
 </style>

@@ -161,7 +161,7 @@ button:focus:not(:focus-visible) {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: var(--space-2) var(--space-3);
+	padding: var(--space-2) var(--space-4);
 	background: transparent;
 	color: var(--color-text-1);
 	border: 1.5px solid var(--color-border);
@@ -304,6 +304,11 @@ button:focus:not(:focus-visible) {
 	justify-content: center;
 	min-height: 100vh;
 	padding: var(--space-4);
+}
+
+.onboarding .btn-primary,
+.onboarding .btn-secondary {
+	align-self: start;
 }
 
 /* Utility */

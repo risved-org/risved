@@ -52,6 +52,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Verify DNS – Risved</title>
+</svelte:head>
+
 <div class="onboarding">
 	<div class="onboarding-card">
 		<StepIndicator current={2} />
@@ -99,8 +103,7 @@
 				<span class="dns-col-name" role="columnheader">Name</span>
 				<span class="dns-col-value" role="columnheader">Value</span>
 				<span class="dns-col-status" role="columnheader">Status</span>
-				<span class="dns-col-action" role="columnheader"></span>
-			</div>
+				</div>
 			{#each data.records as record, i (`${record.type}:${record.name}`)}
 				{@const resolved = recordResults?.get(`${record.type}:${record.name}`)}
 				<div class="dns-row" class:resolved role="row">
@@ -119,28 +122,38 @@
 						{:else if resolved === false}
 							<span class="status-badge pending" aria-label="Not found">Not found</span>
 						{:else}
-							<span class="status-badge waiting" aria-label="Waiting">Waiting</span>
+							<span class="status-badge waiting" aria-label="Pending">Pending</span>
 						{/if}
 					</span>
-					<span class="dns-col-action dns-cell" role="cell">
-						<button
-							type="button"
-							class="copy-btn"
-							onclick={() => copyToClipboard(record.value, i)}
-							aria-label="Copy {record.name} value"
-						>
-							{copiedIndex === i ? 'Copied' : 'Copy'}
-						</button>
-					</span>
-				</div>
-				<div class="dns-purpose">{record.purpose}</div>
+					</div>
 			{/each}
 		</div>
 
-		<div class="wildcard-note">
-			<strong>*.{data.domainConfig.baseDomain}</strong> enables automatic subdomains for every deployed
-			app and PR preview – no extra DNS changes needed after setup.
+		<div class="check-dns-row">
+			<form
+				method="post"
+				action="?/check"
+				class="check-dns-form"
+				use:enhance={() => {
+					checking = true;
+					return async ({ update }) => {
+						checking = false;
+						await update();
+					};
+				}}
+			>
+				<button type="submit" class="check-dns-btn" disabled={checking}>
+					{checking ? 'Checking…' : 'Check DNS'}
+				</button>
+			</form>
+			{#if form?.results && !allResolved}
+				<p class="check-hint">DNS propagation can take a few minutes. Try again shortly.</p>
+			{/if}
 		</div>
+
+		<p class="dns-note">
+			The {data.records[0]?.name} record is the Risved dashboard, *.{data.domainConfig.baseDomain} enables automatic subdomains for every deployed app and PR preview.
+		</p>
 
 		<div class="provider-section">
 			<p class="provider-label">Provider-specific instructions</p>
@@ -167,54 +180,16 @@
 			{/if}
 		</div>
 
-		{#if allResolved}
-			<div class="ssl-status" aria-live="polite">
-				<div class="ssl-icon">
-					<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-						<path
-							d="M10 1.5a8.5 8.5 0 100 17 8.5 8.5 0 000-17zm3.7 6.7l-4.2 4.2a.75.75 0 01-1.06 0L6.3 10.3a.75.75 0 011.06-1.06l1.57 1.57 3.67-3.67a.75.75 0 011.06 1.06z"
-							fill="currentColor"
-						/>
-					</svg>
-				</div>
-				<div>
-					<p class="ssl-title">DNS verified – SSL certificates will be provisioned automatically</p>
-					<p class="ssl-desc">
-						Caddy will obtain and renew Let's Encrypt certificates for your domains.
-					</p>
-				</div>
-			</div>
+		<div class="check-actions">
+			<form method="post" action="?/skip">
+				<button type="submit" class="btn-primary" disabled={!allResolved}>Continue</button>
+			</form>
 
 			<form method="post" action="?/skip">
-				<button type="submit" class="btn-primary">Continue</button>
+				<button type="submit" class="btn-secondary">Skip for now</button>
 			</form>
-		{:else}
-			<div class="check-actions">
-				<form
-					method="post"
-					action="?/check"
-					use:enhance={() => {
-						checking = true;
-						return async ({ update }) => {
-							checking = false;
-							await update();
-						};
-					}}
-				>
-					<button type="submit" class="btn-primary" disabled={checking}>
-						{checking ? 'Checking DNS…' : 'Check DNS'}
-					</button>
-				</form>
+		</div>
 
-				<form method="post" action="?/skip">
-					<button type="submit" class="btn-secondary">Skip for now</button>
-				</form>
-			</div>
-		{/if}
-
-		{#if form?.results && !allResolved}
-			<p class="check-hint">DNS propagation can take a few minutes. Try again shortly.</p>
-		{/if}
 	</div>
 </div>
 
@@ -243,7 +218,7 @@
 	/* Server IP */
 	.server-ip {
 		display: flex;
-		align-items: center;
+		align-items: baseline;
 		gap: var(--space-3);
 		padding: var(--space-3);
 		background: var(--color-bg-1);
@@ -253,11 +228,10 @@
 	}
 
 	.ip-label {
-		font-size: .875rem;
+		font-size: .75rem;
 		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		font-weight: 500;
+		letter-spacing: 0.05em;
+		font-weight: 600;
 	}
 
 	.ip-value {
@@ -277,20 +251,20 @@
 
 	.dns-header {
 		display: grid;
-		grid-template-columns: 50px 1fr 1fr 80px 60px;
+		grid-template-columns: 50px 1fr 1fr 80px;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-2);
-		font-size: .875rem;
+		font-size: .75rem;
 		color: var(--color-text-2);
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		font-weight: 500;
+		letter-spacing: 0.05em;
+		font-weight: 600;
 	}
 
 	.dns-row {
 		display: grid;
-		grid-template-columns: 50px 1fr 1fr 80px 60px;
+		grid-template-columns: 50px 1fr 1fr 80px;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-3);
 		border-top: 1px solid var(--color-border);
@@ -309,12 +283,11 @@
 		word-break: break-all;
 	}
 
-	.dns-purpose {
-		padding: 0 var(--space-3) var(--space-2);
-		font-size: .875rem;
-		color: var(--color-text-2);
-		background: var(--color-bg-1);
-		border-top: none;
+	.dns-note {
+		font-size: 1rem;
+		color: var(--color-text-1);
+		line-height: 1.5;
+		margin-bottom: var(--space-4);
 	}
 
 	/* Status badges */
@@ -357,24 +330,6 @@
 	.copy-btn:hover {
 		border-color: var(--color-text-2);
 		color: var(--color-text-0);
-	}
-
-	/* Wildcard note */
-	.wildcard-note {
-		padding: var(--space-3);
-		background: color-mix(in srgb, var(--color-accent) 6%, transparent);
-		border: 1px solid color-mix(in srgb, var(--color-accent) 15%, transparent);
-		border-radius: var(--radius-md);
-		font-size: .875rem;
-		color: var(--color-text-1);
-		line-height: 1.5;
-		margin-bottom: var(--space-4);
-	}
-
-	.wildcard-note strong {
-		font-family: var(--font-mono);
-		font-size: .875rem;
-		color: var(--color-accent);
 	}
 
 	/* Provider chips */
@@ -429,68 +384,54 @@
 		line-height: 1.5;
 	}
 
-	/* SSL status */
-	.ssl-status {
+	/* Check DNS button */
+	.check-dns-row {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: var(--space-3);
-		padding: var(--space-3);
-		background: color-mix(in srgb, var(--color-live) 6%, transparent);
-		border: 1px solid color-mix(in srgb, var(--color-live) 20%, transparent);
-		border-radius: var(--radius-md);
 		margin-bottom: var(--space-4);
 	}
 
-	.ssl-icon {
-		color: var(--color-live);
-		flex-shrink: 0;
-		margin-top: 1px;
-	}
-
-	.ssl-title {
-		font-size: 1rem;
-		font-weight: 500;
-		color: var(--color-live);
-		margin-bottom: var(--space-1);
-	}
-
-	.ssl-desc {
-		font-size: .875rem;
-		color: var(--color-text-1);
-	}
-
-	.check-actions {
-		display: flex;
-		gap: var(--space-3);
+	.check-dns-btn {
+		display: inline-flex;
 		align-items: center;
-	}
-
-	.btn-secondary {
-		padding: var(--space-2) var(--space-4);
+		padding: var(--space-2) var(--space-3);
 		background: transparent;
-		color: var(--color-text-1);
-		border: 1.5px solid var(--color-border);
+		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
+		color: var(--color-text-1);
+		font-size: .875rem;
 		font-weight: 600;
-		font-size: 1rem;
 		cursor: pointer;
 		transition:
 			border-color 0.15s,
 			color 0.15s;
 	}
 
-	.btn-secondary:hover {
+	.check-dns-btn:hover:not(:disabled) {
 		border-color: var(--color-text-2);
 		color: var(--color-text-0);
 	}
 
+	.check-dns-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.check-actions {
+		display: flex;
+		gap: var(--space-3);
+		align-items: center;
+		margin-top: var(--space-5);
+	}
+
 	.check-hint {
-		margin-top: var(--space-3);
 		font-size: .875rem;
 		color: var(--color-text-2);
 	}
 
-	form {
+	.check-actions form,
+	.check-dns-form {
 		display: contents;
 	}
 </style>

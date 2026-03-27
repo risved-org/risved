@@ -7,6 +7,10 @@
 	let submitting = $state(false);
 </script>
 
+<svelte:head>
+	<title>Setup complete – Risved</title>
+</svelte:head>
+
 <div class="onboarding">
 	<div class="onboarding-card">
 		<div class="success-icon" aria-hidden="true">
@@ -121,7 +125,7 @@
 <style>
 	.onboarding-card {
 		width: 100%;
-		max-width: 540px;
+		max-width: 560px;
 	}
 
 	.success-icon {
@@ -221,6 +225,5 @@
 	/* CTA */
 	form {
 		display: flex;
-		flex-direction: column;
 	}
 </style>

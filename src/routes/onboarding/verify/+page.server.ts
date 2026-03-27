@@ -81,7 +81,6 @@ export const actions: Actions = {
 	},
 
 	skip: async () => {
-		await setSetting('dns_verified', 'true');
 		redirect(303, '/onboarding/git');
 	}
 };

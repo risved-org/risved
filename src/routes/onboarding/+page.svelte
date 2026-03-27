@@ -14,6 +14,10 @@
 	const passwordsMatch = $derived(confirmPassword.length === 0 || password === confirmPassword)
 </script>
 
+<svelte:head>
+	<title>Create account – Risved</title>
+</svelte:head>
+
 <div class="onboarding">
 	<div class="onboarding-card">
 		<StepIndicator current={0} />
@@ -90,7 +94,7 @@
 				<p class="form-error" role="alert">{form.error}</p>
 			{/if}
 
-			<button type="submit" disabled={submitting || passwordTooShort || !passwordsMatch}>
+			<button type="submit" class="btn-primary" disabled={submitting || passwordTooShort || !passwordsMatch}>
 				{submitting ? 'Creating account…' : 'Create account'}
 			</button>
 		</form>
@@ -100,7 +104,7 @@
 <style>
 	.onboarding-card {
 		width: 100%;
-		max-width: 420px;
+		max-width: 560px;
 	}
 
 	header {
@@ -158,25 +162,6 @@
 
 	.hint.ok {
 		color: var(--color-live);
-	}
-
-	button {
-		padding: .75rem var(--space-4);
-		background: var(--color-accent);
-		color: white;
-		border: 1.5px solid transparent;
-		border-radius: var(--radius-md);
-		font-weight: 600;
-		font-size: 1rem;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
-		margin-top: var(--space-2);
-	}
-
-	button:hover:not(:disabled) {
-		background: var(--color-accent-dim);
 	}
 
 	button:disabled {

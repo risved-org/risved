@@ -16,9 +16,13 @@
 	const hasConnections = $derived(data.connections.length > 0)
 </script>
 
+<svelte:head>
+	<title>Connect Git – Risved</title>
+</svelte:head>
+
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={3} />
+		<StepIndicator current={3} skipVerify={data.domainMode === 'ip'} />
 
 		<header>
 			<h1>Connect a Git provider</h1>
@@ -62,7 +66,7 @@
 			{/if}
 			<form method="post" action="?/skip">
 				<button type="submit" class="btn-secondary" data-testid="skip-btn">
-					{hasConnections ? 'Skip provider setup' : 'Skip – set up later'}
+					Skip for now
 				</button>
 			</form>
 		</div>
@@ -72,7 +76,7 @@
 <style>
 	.onboarding-card {
 		width: 100%;
-		max-width: 480px;
+		max-width: 560px;
 	}
 
 	header {
@@ -146,30 +150,9 @@
 	/* Actions */
 	.actions {
 		display: flex;
-		flex-direction: column;
 		gap: var(--space-3);
-		align-items: stretch;
+		align-items: center;
 		margin-top: var(--space-5);
-	}
-
-	.btn-secondary {
-		width: 100%;
-		padding: .75rem var(--space-4);
-		background: transparent;
-		color: var(--color-text-1);
-		border: 1.5px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-weight: 600;
-		font-size: 1rem;
-		cursor: pointer;
-		transition:
-			border-color 0.15s,
-			color 0.15s;
-	}
-
-	.btn-secondary:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
 	}
 
 	form {

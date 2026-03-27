@@ -43,6 +43,10 @@
 	);
 </script>
 
+<svelte:head>
+	<title>Configure domain – Risved</title>
+</svelte:head>
+
 <div class="onboarding">
 	<div class="onboarding-card">
 		<StepIndicator current={1} />
@@ -100,7 +104,7 @@
 				>
 					<div class="radio-dot"></div>
 					<div class="radio-content">
-						<span class="radio-title">IP-only mode</span>
+						<span class="radio-title">IP number</span>
 						<span class="radio-desc">No domain required. HTTP only, for evaluation.</span>
 					</div>
 				</button>
@@ -154,7 +158,7 @@
 							name="baseDomain"
 							type="text"
 							bind:value={baseDomain}
-							placeholder="deploy.example.com"
+							placeholder="example.com"
 						/>
 					</div>
 				</div>
@@ -179,7 +183,7 @@
 				<p class="form-error" role="alert">{form.error}</p>
 			{/if}
 
-			<button type="submit" disabled={submitting || !canSubmit}>
+			<button type="submit" class="btn-primary" disabled={submitting || !canSubmit}>
 				{submitting ? 'Saving…' : 'Continue'}
 			</button>
 		</form>
@@ -189,7 +193,7 @@
 <style>
 	.onboarding-card {
 		width: 100%;
-		max-width: 480px;
+		max-width: 560px;
 	}
 
 	header {
@@ -394,28 +398,4 @@
 		color: var(--color-live);
 	}
 
-	/* Submit */
-	button[type='submit'] {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 600;
-		font-size: 1rem;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
-		margin-top: var(--space-2);
-	}
-
-	button[type='submit']:hover:not(:disabled) {
-		background: var(--color-accent-dim);
-	}
-
-	button[type='submit']:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
 </style>
