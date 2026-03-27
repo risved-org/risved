@@ -129,19 +129,24 @@ export async function runPipeline(
 		if (lockfile) emit('build', `Detected ${lockfile}`)
 
 		const dockerfile = generateDockerfile({ frameworkId, tier, lockfile });
-		await writeFile(join(cloneDir, 'Dockerfile'), dockerfile.content);
-		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
+		let dockerfileContent = dockerfile.content
 
-		/* Write .env into the build context so frameworks (Vite, Next, Nuxt…)
-		   can read env vars at build time. The file lives only in the temp
-		   work dir and is cleaned up with it after the build. */
+		/* Inject ENV lines into the Dockerfile so env vars are available as
+		   process.env during build (needed by SvelteKit $env, Next.js, etc).
+		   Inserted right before the build RUN command in the builder stage. */
 		if (Object.keys(envMap).length > 0) {
-			const envFileContent = Object.entries(envMap)
-				.map(([k, v]) => `${k}=${v}`)
-				.join('\n') + '\n'
-			await writeFile(join(cloneDir, '.env'), envFileContent)
+			const envLines = Object.entries(envMap)
+				.map(([k, v]) => `ENV ${k}=${v}`)
+				.join('\n')
+			dockerfileContent = dockerfileContent.replace(
+				'COPY . .',
+				`COPY . .\n${envLines}`
+			)
 			emit('build', `Injecting ${projectEnvVars.length} env var(s) into build`)
 		}
+
+		await writeFile(join(cloneDir, 'Dockerfile'), dockerfileContent);
+		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
 
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
 		emit('build', `Building image ${imageTag}…`);
