@@ -136,7 +136,7 @@ export async function runPipeline(
 		   Inserted right before the build RUN command in the builder stage. */
 		if (Object.keys(envMap).length > 0) {
 			const envLines = Object.entries(envMap)
-				.map(([k, v]) => `ENV ${k}=${v}`)
+				.map(([k, v]) => `ENV ${k}="${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
 				.join('\n')
 			dockerfileContent = dockerfileContent.replace(
 				'COPY . .',
