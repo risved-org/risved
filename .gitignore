@@ -27,6 +27,9 @@ risved.db
 local.db
 test.db
 
+# Lock files
+deno.lock
+
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
