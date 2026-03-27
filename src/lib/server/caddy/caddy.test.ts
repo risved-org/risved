@@ -114,7 +114,7 @@ describe('Caddy Route Management', () => {
 					if (String(input).includes('srv0') && method === 'GET') {
 						return new Response('Not Found', { status: 404 });
 					}
-					if (String(input).endsWith('/config/') && method === 'PATCH') {
+					if (String(input).endsWith('/load') && method === 'POST') {
 						callCount++;
 						return new Response('OK', { status: 200 });
 					}

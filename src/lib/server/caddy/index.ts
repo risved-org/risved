@@ -92,9 +92,9 @@ export class CaddyClient {
 				return { success: true };
 			}
 
-			/* Config may be empty — POST the full config with apps structure */
-			const createRes = await this.fetchFn(`${this.adminUrl}/config/`, {
-				method: 'PATCH',
+			/* Config may be null after DELETE — use /load to set entire config */
+			const createRes = await this.fetchFn(`${this.adminUrl}/load`, {
+				method: 'POST',
 				headers: this.headers(),
 				body: JSON.stringify({
 					apps: {
