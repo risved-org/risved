@@ -58,6 +58,11 @@ export const actions: Actions = {
 		const config: DomainConfig = { mode, baseDomain, prefix };
 		await setSetting('domain_config', JSON.stringify(config));
 
+		const hostname = mode === 'subdomain' ? `${prefix}.${baseDomain}` : baseDomain
+		if (hostname) {
+			await setSetting('hostname', hostname)
+		}
+
 		ensureControlPlaneRoutes().catch(e => console.error('[caddy] Route setup failed:', e))
 
 		redirect(303, '/onboarding/verify');
