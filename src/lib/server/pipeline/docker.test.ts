@@ -94,28 +94,9 @@ describe('dockerBuild', () => {
 		});
 
 		expect(result.success).toBe(true);
-		expect(calls[0]).toContain('--network');
-		expect(calls[0]).toContain('risved');
 		expect(calls[0]).toContain('myapp:abc1234');
 		expect(calls[0]).toContain('/tmp/ctx');
-	});
-
-	it('uses custom network', async () => {
-		const calls: string[][] = [];
-		const runner: CommandRunner = {
-			async exec(cmd, args) {
-				calls.push([cmd, ...args]);
-				return { exitCode: 0, stdout: '', stderr: '' };
-			}
-		};
-
-		await dockerBuild(runner, {
-			contextDir: '/tmp/ctx',
-			imageTag: 'app:v1',
-			network: 'custom-net'
-		});
-
-		expect(calls[0]).toContain('custom-net');
+		expect(calls[0]).not.toContain('--network');
 	});
 
 	it('returns error on build failure', async () => {

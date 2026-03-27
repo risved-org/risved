@@ -13,11 +13,9 @@ export async function dockerBuild(
 	runner: CommandRunner,
 	options: DockerBuildOptions
 ): Promise<{ success: boolean; error?: string }> {
-	const { contextDir, imageTag, network = DOCKER_NETWORK } = options;
+	const { contextDir, imageTag } = options;
 	const result = await runner.exec('docker', [
 		'build',
-		'--network',
-		network,
 		'-t',
 		imageTag,
 		contextDir
