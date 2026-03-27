@@ -8,7 +8,7 @@ import { execSync } from 'node:child_process';
 import os from 'node:os';
 
 /** Map framework IDs to display names */
-export const __FRAMEWORK_NAMES: Record<string, string> = {
+export const _FRAMEWORK_NAMES: Record<string, string> = {
 	sveltekit: 'SvelteKit',
 	fresh: 'Fresh',
 	astro: 'Astro',
