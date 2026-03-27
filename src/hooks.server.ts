@@ -9,6 +9,7 @@ import { getMetricsCollector } from '$lib/server/metrics';
 import { getCleanupManager } from '$lib/server/cleanup';
 import { getCronScheduler } from '$lib/server/cron';
 import { getUpdateChecker } from '$lib/server/update';
+import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
@@ -21,6 +22,7 @@ if (!building) {
 	getCleanupManager().start()
 	getCronScheduler().start()
 	getUpdateChecker().start()
+	ensureControlPlaneRoutes().catch(e => console.error('[caddy] Control plane route setup failed:', e))
 
 	/* Graceful shutdown — use a named global to avoid stacking listeners on HMR */
 	const g = globalThis as Record<string, unknown>

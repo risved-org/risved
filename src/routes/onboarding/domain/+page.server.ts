@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { isFirstRun } from '$lib/server/auth-utils';
 import { getSetting, setSetting } from '$lib/server/settings';
+import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
 
 export type DomainMode = 'subdomain' | 'dedicated' | 'ip';
 
@@ -56,6 +57,8 @@ export const actions: Actions = {
 
 		const config: DomainConfig = { mode, baseDomain, prefix };
 		await setSetting('domain_config', JSON.stringify(config));
+
+		ensureControlPlaneRoutes().catch(e => console.error('[caddy] Route setup failed:', e))
 
 		redirect(303, '/onboarding/verify');
 	}
