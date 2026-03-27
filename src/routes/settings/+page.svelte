@@ -323,7 +323,7 @@
 				generalSaving = true;
 				return async ({ update }) => {
 					generalSaving = false;
-					await update();
+					await update({ reset: false });
 				};
 			}}
 		>
