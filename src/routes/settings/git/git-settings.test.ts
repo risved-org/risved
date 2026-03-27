@@ -181,9 +181,9 @@ describe('git settings actions', () => {
 });
 
 describe('git settings page source', () => {
-	it('has accounts section', async () => {
+	it('has accounts list', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('accounts-section');
+		expect(mod.default).toContain('accounts-list');
 	});
 
 	it('has ssh section', async () => {
@@ -196,18 +196,8 @@ describe('git settings page source', () => {
 		expect(mod.default).toContain('defaults-section');
 	});
 
-	it('has provider icons', async () => {
+	it('uses shared GitProviderCards component', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('provider-icon');
-	});
-
-	it('has instance URL display', async () => {
-		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('instance-url');
-	});
-
-	it('has connection age display', async () => {
-		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('connection-age');
+		expect(mod.default).toContain('GitProviderCards');
 	});
 });

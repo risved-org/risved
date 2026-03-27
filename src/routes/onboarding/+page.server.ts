@@ -1,8 +1,9 @@
-import { fail, redirect } from '@sveltejs/kit';
-import type { Actions, PageServerLoad } from './$types';
-import { auth } from '$lib/server/auth';
-import { isFirstRun } from '$lib/server/auth-utils';
-import { APIError } from 'better-auth/api';
+import { fail, redirect } from '@sveltejs/kit'
+import type { Actions, PageServerLoad } from './$types'
+import { auth } from '$lib/server/auth'
+import { isFirstRun } from '$lib/server/auth-utils'
+import { setSetting } from '$lib/server/settings'
+import { APIError } from 'better-auth/api'
 
 export const load: PageServerLoad = async () => {
 	const firstRun = await isFirstRun();
@@ -36,11 +37,14 @@ export const actions: Actions = {
 			return fail(403, { email, error: 'Admin account already exists.' });
 		}
 
+		/* Reset onboarding flag so the remaining steps are accessible */
+		await setSetting('onboarding_complete', 'false')
+
 		try {
 			await auth.api.signUpEmail({
 				body: { email, password, name: 'Admin' },
 				headers: event.request.headers
-			});
+			})
 		} catch (error) {
 			if (error instanceof APIError) {
 				return fail(400, { email, error: error.message || 'Account creation failed.' });
@@ -48,6 +52,6 @@ export const actions: Actions = {
 			return fail(500, { email, error: 'An unexpected error occurred.' });
 		}
 
-		redirect(303, '/onboarding/git');
+		redirect(303, '/onboarding/domain');
 	}
 };

@@ -1,20 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths'
-	import type { PageData } from './$types'
+	import type { PageData, ActionData } from './$types'
 	import StepIndicator from '../StepIndicator.svelte'
+	import GitProviderCards from '$lib/components/GitProviderCards.svelte'
 
-	let { data }: { data: PageData } = $props()
+	let { data, form }: { data: PageData; form: ActionData } = $props()
 
 	const providerLabel: Record<string, string> = {
 		github: 'GitHub',
 		gitlab: 'GitLab',
+		codeberg: 'Codeberg',
 		forgejo: 'Forgejo / Gitea'
-	}
-
-	const providerIcon: Record<string, string> = {
-		github: 'GH',
-		gitlab: 'GL',
-		forgejo: 'FG'
 	}
 
 	const hasConnections = $derived(data.connections.length > 0)
@@ -22,53 +18,22 @@
 
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={1} />
+		<StepIndicator current={3} />
 
 		<header>
 			<h1>Connect a Git provider</h1>
 			<p class="subtitle">
-				Link your GitHub, GitLab, or Forgejo account to import repositories
+				Link your GitHub, GitLab, Codeberg, or Forgejo account to import repositories
 				without pasting URLs. You can skip this and do it later.
 			</p>
 		</header>
 
-		<section class="cards">
-			<a
-				href={resolve('/api/git/github?action=connect&redirect=/onboarding/git')}
-				class="provider-card"
-				data-testid="github-card"
-			>
-				<span class="provider-icon github">{providerIcon.github}</span>
-				<div>
-					<h2 class="card-name">GitHub</h2>
-					<p class="card-desc">OAuth · github.com</p>
-				</div>
-			</a>
-
-			<a
-				href={resolve('/api/git/gitlab?action=connect&redirect=/onboarding/git')}
-				class="provider-card"
-				data-testid="gitlab-card"
-			>
-				<span class="provider-icon gitlab">{providerIcon.gitlab}</span>
-				<div>
-					<h2 class="card-name">GitLab</h2>
-					<p class="card-desc">OAuth · cloud or self-hosted</p>
-				</div>
-			</a>
-
-			<a
-				href={resolve('/settings/git')}
-				class="provider-card"
-				data-testid="forgejo-card"
-			>
-				<span class="provider-icon forgejo">{providerIcon.forgejo}</span>
-				<div>
-					<h2 class="card-name">Forgejo / Gitea</h2>
-					<p class="card-desc">API token</p>
-				</div>
-			</a>
-		</section>
+		<GitProviderCards
+			connections={data.connections}
+			isCloud={data.isCloud}
+			{form}
+			connectRedirect="/onboarding/git"
+		/>
 
 		{#if hasConnections}
 			<section class="connected" data-testid="connected-accounts">
@@ -78,8 +43,8 @@
 						{#if conn.avatarUrl}
 							<img src={conn.avatarUrl} alt="" class="account-avatar" />
 						{:else}
-							<span class="provider-icon {conn.provider} sm">
-								{providerIcon[conn.provider] ?? '?'}
+							<span class="account-badge">
+								{providerLabel[conn.provider]?.[0] ?? '?'}
 							</span>
 						{/if}
 						<span class="account-name">{conn.accountName}</span>
@@ -91,12 +56,12 @@
 
 		<div class="actions">
 			{#if hasConnections}
-				<a href={resolve('/onboarding/domain')} class="btn-primary" data-testid="continue-btn">
+				<a href={resolve('/onboarding/deploy')} class="btn-primary" data-testid="continue-btn">
 					Continue
 				</a>
 			{/if}
 			<form method="post" action="?/skip">
-				<button type="submit" class="btn-skip" data-testid="skip-btn">
+				<button type="submit" class="btn-secondary" data-testid="skip-btn">
 					{hasConnections ? 'Skip provider setup' : 'Skip – set up later'}
 				</button>
 			</form>
@@ -120,81 +85,9 @@
 		margin-bottom: var(--space-2);
 	}
 
-	/* Provider cards */
-	.cards {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		margin-bottom: var(--space-5);
-	}
-
-	.provider-card {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-3);
-		background: var(--color-bg-1);
-		border: 1.5px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		color: var(--color-text-0);
-		text-decoration: none;
-		transition:
-			border-color 0.15s,
-			background 0.15s;
-	}
-
-	.provider-card:hover {
-		border-color: var(--color-accent);
-		background: color-mix(in srgb, var(--color-accent) 5%, transparent);
-	}
-
-	.card-name {
-		font-family: var(--font-sans);
-		font-size: 1rem;
-		font-weight: 600;
-	}
-
-	.card-desc {
-		font-size: .875rem;
-		color: var(--color-text-2);
-		margin-top: 2px;
-	}
-
-	.provider-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: var(--radius-md);
-		font-size: .875rem;
-		font-weight: 600;
-		flex-shrink: 0;
-	}
-
-	.provider-icon.github {
-		background: #24292e;
-		color: #fff;
-	}
-
-	.provider-icon.gitlab {
-		background: #fc6d26;
-		color: #fff;
-	}
-
-	.provider-icon.forgejo {
-		background: #609926;
-		color: #fff;
-	}
-
-	.provider-icon.sm {
-		width: 28px;
-		height: 28px;
-		font-size: .875rem;
-	}
-
 	/* Connected section */
 	.connected {
+		margin-top: var(--space-5);
 		margin-bottom: var(--space-5);
 	}
 
@@ -224,6 +117,20 @@
 		border-radius: 50%;
 	}
 
+	.account-badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: var(--radius-md);
+		background: var(--color-bg-2);
+		color: var(--color-text-2);
+		font-size: .875rem;
+		font-weight: 600;
+		flex-shrink: 0;
+	}
+
 	.account-name {
 		font-size: .875rem;
 		font-weight: 500;
@@ -242,10 +149,27 @@
 		flex-direction: column;
 		gap: var(--space-3);
 		align-items: stretch;
+		margin-top: var(--space-5);
 	}
 
-	.btn-skip {
+	.btn-secondary {
 		width: 100%;
+		padding: .75rem var(--space-4);
+		background: transparent;
+		color: var(--color-text-1);
+		border: 1.5px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-weight: 600;
+		font-size: 1rem;
+		cursor: pointer;
+		transition:
+			border-color 0.15s,
+			color 0.15s;
+	}
+
+	.btn-secondary:hover {
+		border-color: var(--color-text-2);
+		color: var(--color-text-0);
 	}
 
 	form {

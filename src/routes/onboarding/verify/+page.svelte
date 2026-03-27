@@ -54,7 +54,7 @@
 
 <div class="onboarding">
 	<div class="onboarding-card">
-		<StepIndicator current={3} />
+		<StepIndicator current={2} />
 
 		<header>
 			<h1>Verify DNS records</h1>
@@ -186,7 +186,7 @@
 			</div>
 
 			<form method="post" action="?/skip">
-				<button type="submit" class="btn-primary">Continue to deploy</button>
+				<button type="submit" class="btn-primary">Continue</button>
 			</form>
 		{:else}
 			<div class="check-actions">

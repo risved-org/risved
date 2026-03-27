@@ -3,14 +3,15 @@
 	import type { ActionData } from './$types';
 	import StepIndicator from './StepIndicator.svelte';
 
-	let { form }: { form: ActionData } = $props();
+	let { form }: { form: ActionData } = $props()
 
-	let password = $state('');
-	let confirmPassword = $state('');
-	let submitting = $state(false);
+	let email = $state(form?.email ?? '')
+	let password = $state('')
+	let confirmPassword = $state('')
+	let submitting = $state(false)
 
-	const passwordTooShort = $derived(password.length > 0 && password.length < 8);
-	const passwordsMatch = $derived(confirmPassword.length === 0 || password === confirmPassword);
+	const passwordTooShort = $derived(password.length > 0 && password.length < 8)
+	const passwordsMatch = $derived(confirmPassword.length === 0 || password === confirmPassword)
 </script>
 
 <div class="onboarding">
@@ -25,11 +26,11 @@
 		<form
 			method="post"
 			use:enhance={() => {
-				submitting = true;
+				submitting = true
 				return async ({ update }) => {
-					submitting = false;
-					await update();
-				};
+					submitting = false
+					await update({ reset: false })
+				}
 			}}
 		>
 			<div class="field">
@@ -40,7 +41,7 @@
 					type="email"
 					autocomplete="username"
 					required
-					value={form?.email ?? ''}
+					bind:value={email}
 					placeholder="admin@example.com"
 				/>
 			</div>
@@ -125,7 +126,7 @@
 	}
 
 	input {
-		padding: var(--space-2) var(--space-3);
+		padding: .75rem var(--space-3);
 		background: var(--color-bg-1);
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
@@ -160,10 +161,10 @@
 	}
 
 	button {
-		padding: var(--space-2) var(--space-4);
+		padding: .75rem var(--space-4);
 		background: var(--color-accent);
 		color: white;
-		border: none;
+		border: 1.5px solid transparent;
 		border-radius: var(--radius-md);
 		font-weight: 600;
 		font-size: 1rem;

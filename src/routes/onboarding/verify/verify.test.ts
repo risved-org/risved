@@ -65,14 +65,14 @@ describe('verify load', () => {
 		});
 	});
 
-	it('auto-skips to deploy for IP mode', async () => {
+	it('auto-skips to git for IP mode', async () => {
 		vi.mocked(isFirstRun).mockResolvedValue(false);
 		vi.mocked(getSetting).mockResolvedValue(
 			JSON.stringify({ mode: 'ip', baseDomain: '', prefix: '' })
 		);
 		await expect(load({} as LoadParams)).rejects.toMatchObject({
 			status: 303,
-			location: '/onboarding/deploy'
+			location: '/onboarding/git'
 		});
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
 	});
@@ -169,20 +169,20 @@ describe('verify skip action', () => {
 		vi.clearAllMocks();
 	});
 
-	it('sets dns_verified and redirects to deploy', async () => {
+	it('sets dns_verified and redirects to git', async () => {
 		await expect(actions.skip(makeActionEvent('skip'))).rejects.toMatchObject({
 			status: 303,
-			location: '/onboarding/deploy'
+			location: '/onboarding/git'
 		});
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
 	});
 });
 
 describe('verify page source', () => {
-	it('includes step indicator at step 3', async () => {
+	it('includes step indicator at step 2', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('StepIndicator');
-		expect(mod.default).toContain('current={3}');
+		expect(mod.default).toContain('current={2}');
 	});
 
 	it('has DNS records display', async () => {

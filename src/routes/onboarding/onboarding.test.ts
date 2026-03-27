@@ -16,6 +16,10 @@ vi.mock('$lib/server/auth-utils', () => ({
 	isFirstRun: vi.fn()
 }));
 
+vi.mock('$lib/server/settings', () => ({
+	setSetting: vi.fn().mockResolvedValue(undefined)
+}));
+
 import { auth } from '$lib/server/auth';
 import { isFirstRun } from '$lib/server/auth-utils';
 import { actions, load } from './+page.server';
@@ -114,7 +118,7 @@ describe('onboarding action', () => {
 					confirmPassword: 'validpassword1'
 				})
 			)
-		).rejects.toMatchObject({ status: 303, location: '/onboarding/git' });
+		).rejects.toMatchObject({ status: 303, location: '/onboarding/domain' });
 
 		expect(auth.api.signUpEmail).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -194,7 +198,7 @@ describe('onboarding page source', () => {
 });
 
 describe('step indicator source', () => {
-	it('shows five steps: Account, Git, Domain, Verify, Deploy', async () => {
+	it('shows five steps: Account, Domain, Verify, Git, Deploy', async () => {
 		const mod = await import('./StepIndicator.svelte?raw');
 		const src = mod.default;
 		expect(src).toContain('Account');

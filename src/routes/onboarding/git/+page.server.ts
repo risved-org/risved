@@ -1,7 +1,9 @@
 import { redirect } from '@sveltejs/kit'
+import { env } from '$env/dynamic/private'
 import { db } from '$lib/server/db'
 import { gitConnections } from '$lib/server/db/schema'
 import { isFirstRun } from '$lib/server/auth-utils'
+import { connectForgejo, saveGithubApp, saveGitlabApp } from '$lib/server/git-actions'
 import type { PageServerLoad, Actions } from './$types'
 
 export const load: PageServerLoad = async () => {
@@ -19,11 +21,25 @@ export const load: PageServerLoad = async () => {
 		})
 		.from(gitConnections)
 
-	return { connections }
+	const isCloud = env.RISVED_MODE === 'cloud'
+
+	return { connections, isCloud }
 }
 
 export const actions: Actions = {
 	skip: async () => {
-		redirect(303, '/onboarding/domain')
+		redirect(303, '/onboarding/deploy')
+	},
+	forgejo: async ({ request }) => {
+		const formData = await request.formData()
+		return connectForgejo(formData)
+	},
+	saveGithubApp: async ({ request }) => {
+		const formData = await request.formData()
+		return saveGithubApp(formData)
+	},
+	saveGitlabApp: async ({ request }) => {
+		const formData = await request.formData()
+		return saveGitlabApp(formData)
 	}
 }

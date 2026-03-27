@@ -3,9 +3,9 @@
 
 	const steps: Step[] = [
 		{ label: 'Account', href: '/onboarding' },
-		{ label: 'Git', href: '/onboarding/git' },
 		{ label: 'Domain', href: '/onboarding/domain' },
 		{ label: 'Verify', href: '/onboarding/verify' },
+		{ label: 'Git', href: '/onboarding/git' },
 		{ label: 'Deploy', href: '/onboarding/deploy' }
 	];
 
@@ -43,8 +43,7 @@
 		list-style: none;
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		gap: 0;
+		justify-content: space-between;
 	}
 
 	.step {
@@ -99,10 +98,9 @@
 	}
 
 	.connector {
-		width: 32px;
+		width: 8%;
 		height: 1.5px;
 		background: var(--color-border);
-		margin: 0 var(--space-2);
 		transition: background 0.2s;
 	}
 

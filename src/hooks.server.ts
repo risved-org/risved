@@ -16,23 +16,29 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 
 /* Start health monitor and metrics collector on server boot (not during build) */
 if (!building) {
-	getHealthMonitor().start();
-	getMetricsCollector().start();
-	getCleanupManager().start();
-	getCronScheduler().start();
-	getUpdateChecker().start();
+	getHealthMonitor().start()
+	getMetricsCollector().start()
+	getCleanupManager().start()
+	getCronScheduler().start()
+	getUpdateChecker().start()
 
-	/* Graceful shutdown */
-	function shutdown() {
-		getHealthMonitor().stop();
-		getMetricsCollector().stop();
-		getCleanupManager().stop();
-		getCronScheduler().stop();
-		getUpdateChecker().stop();
-		process.exit(0);
+	/* Graceful shutdown — use a named global to avoid stacking listeners on HMR */
+	const g = globalThis as Record<string, unknown>
+	if (g.__risvedShutdown) {
+		process.off('SIGINT', g.__risvedShutdown as NodeJS.SignalsListener)
+		process.off('SIGTERM', g.__risvedShutdown as NodeJS.SignalsListener)
 	}
-	process.on('SIGINT', shutdown);
-	process.on('SIGTERM', shutdown);
+	function shutdown() {
+		getHealthMonitor().stop()
+		getMetricsCollector().stop()
+		getCleanupManager().stop()
+		getCronScheduler().stop()
+		getUpdateChecker().stop()
+		process.exit(0)
+	}
+	g.__risvedShutdown = shutdown
+	process.on('SIGINT', shutdown)
+	process.on('SIGTERM', shutdown)
 }
 
 const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks'];
@@ -77,15 +83,19 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	const onboardingDone = await isOnboardingComplete();
 
 	if (firstRun && !isPublicPath(pathname)) {
-		redirect(303, '/onboarding');
+		redirect(303, '/onboarding')
 	}
 
-	if (!firstRun && !onboardingDone && !isPublicPath(pathname)) {
-		redirect(303, '/onboarding/domain');
+	if (firstRun) {
+		return resolve(event)
+	}
+
+	if (!onboardingDone && !isPublicPath(pathname)) {
+		redirect(303, '/onboarding/domain')
 	}
 
 	if (onboardingDone && pathname.startsWith('/onboarding')) {
-		redirect(303, '/');
+		redirect(303, '/')
 	}
 
 	if (!isPublicPath(pathname) && !event.locals.user) {

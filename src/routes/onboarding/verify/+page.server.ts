@@ -30,7 +30,7 @@ export const load: PageServerLoad = async () => {
 
 	if (config.mode === 'ip') {
 		await setSetting('dns_verified', 'true');
-		redirect(303, '/onboarding/deploy');
+		redirect(303, '/onboarding/git');
 	}
 
 	const serverIps = await getServerIps();
@@ -82,6 +82,6 @@ export const actions: Actions = {
 
 	skip: async () => {
 		await setSetting('dns_verified', 'true');
-		redirect(303, '/onboarding/deploy');
+		redirect(303, '/onboarding/git');
 	}
 };

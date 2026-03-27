@@ -1,8 +1,10 @@
-import { redirect, fail } from '@sveltejs/kit';
-import type { Actions, PageServerLoad } from './$types';
-import { isFirstRun } from '$lib/server/auth-utils';
-import { getSetting, setSetting } from '$lib/server/settings';
-import { STARTER_TEMPLATES } from './templates';
+import { redirect, fail } from '@sveltejs/kit'
+import type { Actions, PageServerLoad } from './$types'
+import { isFirstRun } from '$lib/server/auth-utils'
+import { getSetting, setSetting } from '$lib/server/settings'
+import { db } from '$lib/server/db'
+import { gitConnections } from '$lib/server/db/schema'
+import { STARTER_TEMPLATES } from './templates'
 
 export const load: PageServerLoad = async () => {
 	const firstRun = await isFirstRun();
@@ -19,9 +21,18 @@ export const load: PageServerLoad = async () => {
 		redirect(303, '/onboarding/verify');
 	}
 
+	const connections = await db
+		.select({
+			id: gitConnections.id,
+			provider: gitConnections.provider,
+			accountName: gitConnections.accountName
+		})
+		.from(gitConnections)
+
 	return {
-		templates: STARTER_TEMPLATES
-	};
+		templates: STARTER_TEMPLATES,
+		connections
+	}
 };
 
 export const actions: Actions = {
