@@ -1,5 +1,8 @@
 import type { FrameworkId, Tier } from '../detection/types';
 
+/** Supported lockfile types for auto-detecting package manager */
+export type Lockfile = 'package-lock.json' | 'bun.lockb' | 'bun.lock' | 'pnpm-lock.yaml' | 'yarn.lock' | null
+
 /** Options for generating a Dockerfile */
 export interface DockerfileOptions {
 	/** Detected or overridden framework */
@@ -8,10 +11,12 @@ export interface DockerfileOptions {
 	tier: Tier;
 	/** Port the app listens on inside the container */
 	port?: number;
-	/** Custom install command override (default: npm ci) */
+	/** Custom install command override (default: auto-detected from lockfile) */
 	installCommand?: string;
 	/** Custom build command override (default: npm run build) */
 	buildCommand?: string;
+	/** Detected lockfile in the project root */
+	lockfile?: Lockfile;
 }
 
 /** Result of Dockerfile generation */

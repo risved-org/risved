@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeFile, mkdir, rm } from 'node:fs/promises';
+import { writeFile, mkdir, rm, access } from 'node:fs/promises';
 import { db } from '$lib/server/db';
 import { deployments, projects } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -105,7 +105,20 @@ export async function runPipeline(
 
 		/* ── Phase 3: Build ──────────────────────────────── */
 		emit('build', 'Generating Dockerfile…');
-		const dockerfile = generateDockerfile({ frameworkId, tier });
+
+		/* Detect lockfile to pick the right package manager */
+		const lockfiles = ['bun.lockb', 'bun.lock', 'pnpm-lock.yaml', 'yarn.lock', 'package-lock.json'] as const
+		let lockfile: typeof lockfiles[number] | null = null
+		for (const lf of lockfiles) {
+			try {
+				await access(join(cloneDir, lf))
+				lockfile = lf
+				break
+			} catch { /* not found */ }
+		}
+		if (lockfile) emit('build', `Detected ${lockfile}`)
+
+		const dockerfile = generateDockerfile({ frameworkId, tier, lockfile });
 		await writeFile(join(cloneDir, 'Dockerfile'), dockerfile.content);
 		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
 

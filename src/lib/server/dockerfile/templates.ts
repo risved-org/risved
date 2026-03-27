@@ -1,7 +1,39 @@
-import type { FrameworkBuildConfig } from './types';
+import type { FrameworkBuildConfig, Lockfile } from './types';
 
 const DENO_IMAGE = 'denoland/deno:latest';
 const NODE_IMAGE = 'node:22-slim';
+const BUN_IMAGE = 'oven/bun:1';
+
+function isBun(lockfile?: Lockfile | null): boolean {
+	return lockfile === 'bun.lockb' || lockfile === 'bun.lock'
+}
+
+/** Map lockfile to the correct install command and COPY line */
+function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string } {
+	switch (lockfile) {
+		case 'bun.lockb':
+		case 'bun.lock':
+			return {
+				copyLine: `COPY package.json ${lockfile} ./`,
+				install: 'bun install --frozen-lockfile'
+			}
+		case 'pnpm-lock.yaml':
+			return {
+				copyLine: 'COPY package.json pnpm-lock.yaml ./',
+				install: 'corepack enable && pnpm install --frozen-lockfile'
+			}
+		case 'yarn.lock':
+			return {
+				copyLine: 'COPY package.json yarn.lock ./',
+				install: 'corepack enable && yarn install --frozen-lockfile'
+			}
+		default:
+			return {
+				copyLine: 'COPY package.json package-lock.json* ./',
+				install: 'npm ci'
+			}
+	}
+}
 
 /**
  * Tier 1 (Pure Deno): Fresh, Hono, Lume
@@ -34,18 +66,22 @@ export function hybridTemplate(
 	config: FrameworkBuildConfig,
 	port: number,
 	installCommand?: string,
-	buildCommand?: string
+	buildCommand?: string,
+	lockfile?: Lockfile | null
 ): string {
-	const install = installCommand ?? config.installCommand;
-	const build = buildCommand ?? config.buildCommand;
+	const pm = pmFromLockfile(lockfile)
+	const install = installCommand ?? pm.install
+	const build = buildCommand ?? config.buildCommand
+
+	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
 
 	const lines: string[] = [
 		`# Build stage`,
-		`FROM ${NODE_IMAGE} AS builder`,
+		`FROM ${builderImage} AS builder`,
 		'',
 		'WORKDIR /app',
 		'',
-		'COPY package.json package-lock.json* ./',
+		installCommand ? 'COPY package.json ./' : pm.copyLine,
 		`RUN ${install}`,
 		'',
 		'COPY . .',
@@ -76,18 +112,22 @@ export function nodeTemplate(
 	config: FrameworkBuildConfig,
 	port: number,
 	installCommand?: string,
-	buildCommand?: string
+	buildCommand?: string,
+	lockfile?: Lockfile | null
 ): string {
-	const install = installCommand ?? config.installCommand;
-	const build = buildCommand ?? config.buildCommand;
+	const pm = pmFromLockfile(lockfile)
+	const install = installCommand ?? pm.install
+	const build = buildCommand ?? config.buildCommand
+
+	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
 
 	const lines: string[] = [
 		`# Build stage`,
-		`FROM ${NODE_IMAGE} AS builder`,
+		`FROM ${builderImage} AS builder`,
 		'',
 		'WORKDIR /app',
 		'',
-		'COPY package.json package-lock.json* ./',
+		installCommand ? 'COPY package.json ./' : pm.copyLine,
 		`RUN ${install}`,
 		'',
 		'COPY . .',
