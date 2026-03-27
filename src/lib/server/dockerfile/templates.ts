@@ -1,6 +1,6 @@
 import type { FrameworkBuildConfig } from './types';
 
-const DENO_IMAGE = 'denoland/deno:2';
+const DENO_IMAGE = 'denoland/deno:latest';
 const NODE_IMAGE = 'node:22-slim';
 
 /**

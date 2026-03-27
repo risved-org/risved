@@ -9,7 +9,7 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('fresh');
 			expect(result.tier).toBe('deno');
-			expect(result.content).toContain('FROM denoland/deno:2');
+			expect(result.content).toContain('FROM denoland/deno:latest');
 			expect(result.content).toContain('COPY . .');
 			expect(result.content).toContain('deno cache main.ts');
 			expect(result.content).toContain('EXPOSE 8000');
@@ -19,7 +19,7 @@ describe('Dockerfile Generation', () => {
 		it('generates Hono Dockerfile', () => {
 			const result = generateDockerfile({ frameworkId: 'hono', tier: 'deno' });
 
-			expect(result.content).toContain('FROM denoland/deno:2');
+			expect(result.content).toContain('FROM denoland/deno:latest');
 			expect(result.content).toContain('deno cache main.ts');
 			expect(result.content).toContain('CMD ["deno", "run", "--allow-all", "main.ts"]');
 		});
@@ -27,7 +27,7 @@ describe('Dockerfile Generation', () => {
 		it('generates Lume Dockerfile with build step', () => {
 			const result = generateDockerfile({ frameworkId: 'lume', tier: 'deno' });
 
-			expect(result.content).toContain('FROM denoland/deno:2');
+			expect(result.content).toContain('FROM denoland/deno:latest');
 			expect(result.content).toContain('RUN deno cache _config.ts');
 			expect(result.content).toContain('RUN deno task build');
 			expect(result.content).toContain('EXPOSE 8000');
@@ -41,20 +41,20 @@ describe('Dockerfile Generation', () => {
 	});
 
 	describe('Tier 2 — Hybrid (Node build, Deno serve)', () => {
-		it('generates SvelteKit Dockerfile with two stages', () => {
-			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'hybrid' });
+		it('generates SvelteKit Dockerfile with Node runtime', () => {
+			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'node' });
 
 			expect(result.frameworkId).toBe('sveltekit');
-			expect(result.tier).toBe('hybrid');
+			expect(result.tier).toBe('node');
 			// Build stage
 			expect(result.content).toContain('FROM node:22-slim AS builder');
 			expect(result.content).toContain('RUN npm ci');
 			expect(result.content).toContain('RUN npm run build');
-			// Runtime stage
-			expect(result.content).toContain('FROM denoland/deno:2');
+			// Runtime stage — Node
+			expect(result.content).toMatch(/FROM node:22-slim\n/);
 			expect(result.content).toContain('COPY --from=builder /app/build ./build');
 			expect(result.content).toContain(
-				'CMD ["deno", "run", "--allow-all", "build/index.js"]'
+				'CMD ["node", "build/index.js"]'
 			);
 			expect(result.content).toContain('EXPOSE 8000');
 		});
@@ -63,7 +63,7 @@ describe('Dockerfile Generation', () => {
 			const result = generateDockerfile({ frameworkId: 'astro', tier: 'hybrid' });
 
 			expect(result.content).toContain('FROM node:22-slim AS builder');
-			expect(result.content).toContain('FROM denoland/deno:2');
+			expect(result.content).toContain('FROM denoland/deno:latest');
 			expect(result.content).toContain('COPY --from=builder /app/dist ./dist');
 			expect(result.content).toContain(
 				'CMD ["deno", "run", "--allow-all", "dist/server/entry.mjs"]'
@@ -73,7 +73,7 @@ describe('Dockerfile Generation', () => {
 		it('uses custom install and build commands', () => {
 			const result = generateDockerfile({
 				frameworkId: 'sveltekit',
-				tier: 'hybrid',
+				tier: 'node',
 				installCommand: 'pnpm install --frozen-lockfile',
 				buildCommand: 'pnpm build'
 			});
@@ -169,7 +169,7 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('generic');
 			expect(result.tier).toBe('deno');
-			expect(result.content).toContain('FROM denoland/deno:2');
+			expect(result.content).toContain('FROM denoland/deno:latest');
 			expect(result.content).toContain('deno cache main.ts');
 			expect(result.content).toContain('CMD ["deno", "run", "--allow-all", "main.ts"]');
 		});
@@ -220,8 +220,8 @@ describe('Dockerfile Generation', () => {
 			).toThrow('Unknown tier: unknown');
 		});
 
-		it('copies package-lock.json optionally in hybrid tier', () => {
-			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'hybrid' });
+		it('copies package-lock.json optionally in node tier for sveltekit', () => {
+			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'node' });
 			expect(result.content).toContain('COPY package.json package-lock.json* ./');
 		});
 

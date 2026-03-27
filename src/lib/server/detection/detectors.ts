@@ -35,12 +35,12 @@ async function readDenoConfig(ctx: DetectionContext): Promise<Record<string, unk
 
 /**
  * SvelteKit: svelte.config.js + @sveltejs/kit in deps
- * Tier 2 — Node build, Deno serve
+ * Tier 3 — Node build, Node serve (adapter-node)
  */
 const sveltekit: FrameworkDetector = {
 	id: 'sveltekit',
 	name: 'SvelteKit',
-	tier: 'hybrid',
+	tier: 'node',
 	async detect(ctx: DetectionContext): Promise<Confidence | null> {
 		const hasConfig = await ctx.fileExists('svelte.config.js');
 		const hasConfigTs = await ctx.fileExists('svelte.config.ts');

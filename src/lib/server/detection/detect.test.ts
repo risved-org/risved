@@ -26,7 +26,7 @@ describe('Framework Detection', () => {
 			const result = await detectFramework(ctx);
 			expect(result.detected).toBe(true);
 			expect(result.framework?.id).toBe('sveltekit');
-			expect(result.framework?.tier).toBe('hybrid');
+			expect(result.framework?.tier).toBe('node');
 			expect(result.framework?.confidence).toBe('high');
 		});
 

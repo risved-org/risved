@@ -36,8 +36,8 @@ export const frameworkConfigs: FrameworkConfigs = {
 		outputDir: 'build',
 		buildCommand: 'npm run build',
 		installCommand: 'npm ci',
-		serveCommand: 'deno run --allow-all build/index.js',
-		copyPaths: ['build', 'package.json']
+		serveCommand: 'node build/index.js',
+		copyPaths: ['build', 'package.json', 'node_modules']
 	},
 
 	astro: {
