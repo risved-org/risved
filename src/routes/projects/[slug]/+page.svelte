@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import type { PageData } from './$types';
@@ -97,8 +98,16 @@
 		window.location.reload();
 	}
 
-	function handleRedeploy() {
-		fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' });
+	async function handleRedeploy() {
+		const res = await fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' })
+		if (res.ok) {
+			const { deploymentId } = await res.json()
+			if (deploymentId) {
+				goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
+			} else {
+				await invalidateAll()
+			}
+		}
 	}
 
 	async function handleRollback(e: Event, depId: string) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
@@ -25,9 +25,12 @@
 		return 'status-stopped';
 	}
 
-	function handleRedeploy(e: MouseEvent, projectId: string) {
+	async function handleRedeploy(e: MouseEvent, projectId: string) {
 		e.stopPropagation();
-		fetch(`/api/projects/${projectId}/deploy`, { method: 'POST' });
+		const res = await fetch(`/api/projects/${projectId}/deploy`, { method: 'POST' });
+		if (res.ok) {
+			await invalidateAll();
+		}
 	}
 </script>
 

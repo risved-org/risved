@@ -42,19 +42,22 @@ export async function runPipeline(
 		fetchFn?: typeof fetch;
 		healthTimeoutMs?: number;
 		healthIntervalMs?: number;
+		deploymentId?: string;
 	}
 ): Promise<PipelineResult> {
-	const deploymentId = crypto.randomUUID();
+	const deploymentId = options?.deploymentId ?? crypto.randomUUID();
 	const { emit, entries } = createLogCollector(deploymentId, options?.onLog);
 	const caddy = options?.caddy ?? new CaddyClient();
 
-	/* Create deployment record */
-	await db.insert(deployments).values({
-		id: deploymentId,
-		projectId: config.projectId,
-		status: 'running',
-		startedAt: new Date().toISOString()
-	});
+	/* Create deployment record (skip if pre-created by the API handler) */
+	if (!options?.deploymentId) {
+		await db.insert(deployments).values({
+			id: deploymentId,
+			projectId: config.projectId,
+			status: 'running',
+			startedAt: new Date().toISOString()
+		})
+	}
 
 	const workDir = join(tmpdir(), `risved-build-${config.projectSlug}-${Date.now()}`);
 	const cloneDir = join(workDir, 'repo');
