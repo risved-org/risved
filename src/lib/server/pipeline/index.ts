@@ -4,6 +4,7 @@ import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { db } from '$lib/server/db';
 import { deployments, projects } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { getSetting } from '$lib/server/settings';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
 import { CaddyClient } from '../caddy';
@@ -63,7 +64,8 @@ export async function runPipeline(
 		emit('clone', `Cloning ${config.repoUrl} (branch: ${config.branch})`);
 		await mkdir(workDir, { recursive: true });
 
-		const cloneResult = await gitClone(runner, config.repoUrl, config.branch, cloneDir);
+		const sshKey = await getSetting('ssh_deploy_private_key')
+		const cloneResult = await gitClone(runner, config.repoUrl, config.branch, cloneDir, sshKey ?? undefined);
 		if (!cloneResult.success) {
 			throw new PipelineError('clone', `Git clone failed: ${cloneResult.error}`);
 		}

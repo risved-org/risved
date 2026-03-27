@@ -1,3 +1,6 @@
+import { writeFile, rm, chmod } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import type { CommandRunner, DockerBuildOptions, DockerRunOptions } from './types';
 
 const DOCKER_NETWORK = 'risved';
@@ -88,28 +91,65 @@ export async function getCommitSha(runner: CommandRunner, repoDir: string): Prom
 }
 
 /**
+ * Convert an HTTPS repo URL to SSH format when an SSH key is available.
+ * e.g. https://github.com/user/repo.git → git@github.com:user/repo.git
+ */
+export function toSshUrl(httpsUrl: string): string {
+	const m = httpsUrl.match(/^https:\/\/(github\.com|gitlab\.com|codeberg\.org)\/(.+)$/)
+	if (m) return `git@${m[1]}:${m[2]}`
+	return httpsUrl
+}
+
+/**
  * Clone a repository with shallow depth.
+ * When sshPrivateKeyB64 is provided, writes a temp key file and
+ * sets GIT_SSH_COMMAND so git authenticates via SSH.
  */
 export async function gitClone(
 	runner: CommandRunner,
 	repoUrl: string,
 	branch: string,
-	destDir: string
+	destDir: string,
+	sshPrivateKeyB64?: string
 ): Promise<{ success: boolean; error?: string }> {
-	const result = await runner.exec('git', [
-		'clone',
-		'--depth',
-		'1',
-		'--branch',
-		branch,
-		repoUrl,
-		destDir
-	]);
+	let keyFile: string | undefined
+	let cloneUrl = repoUrl
 
-	if (result.exitCode !== 0) {
-		return { success: false, error: result.stderr || result.stdout };
+	if (sshPrivateKeyB64) {
+		/* Write PKCS8 private key to temp file in PEM format */
+		keyFile = join(tmpdir(), `risved-ssh-${Date.now()}`)
+		const pemContent = [
+			'-----BEGIN PRIVATE KEY-----',
+			...sshPrivateKeyB64.match(/.{1,64}/g)!,
+			'-----END PRIVATE KEY-----',
+			''
+		].join('\n')
+		await writeFile(keyFile, pemContent, { mode: 0o600 })
+		await chmod(keyFile, 0o600)
+
+		cloneUrl = toSshUrl(repoUrl)
 	}
-	return { success: true };
+
+	try {
+		const env = keyFile
+			? { GIT_SSH_COMMAND: `ssh -i ${keyFile} -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes` }
+			: undefined
+
+		const result = await runner.exec(
+			'git',
+			['clone', '--depth', '1', '--branch', branch, cloneUrl, destDir],
+			{ env }
+		)
+
+		if (result.exitCode !== 0) {
+			return { success: false, error: result.stderr || result.stdout }
+		}
+		return { success: true }
+	} finally {
+		if (keyFile) {
+			await rm(keyFile, { force: true }).catch(() => {})
+		}
+	}
 }
 
 /**
@@ -154,6 +194,7 @@ export function createCommandRunner(): CommandRunner {
 			try {
 				const { stdout, stderr } = await execFileAsync(cmd, args, {
 					cwd: options?.cwd,
+					env: options?.env ? { ...process.env, ...options.env } : undefined,
 					maxBuffer: 10 * 1024 * 1024
 				});
 				return { exitCode: 0, stdout, stderr };

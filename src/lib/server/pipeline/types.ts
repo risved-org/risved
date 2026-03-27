@@ -67,7 +67,7 @@ export interface DockerRunOptions {
 
 /** Interface for shell command execution (allows mocking in tests) */
 export interface CommandRunner {
-	exec(cmd: string, args: string[], options?: { cwd?: string }): Promise<CommandResult>;
+	exec(cmd: string, args: string[], options?: { cwd?: string; env?: Record<string, string> }): Promise<CommandResult>;
 }
 
 export interface CommandResult {

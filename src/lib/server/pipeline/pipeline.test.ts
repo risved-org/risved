@@ -39,6 +39,10 @@ vi.mock('$lib/server/db/schema', () => ({
 	buildLogs: {}
 }));
 
+vi.mock('$lib/server/settings', () => ({
+	getSetting: vi.fn().mockResolvedValue(null)
+}));
+
 vi.mock('../detection', () => ({
 	detectFramework: vi.fn(),
 	createFsContext: vi.fn().mockReturnValue({})
