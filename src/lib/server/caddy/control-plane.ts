@@ -10,8 +10,9 @@ interface DomainConfig {
 }
 
 /**
- * Configure Caddy routes for the control plane (dashboard + wildcard for apps).
- * Reads domain_config from settings and adds appropriate routes.
+ * Configure Caddy route for the control plane dashboard.
+ * Reads domain_config from settings and adds the dashboard route.
+ * App routes are added individually by the deploy pipeline.
  * Safe to call multiple times — routes are replaced if they already exist.
  */
 export async function ensureControlPlaneRoutes(caddy?: CaddyClient): Promise<void> {
@@ -45,10 +46,5 @@ export async function ensureControlPlaneRoutes(caddy?: CaddyClient): Promise<voi
 	})
 	if (!dashResult.success) {
 		console.error(`[caddy] Failed to add dashboard route (${dashboardHostname}):`, dashResult.error)
-	}
-
-	const wildcardResult = await client.addWildcardRoute(config.baseDomain, CONTROL_PLANE_PORT)
-	if (!wildcardResult.success) {
-		console.error(`[caddy] Failed to add wildcard route (*.${config.baseDomain}):`, wildcardResult.error)
 	}
 }
