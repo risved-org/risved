@@ -55,6 +55,8 @@ export interface DockerBuildOptions {
 	contextDir: string;
 	imageTag: string;
 	network?: string;
+	/** Called for each line of build output (enables streaming) */
+	onLine?: (line: string) => void;
 }
 
 export interface DockerRunOptions {
@@ -67,7 +69,7 @@ export interface DockerRunOptions {
 
 /** Interface for shell command execution (allows mocking in tests) */
 export interface CommandRunner {
-	exec(cmd: string, args: string[], options?: { cwd?: string; env?: Record<string, string> }): Promise<CommandResult>;
+	exec(cmd: string, args: string[], options?: { cwd?: string; env?: Record<string, string>; onLine?: (line: string) => void }): Promise<CommandResult>;
 }
 
 export interface CommandResult {

@@ -13,13 +13,15 @@ export async function dockerBuild(
 	runner: CommandRunner,
 	options: DockerBuildOptions
 ): Promise<{ success: boolean; error?: string }> {
-	const { contextDir, imageTag } = options;
+	const { contextDir, imageTag, onLine } = options;
+
 	const result = await runner.exec('docker', [
 		'build',
+		'--progress=plain',
 		'-t',
 		imageTag,
 		contextDir
-	]);
+	], { onLine });
 
 	if (result.exitCode !== 0) {
 		return { success: false, error: result.stderr || result.stdout };
@@ -185,6 +187,34 @@ export async function waitForHealthy(
 export function createCommandRunner(): CommandRunner {
 	return {
 		async exec(cmd, args, options) {
+			/* Use spawn for streaming output when onLine is provided */
+			if (options?.onLine) {
+				const { spawn } = await import('node:child_process')
+				return new Promise((resolve) => {
+					const child = spawn(cmd, args, {
+						cwd: options?.cwd,
+						env: options?.env ? { ...process.env, ...options.env } : undefined
+					})
+					let stdout = ''
+					let stderr = ''
+
+					const handleData = (stream: 'stdout' | 'stderr') => (data: Buffer) => {
+						const text = data.toString()
+						if (stream === 'stdout') stdout += text
+						else stderr += text
+						for (const line of text.split('\n')) {
+							const trimmed = line.trim()
+							if (trimmed) options.onLine!(trimmed)
+						}
+					}
+
+					child.stdout?.on('data', handleData('stdout'))
+					child.stderr?.on('data', handleData('stderr'))
+					child.on('close', (code) => resolve({ exitCode: code ?? 1, stdout, stderr }))
+					child.on('error', (err) => resolve({ exitCode: 1, stdout: '', stderr: err.message }))
+				})
+			}
+
 			const { execFile } = await import('node:child_process');
 			const { promisify } = await import('node:util');
 			const execFileAsync = promisify(execFile);

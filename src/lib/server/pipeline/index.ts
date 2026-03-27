@@ -125,9 +125,13 @@ export async function runPipeline(
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
 		emit('build', `Building image ${imageTag}…`);
 
-		const buildResult = await dockerBuild(runner, { contextDir: cloneDir, imageTag });
+		const buildResult = await dockerBuild(runner, {
+			contextDir: cloneDir,
+			imageTag,
+			onLine: (line) => emit('build', line)
+		});
 		if (!buildResult.success) {
-			throw new PipelineError('build', `Docker build failed: ${buildResult.error}`);
+			throw new PipelineError('build', 'Docker build failed');
 		}
 		emit('build', 'Image built successfully');
 
