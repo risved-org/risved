@@ -8,29 +8,33 @@ function isBun(lockfile?: Lockfile | null): boolean {
 	return lockfile === 'bun.lockb' || lockfile === 'bun.lock'
 }
 
-/** Map lockfile to the correct install command and COPY line */
-function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string } {
+/** Map lockfile to the correct install/build commands and COPY line */
+function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string; run: string } {
 	switch (lockfile) {
 		case 'bun.lockb':
 		case 'bun.lock':
 			return {
 				copyLine: `COPY package.json ${lockfile} ./`,
-				install: 'apt-get update && apt-get install -y python3 make g++ && bun install --frozen-lockfile'
+				install: 'apt-get update && apt-get install -y python3 make g++ && bun install --frozen-lockfile',
+				run: 'bun run'
 			}
 		case 'pnpm-lock.yaml':
 			return {
 				copyLine: 'COPY package.json pnpm-lock.yaml ./',
-				install: 'corepack enable && pnpm install --frozen-lockfile'
+				install: 'corepack enable && pnpm install --frozen-lockfile',
+				run: 'pnpm run'
 			}
 		case 'yarn.lock':
 			return {
 				copyLine: 'COPY package.json yarn.lock ./',
-				install: 'corepack enable && yarn install --frozen-lockfile'
+				install: 'corepack enable && yarn install --frozen-lockfile',
+				run: 'yarn'
 			}
 		default:
 			return {
 				copyLine: 'COPY package.json package-lock.json* ./',
-				install: 'npm ci'
+				install: 'npm ci',
+				run: 'npm run'
 			}
 	}
 }
@@ -71,7 +75,7 @@ export function hybridTemplate(
 ): string {
 	const pm = pmFromLockfile(lockfile)
 	const install = installCommand ?? pm.install
-	const build = buildCommand ?? config.buildCommand
+	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
 	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
 
@@ -117,7 +121,7 @@ export function nodeTemplate(
 ): string {
 	const pm = pmFromLockfile(lockfile)
 	const install = installCommand ?? pm.install
-	const build = buildCommand ?? config.buildCommand
+	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
 	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
 
