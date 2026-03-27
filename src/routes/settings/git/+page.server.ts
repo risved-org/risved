@@ -107,20 +107,34 @@ export const actions: Actions = {
 		const keyPair = await crypto.subtle.generateKey({ name: 'Ed25519' } as EcKeyGenParams, true, [
 			'sign',
 			'verify'
-		]);
+		])
 
-		const publicRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-		const publicBytes = new Uint8Array(publicRaw);
-		const publicB64 = btoa(String.fromCharCode(...publicBytes));
-		const publicKeyStr = `ssh-ed25519 ${publicB64} risved-deploy-key`;
+		const publicRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey)
+		const publicBytes = new Uint8Array(publicRaw)
 
-		const privatePkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
-		const privateB64 = btoa(String.fromCharCode(...new Uint8Array(privatePkcs8)));
+		/* OpenSSH wire format: each field is a uint32 length prefix + data */
+		const keyType = new TextEncoder().encode('ssh-ed25519')
+		const buf = new Uint8Array(4 + keyType.length + 4 + publicBytes.length)
+		const view = new DataView(buf.buffer)
+		let offset = 0
+		view.setUint32(offset, keyType.length)
+		offset += 4
+		buf.set(keyType, offset)
+		offset += keyType.length
+		view.setUint32(offset, publicBytes.length)
+		offset += 4
+		buf.set(publicBytes, offset)
 
-		await setSetting('ssh_deploy_public_key', publicKeyStr);
-		await setSetting('ssh_deploy_private_key', privateB64);
+		const publicB64 = btoa(String.fromCharCode(...buf))
+		const publicKeyStr = `ssh-ed25519 ${publicB64} risved-deploy-key`
 
-		return { keyGenerated: true };
+		const privatePkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+		const privateB64 = btoa(String.fromCharCode(...new Uint8Array(privatePkcs8)))
+
+		await setSetting('ssh_deploy_public_key', publicKeyStr)
+		await setSetting('ssh_deploy_private_key', privateB64)
+
+		return { keyGenerated: true }
 	},
 
 	/** Revoke the SSH deploy key pair. */

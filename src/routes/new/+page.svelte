@@ -211,8 +211,8 @@
 			{#if activeTab === 'provider'}
 				{#if data.connections.length === 0}
 					<div class="provider-empty" data-testid="no-providers">
-						<a href={resolve('/settings/git')} class="btn-secondary" data-testid="connect-provider-link">
-							Add a git provider in settings
+						<a href={resolve('/settings/git')} class="btn-connect" data-testid="connect-provider-link">
+							Add a git provider…
 						</a>
 					</div>
 				{:else}
@@ -536,6 +536,26 @@
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
+	}
+
+	.btn-connect {
+		display: inline-flex;
+		align-items: center;
+		padding: var(--space-2) var(--space-3);
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-1);
+		font-size: .875rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: border-color 0.15s, color 0.15s;
+		text-decoration: none;
+	}
+
+	.btn-connect:hover {
+		border-color: var(--color-text-1);
+		color: var(--color-text-0);
 	}
 
 	/* Repo list */
