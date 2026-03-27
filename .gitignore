@@ -29,6 +29,7 @@ test.db
 
 # Lock files
 deno.lock
+bun.lock
 
 # Vite
 vite.config.js.timestamp-*
