@@ -23,13 +23,8 @@
 				aria-current={i === current ? 'step' : undefined}
 			>
 				<span class="step-number">{i + 1}</span>
-				{#if i === current}
-					<span class="step-label">{step.label}</span>
-				{/if}
+				<span class="step-label">{step.label}</span>
 			</li>
-			{#if i < steps.length - 1}
-				<li class="connector" class:completed={i < current} aria-hidden="true"></li>
-			{/if}
 		{/each}
 	</ol>
 </nav>
@@ -41,46 +36,45 @@
 
 	ol {
 		list-style: none;
-		display: flex;
+		display: inline-flex;
 		align-items: center;
-		justify-content: space-between;
+		border: 1.5px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
 	}
 
 	.step {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
+		padding: var(--space-2) var(--space-3);
+		border-right: 1.5px solid var(--color-border);
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.step:last-child {
+		border-right: none;
 	}
 
 	.step-number {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 50%;
 		font-size: .875rem;
 		font-weight: 600;
 		font-family: var(--font-mono);
-		border: 1.5px solid var(--color-border);
 		color: var(--color-text-2);
-		background: transparent;
-		transition:
-			border-color 0.2s,
-			color 0.2s,
-			background 0.2s;
 	}
 
 	.step-label {
 		font-size: .875rem;
+		font-weight: 600;
 		color: var(--color-text-2);
-		transition: color 0.2s;
+	}
+
+	.step.active {
+		background: var(--color-bg-2);
 	}
 
 	.step.active .step-number {
-		border-color: var(--color-accent);
 		color: var(--color-accent);
-		background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 	}
 
 	.step.active .step-label {
@@ -88,23 +82,10 @@
 	}
 
 	.step.completed .step-number {
-		border-color: var(--color-live);
-		color: var(--color-bg-0);
-		background: var(--color-live);
+		color: var(--color-live);
 	}
 
 	.step.completed .step-label {
 		color: var(--color-text-1);
-	}
-
-	.connector {
-		width: 8%;
-		height: 1.5px;
-		background: var(--color-border);
-		transition: background 0.2s;
-	}
-
-	.connector.completed {
-		background: var(--color-live);
 	}
 </style>
