@@ -132,6 +132,17 @@ export async function runPipeline(
 		await writeFile(join(cloneDir, 'Dockerfile'), dockerfile.content);
 		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
 
+		/* Write .env into the build context so frameworks (Vite, Next, Nuxt…)
+		   can read env vars at build time. The file lives only in the temp
+		   work dir and is cleaned up with it after the build. */
+		if (Object.keys(envMap).length > 0) {
+			const envFileContent = Object.entries(envMap)
+				.map(([k, v]) => `${k}=${v}`)
+				.join('\n') + '\n'
+			await writeFile(join(cloneDir, '.env'), envFileContent)
+			emit('build', `Injecting ${projectEnvVars.length} env var(s) into build`)
+		}
+
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
 		emit('build', `Building image ${imageTag}…`);
 
