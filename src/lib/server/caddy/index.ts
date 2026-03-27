@@ -51,6 +51,10 @@ export class CaddyClient {
 		this.fetchFn = fetchFn ?? globalThis.fetch.bind(globalThis);
 	}
 
+	private headers(): Record<string, string> {
+		return { 'Content-Type': 'application/json', Origin: this.adminUrl }
+	}
+
 	/**
 	 * Check if Caddy is running and responsive.
 	 * Hits the /config/ endpoint which always returns the current config.
@@ -59,7 +63,7 @@ export class CaddyClient {
 		try {
 			const res = await this.fetchFn(`${this.adminUrl}/config/`, {
 				method: 'GET',
-				headers: { 'Content-Type': 'application/json' }
+				headers: this.headers()
 			});
 			if (res.ok) {
 				return { healthy: true };
@@ -81,7 +85,7 @@ export class CaddyClient {
 		try {
 			const res = await this.fetchFn(`${this.adminUrl}/config/apps/http/servers/srv0`, {
 				method: 'GET',
-				headers: { 'Content-Type': 'application/json' }
+				headers: this.headers()
 			});
 
 			if (res.ok) {
@@ -90,7 +94,7 @@ export class CaddyClient {
 
 			const createRes = await this.fetchFn(`${this.adminUrl}/config/apps/http/servers/srv0`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: this.headers(),
 				body: JSON.stringify({
 					listen: [':443', ':80'],
 					routes: []
@@ -123,7 +127,7 @@ export class CaddyClient {
 
 			const res = await this.fetchFn(`${this.adminUrl}/config/apps/http/servers/srv0/routes`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: this.headers(),
 				body: JSON.stringify(config)
 			});
 
@@ -149,7 +153,7 @@ export class CaddyClient {
 			const id = routeId(hostname);
 			const res = await this.fetchFn(`${this.adminUrl}/id/${id}`, {
 				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' }
+				headers: this.headers()
 			});
 
 			if (res.ok || res.status === 404) {
@@ -189,7 +193,7 @@ export class CaddyClient {
 		try {
 			const res = await this.fetchFn(`${this.adminUrl}/config/apps/http/servers/srv0/routes`, {
 				method: 'GET',
-				headers: { 'Content-Type': 'application/json' }
+				headers: this.headers()
 			});
 
 			if (!res.ok) {
