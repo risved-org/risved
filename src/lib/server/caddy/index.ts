@@ -92,12 +92,19 @@ export class CaddyClient {
 				return { success: true };
 			}
 
-			const createRes = await this.fetchFn(`${this.adminUrl}/config/apps/http/servers/srv0`, {
-				method: 'POST',
+			/* Path apps/http/servers may not exist yet — PUT the full structure */
+			const createRes = await this.fetchFn(`${this.adminUrl}/config/apps`, {
+				method: 'PATCH',
 				headers: this.headers(),
 				body: JSON.stringify({
-					listen: [':443', ':80'],
-					routes: []
+					http: {
+						servers: {
+							srv0: {
+								listen: [':443', ':80'],
+								routes: []
+							}
+						}
+					}
 				})
 			});
 
