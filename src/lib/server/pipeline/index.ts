@@ -115,9 +115,6 @@ export async function runPipeline(
 
 		/* ── Phase 3: Build ──────────────────────────────── */
 		emit('build', 'Generating Dockerfile…');
-		if (projectEnvVars.length > 0) {
-			emit('build', `Injecting ${projectEnvVars.length} env var(s)`)
-		}
 
 		/* Detect lockfile to pick the right package manager */
 		const lockfiles = ['bun.lockb', 'bun.lock', 'pnpm-lock.yaml', 'yarn.lock', 'package-lock.json'] as const
@@ -135,14 +132,6 @@ export async function runPipeline(
 		await writeFile(join(cloneDir, 'Dockerfile'), dockerfile.content);
 		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
 
-		/* Write .env file for build-time access (Vite reads this automatically) */
-		if (Object.keys(envMap).length > 0) {
-			const envFileContent = Object.entries(envMap)
-				.map(([k, v]) => `${k}=${v}`)
-				.join('\n') + '\n'
-			await writeFile(join(cloneDir, '.env'), envFileContent)
-		}
-
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
 		emit('build', `Building image ${imageTag}…`);
 
@@ -159,6 +148,9 @@ export async function runPipeline(
 		/* ── Phase 4: Start ──────────────────────────────── */
 		const containerName = config.projectSlug;
 		emit('start', `Starting container ${containerName} on port ${config.port}…`);
+		if (projectEnvVars.length > 0) {
+			emit('start', `Injecting ${projectEnvVars.length} env var(s)`)
+		}
 
 		/* Check for existing container with same name (will be swapped in cutover) */
 		const oldContainerName = `${containerName}-old-${Date.now()}`;
