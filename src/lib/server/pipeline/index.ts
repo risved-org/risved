@@ -69,7 +69,14 @@ export async function runPipeline(
 		emit('clone', `Cloning ${config.repoUrl} (branch: ${config.branch})`);
 		await mkdir(workDir, { recursive: true });
 
-		const sshKey = await getSetting('ssh_deploy_private_key')
+		/* Kick off clone, env var fetch, and SSH key lookup in parallel */
+		const sshKeyPromise = getSetting('ssh_deploy_private_key')
+		const envVarsPromise = db
+			.select({ key: envVars.key, value: envVars.value })
+			.from(envVars)
+			.where(eq(envVars.projectId, config.projectId))
+
+		const sshKey = await sshKeyPromise
 		const cloneResult = await gitClone(runner, config.repoUrl, config.branch, cloneDir, sshKey ?? undefined);
 		if (!cloneResult.success) {
 			throw new PipelineError('clone', `Git clone failed: ${cloneResult.error}`);
@@ -78,12 +85,19 @@ export async function runPipeline(
 		const commitSha = await getCommitSha(runner, cloneDir);
 		emit('clone', `Cloned at commit ${commitSha ?? 'unknown'}`);
 
+		/* Resolve env vars (started in parallel with clone) */
+		const projectEnvVars = await envVarsPromise
+		const envMap: Record<string, string> = {}
+		for (const row of projectEnvVars) {
+			envMap[row.key] = safeDecrypt(row.value)
+		}
+
 		/* ── Phase 2: Detect ─────────────────────────────── */
-		emit('detect', 'Detecting framework…');
 		let frameworkId = config.frameworkId;
 		let tier = config.tier;
 
 		if (!frameworkId || !tier) {
+			emit('detect', 'Detecting framework…');
 			const ctx = createFsContext(cloneDir);
 			const detection = await detectFramework(ctx);
 			if (!detection.detected || !detection.framework) {
@@ -96,7 +110,7 @@ export async function runPipeline(
 				`Detected ${detection.framework.name} (${tier} tier, ${detection.framework.confidence} confidence)`
 			);
 		} else {
-			emit('detect', `Using override: ${frameworkId} (${tier} tier)`);
+			emit('detect', `Using saved: ${frameworkId} (${tier} tier)`);
 		}
 
 		/* Update project with detected framework info */
@@ -104,16 +118,6 @@ export async function runPipeline(
 			.update(projects)
 			.set({ frameworkId, tier, updatedAt: new Date().toISOString() })
 			.where(eq(projects.id, config.projectId));
-
-		/* ── Fetch project env vars ─────────────────────── */
-		const projectEnvVars = await db
-			.select({ key: envVars.key, value: envVars.value })
-			.from(envVars)
-			.where(eq(envVars.projectId, config.projectId))
-		const envMap: Record<string, string> = {}
-		for (const row of projectEnvVars) {
-			envMap[row.key] = safeDecrypt(row.value)
-		}
 
 		/* ── Phase 3: Build ──────────────────────────────── */
 		emit('build', 'Generating Dockerfile…');

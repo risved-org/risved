@@ -159,7 +159,7 @@ export async function gitClone(
 
 		const result = await runner.exec(
 			'git',
-			['clone', '--depth', '1', '--branch', branch, cloneUrl, destDir],
+			['clone', '--depth', '1', '--single-branch', '--branch', branch, cloneUrl, destDir],
 			{ env }
 		)
 
