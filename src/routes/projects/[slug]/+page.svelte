@@ -247,7 +247,7 @@
 
 	<!-- Resource Usage -->
 	<section class="section" data-testid="resource-section">
-		<h2 class="section-title">Resource Usage (24h)</h2>
+		<h2 class="section-title">Resource history</h2>
 		<div class="charts-grid">
 			<LineChart points={cpuPoints} label="CPU %" color="var(--color-accent)" unit="%" />
 			<LineChart points={memPoints} label="Memory (MB)" color="var(--color-live)" unit="MB" />

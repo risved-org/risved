@@ -67,9 +67,7 @@
 			{/if}
 			<svg
 				viewBox="0 0 {W} {height}"
-				preserveAspectRatio="none"
 				class="chart-svg"
-				style="height: {height}px"
 			>
 			<!-- Y-axis ticks -->
 			{#each yTicks as tick, i (i)}
