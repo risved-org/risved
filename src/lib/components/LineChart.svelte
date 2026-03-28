@@ -72,7 +72,7 @@
 				style="height: {height}px"
 			>
 			<!-- Y-axis ticks -->
-			{#each yTicks as tick (tick)}
+			{#each yTicks as tick, i (i)}
 				<line
 					x1={PAD_X}
 					y1={y(tick)}
