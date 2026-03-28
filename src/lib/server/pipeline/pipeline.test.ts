@@ -157,7 +157,6 @@ describe('runPipeline', () => {
 		expect(phases).toContain('start');
 		expect(phases).toContain('health');
 		expect(phases).toContain('route');
-		expect(phases).toContain('cutover');
 		expect(phases).toContain('live');
 		expect(result.logs.length).toBe(logs.length);
 	});

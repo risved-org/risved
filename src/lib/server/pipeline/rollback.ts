@@ -58,6 +58,11 @@ export async function runRollback(
 		const oldContainerName = `${containerName}-old-${Date.now()}`;
 		const renameResult = await runner.exec('docker', ['rename', containerName, oldContainerName]);
 		const hadOldContainer = renameResult.exitCode === 0;
+		if (hadOldContainer) {
+			emit('start', `Stopping old container to free port ${config.port}…`);
+			await dockerStop(runner, oldContainerName, 10);
+			emit('start', 'Old container stopped');
+		}
 
 		const runResult = await dockerRun(runner, {
 			imageTag: config.imageTag,
@@ -65,9 +70,6 @@ export async function runRollback(
 			port: config.port
 		});
 		if (!runResult.success) {
-			if (hadOldContainer) {
-				await runner.exec('docker', ['rename', oldContainerName, containerName]);
-			}
 			throw new RollbackError('start', `Docker run failed: ${runResult.error}`);
 		}
 		emit('start', `Container started (ID: ${runResult.containerId})`);
@@ -82,9 +84,6 @@ export async function runRollback(
 		);
 		if (!healthy) {
 			await dockerStop(runner, containerName, 5);
-			if (hadOldContainer) {
-				await runner.exec('docker', ['rename', oldContainerName, containerName]);
-			}
 			throw new RollbackError('health', 'Health check timed out after 30s');
 		}
 		emit('health', 'Health check passed');
@@ -103,15 +102,6 @@ export async function runRollback(
 			}
 		} else {
 			emit('route', 'No domain configured, skipping route setup');
-		}
-
-		/* ── Cutover ────────────────────────────── */
-		if (hadOldContainer) {
-			emit('cutover', `Stopping old container (${oldContainerName}) with 10s grace period…`);
-			await dockerStop(runner, oldContainerName, 10);
-			emit('cutover', 'Old container stopped');
-		} else {
-			emit('cutover', 'No previous container to remove');
 		}
 
 		/* ── Live ───────────────────────────────── */

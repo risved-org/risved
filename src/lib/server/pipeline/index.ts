@@ -169,10 +169,15 @@ export async function runPipeline(
 			emit('start', `Injecting ${projectEnvVars.length} env var(s)`)
 		}
 
-		/* Check for existing container with same name (will be swapped in cutover) */
+		/* Stop existing container to free the port before starting the new one */
 		const oldContainerName = `${containerName}-old-${Date.now()}`;
 		const renameResult = await runner.exec('docker', ['rename', containerName, oldContainerName]);
 		const hadOldContainer = renameResult.exitCode === 0;
+		if (hadOldContainer) {
+			emit('start', `Stopping old container to free port ${config.port}…`);
+			await dockerStop(runner, oldContainerName, 10);
+			emit('start', 'Old container stopped');
+		}
 
 		const runResult = await dockerRun(runner, {
 			imageTag,
@@ -181,10 +186,6 @@ export async function runPipeline(
 			env: envMap
 		});
 		if (!runResult.success) {
-			/* Restore old container name if rename succeeded */
-			if (hadOldContainer) {
-				await runner.exec('docker', ['rename', oldContainerName, containerName]);
-			}
 			throw new PipelineError('start', `Docker run failed: ${runResult.error}`);
 		}
 		emit('start', `Container started (ID: ${runResult.containerId})`);
@@ -198,11 +199,7 @@ export async function runPipeline(
 			options?.fetchFn ?? globalThis.fetch
 		);
 		if (!healthy) {
-			/* Roll back: stop new container, restore old */
 			await dockerStop(runner, containerName, 5);
-			if (hadOldContainer) {
-				await runner.exec('docker', ['rename', oldContainerName, containerName]);
-			}
 			throw new PipelineError('health', 'Health check timed out after 30s');
 		}
 		emit('health', 'Health check passed');
@@ -223,16 +220,7 @@ export async function runPipeline(
 			emit('route', 'No domain configured, skipping route setup');
 		}
 
-		/* ── Phase 7: Cutover ────────────────────────────── */
-		if (hadOldContainer) {
-			emit('cutover', `Stopping old container (${oldContainerName}) with 10s grace period…`);
-			await dockerStop(runner, oldContainerName, 10);
-			emit('cutover', 'Old container stopped');
-		} else {
-			emit('cutover', 'No previous container to remove');
-		}
-
-		/* ── Phase 8: Live ───────────────────────────────── */
+		/* ── Phase 7: Live ──────────────────────────────── */
 		emit('live', 'Deployment is live');
 
 		await db
