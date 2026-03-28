@@ -5,6 +5,7 @@ import { db } from '$lib/server/db';
 import { deployments, projects, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
+import { safeDecrypt } from '$lib/server/crypto';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
 import { CaddyClient } from '../caddy';
@@ -110,7 +111,7 @@ export async function runPipeline(
 			.where(eq(envVars.projectId, config.projectId))
 		const envMap: Record<string, string> = {}
 		for (const row of projectEnvVars) {
-			envMap[row.key] = row.value
+			envMap[row.key] = safeDecrypt(row.value)
 		}
 
 		/* ── Phase 3: Build ──────────────────────────────── */

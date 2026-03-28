@@ -46,6 +46,10 @@ vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn().mockResolvedValue(null)
 }));
 
+vi.mock('$lib/server/crypto', () => ({
+	safeDecrypt: vi.fn((v: string) => v)
+}));
+
 vi.mock('../detection', () => ({
 	detectFramework: vi.fn(),
 	createFsContext: vi.fn().mockReturnValue({})
