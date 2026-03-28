@@ -48,7 +48,7 @@ describe('Dockerfile Generation', () => {
 			expect(result.tier).toBe('node');
 			// Build stage
 			expect(result.content).toContain('FROM node:22-slim AS builder');
-			expect(result.content).toContain('RUN npm ci');
+			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — Node
 			expect(result.content).toMatch(/FROM node:22-slim\n/);
@@ -91,7 +91,7 @@ describe('Dockerfile Generation', () => {
 			expect(result.tier).toBe('node');
 			// Build stage
 			expect(result.content).toContain('FROM node:22-slim AS builder');
-			expect(result.content).toContain('RUN npm ci');
+			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — also Node
 			expect(result.content).toMatch(/FROM node:22-slim\n/);
@@ -159,7 +159,7 @@ describe('Dockerfile Generation', () => {
 			expect(result.frameworkId).toBe('generic');
 			expect(result.tier).toBe('node');
 			expect(result.content).toContain('FROM node:22-slim AS builder');
-			expect(result.content).toContain('RUN npm ci');
+			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			expect(result.content).toContain('CMD ["node", "index.js"]');
 		});

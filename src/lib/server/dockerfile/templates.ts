@@ -8,33 +8,37 @@ function isBun(lockfile?: Lockfile | null): boolean {
 	return lockfile === 'bun.lockb' || lockfile === 'bun.lock'
 }
 
-/** Map lockfile to the correct install/build commands and COPY line */
-function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string; run: string } {
+/** Map lockfile to the correct install/build commands, COPY line, and cache mount */
+function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string; run: string; cacheMount: string } {
 	switch (lockfile) {
 		case 'bun.lockb':
 		case 'bun.lock':
 			return {
 				copyLine: `COPY package.json ${lockfile} ./`,
 				install: 'apt-get update && apt-get install -y python3 make g++ && bun install --frozen-lockfile',
-				run: 'bun run'
+				run: 'bun run',
+				cacheMount: '--mount=type=cache,target=/root/.bun/install/cache '
 			}
 		case 'pnpm-lock.yaml':
 			return {
 				copyLine: 'COPY package.json pnpm-lock.yaml ./',
 				install: 'corepack enable && pnpm install --frozen-lockfile',
-				run: 'pnpm run'
+				run: 'pnpm run',
+				cacheMount: '--mount=type=cache,target=/root/.local/share/pnpm/store '
 			}
 		case 'yarn.lock':
 			return {
 				copyLine: 'COPY package.json yarn.lock ./',
 				install: 'corepack enable && yarn install --frozen-lockfile',
-				run: 'yarn'
+				run: 'yarn',
+				cacheMount: '--mount=type=cache,target=/usr/local/share/.cache/yarn '
 			}
 		default:
 			return {
 				copyLine: 'COPY package.json package-lock.json* ./',
 				install: 'npm ci',
-				run: 'npm run'
+				run: 'npm run',
+				cacheMount: '--mount=type=cache,target=/root/.npm '
 			}
 	}
 }
@@ -78,15 +82,17 @@ export function hybridTemplate(
 	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
 	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
+	const cache = installCommand ? '' : pm.cacheMount
 
 	const lines: string[] = [
+		`# syntax=docker/dockerfile:1`,
 		`# Build stage`,
 		`FROM ${builderImage} AS builder`,
 		'',
 		'WORKDIR /app',
 		'',
 		installCommand ? 'COPY package.json ./' : pm.copyLine,
-		`RUN ${install}`,
+		`RUN ${cache}${install}`,
 		'',
 		'COPY . .',
 		`RUN ${build}`,
@@ -124,15 +130,17 @@ export function nodeTemplate(
 	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
 	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
+	const cache = installCommand ? '' : pm.cacheMount
 
 	const lines: string[] = [
+		`# syntax=docker/dockerfile:1`,
 		`# Build stage`,
 		`FROM ${builderImage} AS builder`,
 		'',
 		'WORKDIR /app',
 		'',
 		installCommand ? 'COPY package.json ./' : pm.copyLine,
-		`RUN ${install}`,
+		`RUN ${cache}${install}`,
 		'',
 		'COPY . .',
 		`RUN ${build}`,

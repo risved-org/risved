@@ -147,6 +147,18 @@ export async function runPipeline(
 		}
 
 		await writeFile(join(cloneDir, 'Dockerfile'), dockerfileContent);
+		await writeFile(join(cloneDir, '.dockerignore'), [
+			'.git',
+			'node_modules',
+			'.svelte-kit',
+			'.next',
+			'.nuxt',
+			'.output',
+			'dist',
+			'.env*',
+			'Dockerfile',
+			'.dockerignore'
+		].join('\n'));
 		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
 
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
