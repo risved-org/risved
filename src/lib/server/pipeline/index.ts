@@ -64,6 +64,8 @@ export async function runPipeline(
 	const workDir = join(tmpdir(), `risved-build-${config.projectSlug}-${Date.now()}`);
 	const cloneDir = join(workDir, 'repo');
 
+	let commitSha: string | null = null
+
 	try {
 		/* ── Phase 1: Clone ──────────────────────────────── */
 		emit('clone', `Cloning ${config.repoUrl} (branch: ${config.branch})`);
@@ -82,7 +84,7 @@ export async function runPipeline(
 			throw new PipelineError('clone', `Git clone failed: ${cloneResult.error}`);
 		}
 
-		const commitSha = await getCommitSha(runner, cloneDir);
+		commitSha = await getCommitSha(runner, cloneDir);
 		emit('clone', `Cloned at commit ${commitSha ?? 'unknown'}`);
 
 		/* Resolve env vars (started in parallel with clone) */
@@ -268,6 +270,7 @@ export async function runPipeline(
 			.update(deployments)
 			.set({
 				status: 'failed',
+				commitSha,
 				finishedAt: new Date().toISOString()
 			})
 			.where(eq(deployments.id, deploymentId));
