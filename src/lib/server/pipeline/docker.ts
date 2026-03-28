@@ -84,6 +84,26 @@ export async function dockerStop(
 }
 
 /**
+ * Find and force-remove any Docker container bound to the given host port.
+ * Waits briefly after removal to let Docker release the port binding.
+ */
+export async function freePort(runner: CommandRunner, port: number): Promise<string[]> {
+	const result = await runner.exec('docker', [
+		'ps', '-q', '--filter', `publish=${port}`
+	])
+	if (result.exitCode !== 0 || !result.stdout.trim()) return []
+
+	const ids = result.stdout.trim().split('\n').filter(Boolean)
+	for (const id of ids) {
+		await runner.exec('docker', ['rm', '-f', id])
+	}
+
+	/* Brief pause to let Docker release the port binding */
+	await new Promise((resolve) => setTimeout(resolve, 1000))
+	return ids
+}
+
+/**
  * Get the short commit SHA from a cloned repository.
  */
 export async function getCommitSha(runner: CommandRunner, repoDir: string): Promise<string | null> {

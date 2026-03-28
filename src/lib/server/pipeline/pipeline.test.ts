@@ -276,15 +276,15 @@ describe('runPipeline', () => {
 		expect(detectFramework).not.toHaveBeenCalled();
 	});
 
-	it('performs cutover when old container exists', async () => {
+	it('frees port before starting new container', async () => {
 		const calls: string[] = [];
 		const runner: CommandRunner = {
 			async exec(cmd, args) {
 				const joined = `${cmd} ${args.join(' ')}`;
 				calls.push(joined);
 				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
-				/* Rename succeeds = old container exists */
-				if (joined.includes('docker rename')) return { exitCode: 0, stdout: '', stderr: '' };
+				/* docker ps --filter publish= returns an existing container */
+				if (joined.includes('docker ps') && joined.includes('--filter')) return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
 				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
 				return { exitCode: 0, stdout: '', stderr: '' };
 			}
@@ -296,9 +296,13 @@ describe('runPipeline', () => {
 		});
 
 		expect(result.success).toBe(true);
-		/* Should stop old container during cutover */
-		const stopCalls = calls.filter((c) => c.includes('docker stop'));
-		expect(stopCalls.length).toBeGreaterThanOrEqual(1);
+		/* Should force-remove containers on the port before docker run */
+		const rmCalls = calls.filter((c) => c.includes('docker rm -f'));
+		expect(rmCalls.length).toBeGreaterThanOrEqual(1);
+		/* docker run should come after the rm */
+		const rmIdx = calls.findIndex((c) => c.includes('docker rm -f abc123def456'));
+		const runIdx = calls.findIndex((c) => c.includes('docker run'));
+		expect(rmIdx).toBeLessThan(runIdx);
 	});
 
 	it('each log entry has timestamp, phase, level, and message', async () => {

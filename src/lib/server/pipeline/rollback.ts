@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { deployments } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { CaddyClient } from '../caddy';
-import { dockerRun, dockerStop, waitForHealthy } from './docker';
+import { dockerRun, dockerStop, waitForHealthy, freePort } from './docker';
 import { createLogCollector } from './log';
 import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
 
@@ -55,14 +55,12 @@ export async function runRollback(
 		const containerName = config.projectSlug;
 		emit('start', `Starting container ${containerName} on port ${config.port}…`);
 
-		const oldContainerName = `${containerName}-old-${Date.now()}`;
-		const renameResult = await runner.exec('docker', ['rename', containerName, oldContainerName]);
-		const hadOldContainer = renameResult.exitCode === 0;
-		if (hadOldContainer) {
-			emit('start', `Stopping old container to free port ${config.port}…`);
-			await dockerStop(runner, oldContainerName, 10);
-			emit('start', 'Old container stopped');
+		/* Stop any container using the target port */
+		const freed = await freePort(runner, config.port)
+		if (freed.length > 0) {
+			emit('start', `Removed ${freed.length} container(s) occupying port ${config.port}`)
 		}
+		await runner.exec('docker', ['rm', '-f', containerName]);
 
 		const runResult = await dockerRun(runner, {
 			imageTag: config.imageTag,
