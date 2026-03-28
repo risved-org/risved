@@ -50,12 +50,18 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const project = proj[0];
 
-	/* Deployments (reverse-chronological) */
-	const deps = await db
+	/* Deployments (reverse-chronological, deduplicated by id) */
+	const allDeps = await db
 		.select()
 		.from(deployments)
 		.where(eq(deployments.projectId, project.id))
 		.orderBy(desc(deployments.createdAt));
+	const seenIds = new Set<string>()
+	const deps = allDeps.filter((d) => {
+		if (seenIds.has(d.id)) return false
+		seenIds.add(d.id)
+		return true
+	})
 
 	/* Domains */
 	const doms = await db.select().from(domains).where(eq(domains.projectId, project.id));
