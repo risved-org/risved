@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import type { PageData } from './$types';
 
@@ -202,10 +203,17 @@
 				class="retry-btn"
 				data-testid="retry-btn"
 				data-sveltekit-reload
-				onclick={(e) => {
+				onclick={async (e) => {
 					e.preventDefault();
-					fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' });
-					location.reload();
+					const res = await fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' })
+					if (res.ok) {
+						const { deploymentId } = await res.json()
+						if (deploymentId) {
+							goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
+							return
+						}
+					}
+					location.reload()
 				}}
 			>
 				Retry deployment
