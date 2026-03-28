@@ -25,12 +25,17 @@
 		return 'status-stopped';
 	}
 
-	async function handleRedeploy(e: MouseEvent, projectId: string) {
-		e.stopPropagation();
-		const res = await fetch(`/api/projects/${projectId}/deploy`, { method: 'POST' });
+	async function handleRedeploy(e: MouseEvent, project: { id: string; slug: string }) {
+		e.stopPropagation()
+		const res = await fetch(`/api/projects/${project.id}/deploy`, { method: 'POST' })
 		if (res.ok) {
-			await invalidateAll();
+			const { deploymentId } = await res.json()
+			if (deploymentId) {
+				goto(resolve(`/projects/${project.slug}/deployments/${deploymentId}`))
+				return
+			}
 		}
+		await invalidateAll()
 	}
 </script>
 
@@ -165,7 +170,7 @@
 						<button
 							class="action-btn"
 							title="Redeploy"
-							onclick={(e) => handleRedeploy(e, project.id)}
+							onclick={(e) => handleRedeploy(e, project)}
 						>
 							↻
 						</button>
