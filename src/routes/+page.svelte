@@ -208,8 +208,9 @@
 	/* Health bar – single horizontal strip */
 	.health-bar {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--space-5);
+		gap: var(--space-3) var(--space-5);
 		padding: var(--space-3) var(--space-4);
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
@@ -236,6 +237,7 @@
 
 	.dashboard-header {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-3);
 	}
@@ -244,6 +246,17 @@
 		margin-left: auto;
 		display: flex;
 		gap: var(--space-2);
+	}
+
+	@media (max-width: 600px) {
+		.dashboard-header {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.header-nav {
+			margin-left: 0;
+		}
 	}
 
 	.btn-sm {
