@@ -24,6 +24,11 @@ export function createLogCollector(
 		};
 		entries.push(entry);
 		streamEmitter?.(entry);
+
+		/* Persist immediately so the SSE polling endpoint can pick it up */
+		db.insert(buildLogs)
+			.values({ deploymentId, timestamp: entry.timestamp, phase, level, message })
+			.catch(() => {})
 	}
 
 	return { emit, entries };

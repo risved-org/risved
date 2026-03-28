@@ -17,7 +17,7 @@ import {
 	dockerStop,
 	waitForHealthy
 } from './docker';
-import { createLogCollector, persistLogs } from './log';
+import { createLogCollector } from './log';
 import type {
 	PipelineConfig,
 	PipelineResult,
@@ -246,7 +246,6 @@ export async function runPipeline(
 			})
 			.where(eq(deployments.id, deploymentId));
 
-		await persistLogs(deploymentId, entries);
 
 		return {
 			success: true,
@@ -269,7 +268,6 @@ export async function runPipeline(
 			})
 			.where(eq(deployments.id, deploymentId));
 
-		await persistLogs(deploymentId, entries);
 
 		return {
 			success: false,

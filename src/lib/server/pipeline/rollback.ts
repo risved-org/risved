@@ -3,7 +3,7 @@ import { deployments } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { CaddyClient } from '../caddy';
 import { dockerRun, dockerStop, waitForHealthy } from './docker';
-import { createLogCollector, persistLogs } from './log';
+import { createLogCollector } from './log';
 import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
 
 export interface RollbackConfig {
@@ -126,7 +126,7 @@ export async function runRollback(
 			})
 			.where(eq(deployments.id, deploymentId));
 
-		await persistLogs(deploymentId, entries);
+
 
 		return {
 			success: true,
@@ -149,7 +149,7 @@ export async function runRollback(
 			})
 			.where(eq(deployments.id, deploymentId));
 
-		await persistLogs(deploymentId, entries);
+
 
 		return {
 			success: false,
