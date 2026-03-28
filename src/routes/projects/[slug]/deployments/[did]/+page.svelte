@@ -89,6 +89,9 @@
 
 		/* Start SSE if deployment is in progress */
 		if (!isTerminal) {
+			/* SSE streams all logs from the start, so clear server-loaded
+			   logs to avoid duplicates */
+			logs = [];
 			const url = `/api/projects/${data.project.id}/deployments/${data.deployment.id}/logs`;
 			eventSource = new EventSource(url);
 
