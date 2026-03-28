@@ -172,9 +172,12 @@
 						<span class="status-dot {statusClass(dep.status)}"></span>
 						<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
 						<span class="deploy-status">
-							{dep.status}
+							{dep.status === 'live' ? 'success' : dep.status}
 							{#if dep.triggerType === 'rollback'}
 								<span class="trigger-badge" data-testid="rollback-badge">rollback</span>
+							{/if}
+							{#if dep.status === 'live' && i === data.deployments.findIndex((d) => d.status === 'live')}
+								<span class="current-badge">current</span>
 							{/if}
 						</span>
 						<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
@@ -592,6 +595,16 @@
 		border-radius: var(--radius-sm);
 		font-size: .875rem;
 		font-weight: 500;
+	}
+
+	.current-badge {
+		padding: 1px 6px;
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
+		color: var(--color-live);
+		border-radius: var(--radius-sm);
+		font-size: .75rem;
+		font-weight: 600;
+		letter-spacing: 0.03em;
 	}
 	.btn-rollback {
 		padding: 2px 8px;
