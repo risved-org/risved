@@ -15,7 +15,7 @@ function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install
 		case 'bun.lock':
 			return {
 				copyLine: `COPY package.json ${lockfile} ./`,
-				install: 'apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/* && bun install --frozen-lockfile',
+				install: 'apt-get update && apt-get install -y --no-install-recommends python3 make g++ nodejs npm && rm -rf /var/lib/apt/lists/* && bun install --frozen-lockfile',
 				run: 'bun run',
 				cacheMount: '--mount=type=cache,target=/root/.bun/install/cache ',
 				prune: 'rm -rf node_modules && bun install --frozen-lockfile --production'
