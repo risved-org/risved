@@ -58,6 +58,8 @@ describe('Install Script', () => {
 				'install_bun',
 				'setup_network',
 				'setup_directories',
+				'build_builder_images',
+				'setup_builder_cron',
 				'start_caddy',
 				'start_risved',
 				'detect_server_ip',

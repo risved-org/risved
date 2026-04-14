@@ -260,6 +260,31 @@ detect_server_ip() {
   echo "$ip"
 }
 
+build_builder_images() {
+  info "Building pre-warmed builder images..."
+  local builder_dir="$RISVED_DATA_DIR/scripts/builders"
+
+  if [ ! -f "$builder_dir/build.sh" ]; then
+    warn "Builder scripts not found at $builder_dir, skipping"
+    return
+  fi
+
+  bash "$builder_dir/build.sh"
+  ok "Builder images ready"
+}
+
+setup_builder_cron() {
+  local cron_line="0 3 * * 0 bash $RISVED_DATA_DIR/scripts/builders/build.sh >> /var/log/risved-builders.log 2>&1"
+
+  if crontab -l 2>/dev/null | grep -q "risved-builders"; then
+    ok "Builder cron already configured"
+    return
+  fi
+
+  (crontab -l 2>/dev/null; echo "$cron_line") | crontab -
+  ok "Weekly builder image rebuild scheduled (Sunday 03:00)"
+}
+
 # ── Main ────────────────────────────────────────────────────────
 
 main() {
@@ -281,8 +306,10 @@ main() {
   info "Setting up Risved..."
   setup_directories
   setup_network
+  build_builder_images
   start_caddy
   start_risved
+  setup_builder_cron
 
   local server_ip
   server_ip=$(detect_server_ip)

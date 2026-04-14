@@ -4,6 +4,12 @@ const DENO_IMAGE = 'denoland/deno:latest';
 const NODE_IMAGE = 'node:22-slim';
 const BUN_IMAGE = 'oven/bun:1';
 
+/* Pre-warmed builder images with native compilation tools pre-installed.
+   Built on install and rebuilt weekly via cron. Falls back to upstream
+   images if the local builders don't exist (custom install commands). */
+const NODE_BUILDER = 'risved-node-builder';
+const BUN_BUILDER = 'risved-bun-builder';
+
 function isBun(lockfile?: Lockfile | null): boolean {
 	return lockfile === 'bun.lockb' || lockfile === 'bun.lock'
 }
@@ -15,7 +21,7 @@ function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install
 		case 'bun.lock':
 			return {
 				copyLine: `COPY package.json ${lockfile} ./`,
-				install: 'apt-get update && apt-get install -y --no-install-recommends python3 make g++ nodejs npm && rm -rf /var/lib/apt/lists/* && bun install --frozen-lockfile',
+				install: 'bun install --frozen-lockfile',
 				run: 'bun run',
 				cacheMount: '--mount=type=cache,target=/root/.bun/install/cache ',
 				prune: 'rm -rf node_modules && bun install --frozen-lockfile --production'
@@ -85,7 +91,9 @@ export function hybridTemplate(
 	const install = installCommand ?? pm.install
 	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
-	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
+	const builderImage = installCommand
+		? (isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE)
+		: (isBun(lockfile) ? BUN_BUILDER : NODE_BUILDER)
 	const cache = installCommand ? '' : pm.cacheMount
 	const needsNodeModules = config.copyPaths.includes('node_modules')
 
@@ -141,7 +149,9 @@ export function nodeTemplate(
 	const install = installCommand ?? pm.install
 	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
-	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
+	const builderImage = installCommand
+		? (isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE)
+		: (isBun(lockfile) ? BUN_BUILDER : NODE_BUILDER)
 	const cache = installCommand ? '' : pm.cacheMount
 	const needsNodeModules = config.copyPaths.includes('node_modules')
 

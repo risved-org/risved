@@ -46,11 +46,11 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('sveltekit');
 			expect(result.tier).toBe('node');
-			// Build stage
-			expect(result.content).toContain('FROM node:22-slim AS builder');
+			// Build stage — uses pre-warmed builder
+			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
-			// Runtime stage — Node
+			// Runtime stage — slim Node
 			expect(result.content).toMatch(/FROM node:22-slim\n/);
 			expect(result.content).toContain('COPY --from=builder /app/build ./build');
 			expect(result.content).toContain(
@@ -62,7 +62,7 @@ describe('Dockerfile Generation', () => {
 		it('generates Astro Dockerfile with two stages', () => {
 			const result = generateDockerfile({ frameworkId: 'astro', tier: 'hybrid' });
 
-			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toContain('FROM denoland/deno:latest');
 			expect(result.content).toContain('COPY --from=builder /app/dist ./dist');
 			expect(result.content).toContain(
@@ -90,7 +90,7 @@ describe('Dockerfile Generation', () => {
 			expect(result.frameworkId).toBe('nextjs');
 			expect(result.tier).toBe('node');
 			// Build stage
-			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — also Node
@@ -108,7 +108,7 @@ describe('Dockerfile Generation', () => {
 		it('generates Nuxt Dockerfile with .output', () => {
 			const result = generateDockerfile({ frameworkId: 'nuxt', tier: 'node' });
 
-			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
@@ -116,7 +116,7 @@ describe('Dockerfile Generation', () => {
 		it('generates SolidStart Dockerfile with .output', () => {
 			const result = generateDockerfile({ frameworkId: 'solidstart', tier: 'node' });
 
-			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
@@ -146,7 +146,7 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('tanstack-start');
 			expect(result.tier).toBe('node');
-			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
@@ -158,7 +158,7 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('generic');
 			expect(result.tier).toBe('node');
-			expect(result.content).toContain('FROM node:22-slim AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			expect(result.content).toContain('CMD ["node", "index.js"]');
