@@ -99,7 +99,7 @@ export async function freePort(runner: CommandRunner, port: number): Promise<str
 	}
 
 	/* Brief pause to let Docker release the port binding */
-	await new Promise((resolve) => setTimeout(resolve, 1000))
+	await new Promise((resolve) => setTimeout(resolve, 300))
 	return ids
 }
 

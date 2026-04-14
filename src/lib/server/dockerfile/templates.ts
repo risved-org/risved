@@ -9,7 +9,7 @@ function isBun(lockfile?: Lockfile | null): boolean {
 }
 
 /** Map lockfile to the correct install/build commands, COPY line, and cache mount */
-function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string; run: string; cacheMount: string } {
+function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string; run: string; cacheMount: string; prune: string } {
 	switch (lockfile) {
 		case 'bun.lockb':
 		case 'bun.lock':
@@ -17,28 +17,32 @@ function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install
 				copyLine: `COPY package.json ${lockfile} ./`,
 				install: 'apt-get update && apt-get install -y python3 make g++ nodejs npm && bun install --frozen-lockfile',
 				run: 'bun run',
-				cacheMount: '--mount=type=cache,target=/root/.bun/install/cache '
+				cacheMount: '--mount=type=cache,target=/root/.bun/install/cache ',
+				prune: 'rm -rf node_modules && bun install --frozen-lockfile --production'
 			}
 		case 'pnpm-lock.yaml':
 			return {
 				copyLine: 'COPY package.json pnpm-lock.yaml ./',
 				install: 'corepack enable && pnpm install --frozen-lockfile',
 				run: 'pnpm run',
-				cacheMount: '--mount=type=cache,target=/root/.local/share/pnpm/store '
+				cacheMount: '--mount=type=cache,target=/root/.local/share/pnpm/store ',
+				prune: 'pnpm prune --prod'
 			}
 		case 'yarn.lock':
 			return {
 				copyLine: 'COPY package.json yarn.lock ./',
 				install: 'corepack enable && yarn install --frozen-lockfile',
 				run: 'yarn',
-				cacheMount: '--mount=type=cache,target=/usr/local/share/.cache/yarn '
+				cacheMount: '--mount=type=cache,target=/usr/local/share/.cache/yarn ',
+				prune: 'yarn install --production --ignore-scripts'
 			}
 		default:
 			return {
 				copyLine: 'COPY package.json package-lock.json* ./',
 				install: 'npm ci',
 				run: 'npm run',
-				cacheMount: '--mount=type=cache,target=/root/.npm '
+				cacheMount: '--mount=type=cache,target=/root/.npm ',
+				prune: 'npm prune --omit=dev'
 			}
 	}
 }
@@ -83,6 +87,7 @@ export function hybridTemplate(
 
 	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
 	const cache = installCommand ? '' : pm.cacheMount
+	const needsNodeModules = config.copyPaths.includes('node_modules')
 
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
@@ -96,22 +101,29 @@ export function hybridTemplate(
 		'',
 		'COPY . .',
 		`RUN ${build}`,
+	]
+
+	if (needsNodeModules) {
+		lines.push(`RUN ${pm.prune}`)
+	}
+
+	lines.push(
 		'',
 		`# Runtime stage`,
 		`FROM ${DENO_IMAGE}`,
 		'',
 		'WORKDIR /app',
 		''
-	];
+	)
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`);
+		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`)
 	}
 
-	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '');
+	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '')
 
-	return lines.join('\n');
+	return lines.join('\n')
 }
 
 /**
@@ -131,6 +143,7 @@ export function nodeTemplate(
 
 	const builderImage = isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE
 	const cache = installCommand ? '' : pm.cacheMount
+	const needsNodeModules = config.copyPaths.includes('node_modules')
 
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
@@ -144,20 +157,27 @@ export function nodeTemplate(
 		'',
 		'COPY . .',
 		`RUN ${build}`,
+	]
+
+	if (needsNodeModules) {
+		lines.push(`RUN ${pm.prune}`)
+	}
+
+	lines.push(
 		'',
 		`# Runtime stage`,
 		`FROM ${NODE_IMAGE}`,
 		'',
 		'WORKDIR /app',
 		''
-	];
+	)
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`);
+		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`)
 	}
 
-	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '');
+	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '')
 
 	return lines.join('\n');
 }

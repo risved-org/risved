@@ -137,20 +137,21 @@ export async function runPipeline(
 		if (lockfile) emit('build', `Detected ${lockfile}`)
 
 		const dockerfile = generateDockerfile({ frameworkId, tier, lockfile });
-		let dockerfileContent = dockerfile.content
+		const dockerfileContent = dockerfile.content
 
-		/* Inject ENV lines into the Dockerfile so env vars are available as
-		   process.env during build (needed by SvelteKit $env, Next.js, etc).
-		   Inserted right before the build RUN command in the builder stage. */
-		if (Object.keys(envMap).length > 0) {
-			const envLines = Object.entries(envMap)
-				.map(([k, v]) => `ENV ${k}="${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
+		/* Only PUBLIC_* / NEXT_PUBLIC_* env vars go into the build-time .env
+		   file — these are inlined into client bundles by Vite/Next.js and
+		   must be present during `vite build`. All other env vars (secrets,
+		   database URLs, etc.) are passed at runtime via `docker run -e`
+		   and should be accessed with $env/dynamic/private. */
+		const buildEnv = Object.entries(envMap)
+			.filter(([k]) => k.startsWith('PUBLIC_') || k.startsWith('NEXT_PUBLIC_'))
+		if (buildEnv.length > 0) {
+			const dotenv = buildEnv
+				.map(([k, v]) => `${k}="${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
 				.join('\n')
-			dockerfileContent = dockerfileContent.replace(
-				'COPY . .',
-				`COPY . .\n${envLines}`
-			)
-			emit('build', `Injecting ${projectEnvVars.length} env var(s) into build`)
+			await writeFile(join(cloneDir, '.env'), dotenv)
+			emit('build', `Injecting ${buildEnv.length} public env var(s) into build`)
 		}
 
 		await writeFile(join(cloneDir, 'Dockerfile'), dockerfileContent);
@@ -162,7 +163,6 @@ export async function runPipeline(
 			'.nuxt',
 			'.output',
 			'dist',
-			'.env*',
 			'Dockerfile',
 			'.dockerignore'
 		].join('\n'));

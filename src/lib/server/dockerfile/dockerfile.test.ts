@@ -205,6 +205,24 @@ describe('Dockerfile Generation', () => {
 		});
 	});
 
+	describe('Dev dependency pruning', () => {
+		it('prunes dev deps for SvelteKit (has node_modules in copyPaths)', () => {
+			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'node' })
+			expect(result.content).toContain('RUN npm prune --omit=dev')
+		})
+
+		it('prunes with bun when bun.lock detected', () => {
+			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'node', lockfile: 'bun.lock' })
+			expect(result.content).toContain('RUN rm -rf node_modules && bun install --frozen-lockfile --production')
+		})
+
+		it('does not prune for frameworks without node_modules in copyPaths', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt', tier: 'node' })
+			expect(result.content).not.toContain('prune')
+			expect(result.content).not.toContain('--production')
+		})
+	})
+
 	describe('Edge cases', () => {
 		it('defaults port to 8000', () => {
 			const result = generateDockerfile({ frameworkId: 'fresh', tier: 'deno' });
