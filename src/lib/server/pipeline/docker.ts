@@ -180,7 +180,7 @@ export async function gitClone(
  */
 export async function waitForHealthy(
 	port: number,
-	timeoutMs = 30000,
+	timeoutMs = 60000,
 	intervalMs = 2000,
 	fetchFn: typeof fetch = globalThis.fetch
 ): Promise<boolean> {
@@ -200,6 +200,19 @@ export async function waitForHealthy(
 		await new Promise((resolve) => setTimeout(resolve, intervalMs));
 	}
 	return false;
+}
+
+/**
+ * Fetch the last N lines of logs from a Docker container.
+ * Useful for diagnosing why a container failed to become healthy.
+ */
+export async function getContainerLogs(
+	runner: CommandRunner,
+	containerName: string,
+	tail = 30
+): Promise<string> {
+	const result = await runner.exec('docker', ['logs', '--tail', String(tail), containerName])
+	return (result.stdout + result.stderr).trim()
 }
 
 /**

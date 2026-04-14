@@ -16,7 +16,8 @@ import {
 	dockerRun,
 	dockerStop,
 	waitForHealthy,
-	freePort
+	freePort,
+	getContainerLogs
 } from './docker';
 import { createLogCollector } from './log';
 import type {
@@ -210,15 +211,22 @@ export async function runPipeline(
 
 		/* ── Phase 5: Health ─────────────────────────────── */
 		emit('health', 'Waiting for health check…');
+		const healthTimeout = options?.healthTimeoutMs ?? 60000
 		const healthy = await waitForHealthy(
 			config.port,
-			options?.healthTimeoutMs ?? 30000,
+			healthTimeout,
 			options?.healthIntervalMs ?? 2000,
 			options?.fetchFn ?? globalThis.fetch
 		);
 		if (!healthy) {
+			const logs = await getContainerLogs(runner, containerName)
+			if (logs) {
+				for (const line of logs.split('\n')) {
+					emit('health', line, 'error')
+				}
+			}
 			await dockerStop(runner, containerName, 5);
-			throw new PipelineError('health', 'Health check timed out after 30s');
+			throw new PipelineError('health', `Health check timed out after ${healthTimeout / 1000}s`);
 		}
 		emit('health', 'Health check passed');
 
