@@ -140,19 +140,20 @@ export async function runPipeline(
 		const dockerfile = generateDockerfile({ frameworkId, tier, lockfile });
 		const dockerfileContent = dockerfile.content
 
-		/* Only PUBLIC_* / NEXT_PUBLIC_* env vars go into the build-time .env
-		   file — these are inlined into client bundles by Vite/Next.js and
-		   must be present during `vite build`. All other env vars (secrets,
-		   database URLs, etc.) are passed at runtime via `docker run -e`
-		   and should be accessed with $env/dynamic/private. */
+		/* Write all env vars into a build-time .env file so that:
+		   - PUBLIC_* vars get inlined into client bundles by Vite/Next.js
+		   - Private vars (BETTER_AUTH_SECRET, DATABASE_URL, etc.) are
+		     available when SvelteKit analyzes server modules during build
+		   The .env file lives only in the builder stage — it is NOT copied
+		   to the runtime image (only copyPaths are). Secrets stay safe.
+		   At runtime, all env vars are passed via `docker run -e`. */
 		const buildEnv = Object.entries(envMap)
-			.filter(([k]) => k.startsWith('PUBLIC_') || k.startsWith('NEXT_PUBLIC_'))
 		if (buildEnv.length > 0) {
 			const dotenv = buildEnv
 				.map(([k, v]) => `${k}="${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
 				.join('\n')
 			await writeFile(join(cloneDir, '.env'), dotenv)
-			emit('build', `Injecting ${buildEnv.length} public env var(s) into build`)
+			emit('build', `Injecting ${buildEnv.length} env var(s) into build`)
 		}
 
 		await writeFile(join(cloneDir, 'Dockerfile'), dockerfileContent);
