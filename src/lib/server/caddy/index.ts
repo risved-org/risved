@@ -28,6 +28,11 @@ export function buildRouteConfig(route: CaddyRoute): CaddyRouteConfig {
 		match: [{ host: [route.hostname] }],
 		handle: [
 			{
+				handler: 'encode',
+				encodings: { gzip: {}, zstd: {} },
+				prefer: ['zstd', 'gzip']
+			},
+			{
 				handler: 'reverse_proxy',
 				upstreams: [{ dial: `localhost:${route.port}` }]
 			}
@@ -101,7 +106,7 @@ export class CaddyClient {
 						http: {
 							servers: {
 								srv0: {
-									listen: [':443', ':80'],
+									listen: [':443'],
 									routes: []
 								}
 							}

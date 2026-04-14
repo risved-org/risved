@@ -34,11 +34,21 @@ export interface CaddyUpstream {
 	dial: string;
 }
 
-/** Caddy reverse proxy handler configuration */
-export interface CaddyHandlerConfig {
-	handler: 'reverse_proxy';
-	upstreams: CaddyUpstream[];
+/** Caddy encode handler configuration */
+export interface CaddyEncodeHandlerConfig {
+	handler: 'encode'
+	encodings: Record<string, Record<string, never>>
+	prefer: string[]
 }
+
+/** Caddy reverse proxy handler configuration */
+export interface CaddyReverseProxyHandlerConfig {
+	handler: 'reverse_proxy'
+	upstreams: CaddyUpstream[]
+}
+
+/** Union of all Caddy handler types */
+export type CaddyHandlerConfig = CaddyEncodeHandlerConfig | CaddyReverseProxyHandlerConfig
 
 /** Full Caddy route configuration for the JSON API */
 export interface CaddyRouteConfig {

@@ -46,6 +46,11 @@ describe('Caddy Route Management', () => {
 				match: [{ host: ['myapp.risved.example.eu'] }],
 				handle: [
 					{
+						handler: 'encode',
+						encodings: { gzip: {}, zstd: {} },
+						prefer: ['zstd', 'gzip']
+					},
+					{
 						handler: 'reverse_proxy',
 						upstreams: [{ dial: 'localhost:3001' }]
 					}
