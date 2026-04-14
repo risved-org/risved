@@ -463,7 +463,7 @@ async function cmdUpdate(targetVersion) {
 		/* Install dependencies */
 		process.stdout.write(`${BLUE}▸${RESET} Installing dependencies... `);
 		try {
-			execSync('deno install', { cwd: installDir, stdio: 'pipe', timeout: 120000 });
+			execSync('bun install --frozen-lockfile', { cwd: installDir, stdio: 'pipe', timeout: 120000 });
 			console.log(`${GREEN}done${RESET}`);
 		} catch (e) {
 			console.log(`${RED}failed${RESET}`);
@@ -474,7 +474,7 @@ async function cmdUpdate(targetVersion) {
 		/* Build */
 		process.stdout.write(`${BLUE}▸${RESET} Building... `);
 		try {
-			execSync('deno task build', { cwd: installDir, stdio: 'pipe', timeout: 300000 });
+			execSync('bun run build', { cwd: installDir, stdio: 'pipe', timeout: 300000 });
 			console.log(`${GREEN}done${RESET}`);
 		} catch (e) {
 			console.log(`${RED}failed${RESET}`);
@@ -485,7 +485,7 @@ async function cmdUpdate(targetVersion) {
 		/* Run migrations */
 		process.stdout.write(`${BLUE}▸${RESET} Running migrations... `);
 		try {
-			execSync('deno task db:migrate', { cwd: installDir, stdio: 'pipe', timeout: 30000 });
+			execSync('bunx drizzle-kit migrate', { cwd: installDir, stdio: 'pipe', timeout: 30000 });
 			console.log(`${GREEN}done${RESET}`);
 		} catch {
 			console.log(`${YELLOW}skipped${RESET}`);

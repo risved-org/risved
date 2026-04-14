@@ -55,7 +55,7 @@ describe('Install Script', () => {
 				'check_disk',
 				'check_ports',
 				'install_docker',
-				'install_deno',
+				'install_bun',
 				'setup_network',
 				'setup_directories',
 				'start_caddy',
@@ -160,8 +160,8 @@ describe('Install Script', () => {
 			expect(script).toContain('command -v docker');
 		});
 
-		it('install_deno checks for existing deno command', () => {
-			expect(script).toContain('command -v deno');
+		it('install_bun checks for existing bun command', () => {
+			expect(script).toContain('command -v bun');
 		});
 
 		it('setup_network checks for existing network', () => {
@@ -194,8 +194,8 @@ describe('Install Script', () => {
 			expect(script).toContain('download.docker.com');
 		});
 
-		it('uses official Deno installer', () => {
-			expect(script).toContain('deno.land/install.sh');
+		it('uses official Bun installer', () => {
+			expect(script).toContain('bun.sh/install');
 		});
 
 		it('mounts docker socket for control plane', () => {

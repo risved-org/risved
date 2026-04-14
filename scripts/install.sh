@@ -2,7 +2,7 @@
 # Risved Installation Script
 # Usage: curl -fsSL https://risved.org/install | sh
 #
-# Installs Docker, Deno, and Risved on Ubuntu/Debian.
+# Installs Docker, Bun, and Risved on Ubuntu/Debian.
 # Idempotent — safe to re-run.
 
 set -euo pipefail
@@ -153,20 +153,22 @@ install_docker() {
   ok "Docker installed: $(docker --version)"
 }
 
-install_deno() {
-  if command -v deno &>/dev/null; then
-    ok "Deno already installed: $(deno --version | head -1)"
+install_bun() {
+  if command -v bun &>/dev/null; then
+    ok "Bun already installed: $(bun --version)"
     return
   fi
 
-  info "Installing Deno..."
-  curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s >/dev/null 2>&1
+  info "Installing Bun..."
+  curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1
+  export BUN_INSTALL="$HOME/.bun"
+  export PATH="$BUN_INSTALL/bin:$PATH"
 
-  if ! command -v deno &>/dev/null; then
-    fatal "Deno installation failed"
+  if ! command -v bun &>/dev/null; then
+    fatal "Bun installation failed"
   fi
 
-  ok "Deno installed: $(deno --version | head -1)"
+  ok "Bun installed: $(bun --version)"
 }
 
 # ── Setup ───────────────────────────────────────────────────────
@@ -273,7 +275,7 @@ main() {
   printf "\n"
   info "Installing dependencies..."
   install_docker
-  install_deno
+  install_bun
 
   printf "\n"
   info "Setting up Risved..."
