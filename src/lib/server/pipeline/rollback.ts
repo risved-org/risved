@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { deployments } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { CaddyClient } from '../caddy';
-import { dockerRun, dockerStop, waitForHealthy, freePort } from './docker';
+import { dockerRun, dockerStop, waitForHealthy, freePort, projectVolumeName } from './docker';
 import { createLogCollector } from './log';
 import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
 
@@ -62,10 +62,14 @@ export async function runRollback(
 		}
 		await runner.exec('docker', ['rm', '-f', containerName]);
 
+		const volumeName = projectVolumeName(config.projectId)
+		emit('start', `Mounting persistent volume at /app/data`)
+
 		const runResult = await dockerRun(runner, {
 			imageTag: config.imageTag,
 			containerName,
-			port: config.port
+			port: config.port,
+			volumes: [`${volumeName}:/app/data`]
 		});
 		if (!runResult.success) {
 			throw new RollbackError('start', `Docker run failed: ${runResult.error}`);

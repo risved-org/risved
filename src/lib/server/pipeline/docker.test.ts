@@ -3,6 +3,8 @@ import {
 	dockerBuild,
 	dockerRun,
 	dockerStop,
+	dockerVolumeRemove,
+	projectVolumeName,
 	getCommitSha,
 	gitClone,
 	waitForHealthy
@@ -173,6 +175,26 @@ describe('dockerRun', () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('port already in use');
 	});
+
+	it('passes volume mounts', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				return { exitCode: 0, stdout: 'containerid\n', stderr: '' };
+			}
+		};
+
+		await dockerRun(runner, {
+			imageTag: 'myapp:abc',
+			containerName: 'myapp',
+			port: 3001,
+			volumes: ['risved-proj1-data:/app/data']
+		});
+
+		expect(calls[0]).toContain('-v');
+		expect(calls[0]).toContain('risved-proj1-data:/app/data');
+	});
 });
 
 describe('dockerStop', () => {
@@ -233,5 +255,46 @@ describe('waitForHealthy', () => {
 		const mockFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 		const result = await waitForHealthy(3001, 300, 100, mockFetch as unknown as typeof fetch);
 		expect(result).toBe(false);
+	});
+});
+
+describe('projectVolumeName', () => {
+	it('generates correct volume name from project ID', () => {
+		expect(projectVolumeName('abc-123')).toBe('risved-abc-123-data');
+	});
+});
+
+describe('dockerVolumeRemove', () => {
+	it('removes volume with force flag', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await dockerVolumeRemove(runner, 'risved-proj1-data');
+		expect(result.success).toBe(true);
+		expect(calls[0]).toEqual(['docker', 'volume', 'rm', '-f', 'risved-proj1-data']);
+	});
+
+	it('succeeds if volume does not exist', async () => {
+		const runner = mockRunner({
+			'docker volume': { exitCode: 1, stdout: '', stderr: 'No such volume' }
+		});
+
+		const result = await dockerVolumeRemove(runner, 'nonexistent');
+		expect(result.success).toBe(true);
+	});
+
+	it('returns error on unexpected failure', async () => {
+		const runner = mockRunner({
+			'docker volume': { exitCode: 1, stdout: '', stderr: 'permission denied' }
+		});
+
+		const result = await dockerVolumeRemove(runner, 'test-vol');
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('permission denied');
 	});
 });

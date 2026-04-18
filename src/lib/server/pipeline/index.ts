@@ -17,7 +17,8 @@ import {
 	dockerStop,
 	waitForHealthy,
 	freePort,
-	getContainerLogs
+	getContainerLogs,
+	projectVolumeName
 } from './docker';
 import { createLogCollector } from './log';
 import type {
@@ -199,11 +200,15 @@ export async function runPipeline(
 		/* Remove existing container with the same name */
 		await runner.exec('docker', ['rm', '-f', containerName]);
 
+		const volumeName = projectVolumeName(config.projectId)
+		emit('start', `Mounting persistent volume at /app/data`)
+
 		const runResult = await dockerRun(runner, {
 			imageTag,
 			containerName,
 			port: config.port,
-			env: envMap
+			env: envMap,
+			volumes: [`${volumeName}:/app/data`]
 		});
 		if (!runResult.success) {
 			throw new PipelineError('start', `Docker run failed: ${runResult.error}`);

@@ -71,6 +71,7 @@ export function denoTemplate(config: FrameworkBuildConfig, port: number): string
 		lines.push(`RUN ${config.buildCommand}`);
 	}
 
+	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data');
 	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '');
 
 	return lines.join('\n');
@@ -129,6 +130,7 @@ export function hybridTemplate(
 		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`)
 	}
 
+	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
 	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '')
 
 	return lines.join('\n')
@@ -187,6 +189,7 @@ export function nodeTemplate(
 		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`)
 	}
 
+	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
 	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '')
 
 	return lines.join('\n');

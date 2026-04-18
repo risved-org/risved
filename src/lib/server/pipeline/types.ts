@@ -67,6 +67,7 @@ export interface DockerRunOptions {
 	port: number;
 	network?: string;
 	env?: Record<string, string>;
+	volumes?: string[];
 }
 
 /** Interface for shell command execution (allows mocking in tests) */

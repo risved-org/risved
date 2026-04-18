@@ -84,6 +84,30 @@ describe('runRollback', () => {
 		expect(result.commitSha).toBe('abc1234');
 	});
 
+	it('passes persistent volume to docker run', async () => {
+		const calls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				calls.push(joined);
+				if (joined.includes('docker rename'))
+					return { exitCode: 1, stdout: '', stderr: 'No such container' };
+				if (joined.includes('docker run'))
+					return { exitCode: 0, stdout: 'container123id\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		await runRollback(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		const runCall = calls.find((c) => c.includes('docker run'));
+		expect(runCall).toContain('-v');
+		expect(runCall).toContain('risved-proj-1-data:/app/data');
+	});
+
 	it('does not emit clone, detect, or build phases', async () => {
 		const logs: LogEntry[] = [];
 		await runRollback(makeConfig(), makeSuccessRunner(), {

@@ -38,11 +38,15 @@ export async function dockerRun(
 	runner: CommandRunner,
 	options: DockerRunOptions
 ): Promise<{ success: boolean; containerId?: string; error?: string }> {
-	const { imageTag, containerName, port, network = DOCKER_NETWORK, env = {} } = options;
+	const { imageTag, containerName, port, network = DOCKER_NETWORK, env = {}, volumes = [] } = options;
 	const args = ['run', '-d', '--network', network, '--name', containerName, '-p', `${port}:3000`];
 
 	for (const [key, val] of Object.entries(env)) {
 		args.push('-e', `${key}=${val}`);
+	}
+
+	for (const vol of volumes) {
+		args.push('-v', vol);
 	}
 
 	args.push(imageTag);
@@ -200,6 +204,27 @@ export async function waitForHealthy(
 		await new Promise((resolve) => setTimeout(resolve, intervalMs));
 	}
 	return false;
+}
+
+/**
+ * Generate the named volume name for a project's persistent data.
+ */
+export function projectVolumeName(projectId: string): string {
+	return `risved-${projectId}-data`
+}
+
+/**
+ * Remove a named Docker volume. Succeeds silently if the volume does not exist.
+ */
+export async function dockerVolumeRemove(
+	runner: CommandRunner,
+	volumeName: string
+): Promise<{ success: boolean; error?: string }> {
+	const result = await runner.exec('docker', ['volume', 'rm', '-f', volumeName])
+	if (result.exitCode !== 0 && !result.stderr.includes('No such volume')) {
+		return { success: false, error: result.stderr }
+	}
+	return { success: true }
 }
 
 /**

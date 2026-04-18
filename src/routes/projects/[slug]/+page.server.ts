@@ -1,4 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
+import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
 import { db } from '$lib/server/db';
 import {
 	projects,
@@ -205,6 +206,11 @@ export const actions: Actions = {
 		}
 
 		const projectId = proj[0].id;
+
+		/* Stop container and remove persistent volume */
+		const runner = createCommandRunner()
+		try { await dockerStop(runner, proj[0].slug, 10) } catch { /* may not be running */ }
+		try { await dockerVolumeRemove(runner, projectVolumeName(projectId)) } catch { /* best-effort */ }
 
 		/* Delete associated data */
 		await getCronScheduler().deleteProjectJobs(projectId);

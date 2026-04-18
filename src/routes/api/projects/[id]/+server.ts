@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { projects, deployments, envVars, domains } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
-import { createCommandRunner, dockerStop } from '$lib/server/pipeline/docker';
+import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
 import { CaddyClient } from '$lib/server/caddy';
 import type { RequestHandler } from './$types';
 
@@ -100,10 +100,11 @@ export const DELETE: RequestHandler = async (event) => {
 
 	const project = rows[0];
 
-	/* Stop the running container (best-effort) */
+	/* Stop the running container and remove persistent volume (best-effort) */
 	try {
 		const runner = createCommandRunner();
 		await dockerStop(runner, project.slug, 10);
+		await dockerVolumeRemove(runner, projectVolumeName(id));
 	} catch {
 		/* Container may not be running — ignore */
 	}

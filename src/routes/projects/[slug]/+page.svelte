@@ -51,6 +51,30 @@
 	let triggeringCron = $state<string | null>(null);
 	let expandedCron = $state<string | null>(null);
 
+	let containerLogs = $state('')
+	let logsOpen = $state(false)
+	let logsLoading = $state(false)
+
+	async function fetchLogs() {
+		if (logsOpen) {
+			logsOpen = false
+			return
+		}
+		logsLoading = true
+		try {
+			const res = await fetch(`/api/projects/${data.project.id}/logs?tail=200`)
+			if (res.ok) {
+				const body = await res.json()
+				containerLogs = body.logs || 'No logs available.'
+			} else {
+				containerLogs = 'Failed to fetch logs.'
+			}
+			logsOpen = true
+		} finally {
+			logsLoading = false
+		}
+	}
+
 	function cronStatusClass(status: string | undefined): string {
 		if (!status) return '';
 		if (status === 'success') return 'cron-success';
@@ -245,6 +269,19 @@
 					</div>
 				{/each}
 			</div>
+		{/if}
+	</section>
+
+	<!-- Container Logs -->
+	<section class="section" data-testid="container-logs-section">
+		<div class="section-header">
+			<h2 class="section-title">Container Logs</h2>
+			<button class="btn-sm" onclick={fetchLogs} disabled={logsLoading} data-testid="view-logs-btn">
+				{logsLoading ? 'Loading…' : logsOpen ? 'Hide' : 'View logs'}
+			</button>
+		</div>
+		{#if logsOpen}
+			<pre class="container-logs" data-testid="container-logs">{containerLogs}</pre>
 		{/if}
 	</section>
 
@@ -623,6 +660,23 @@
 	.btn-rollback:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	/* Container logs */
+	.container-logs {
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-3);
+		font-family: var(--font-mono);
+		font-size: .8125rem;
+		line-height: 1.6;
+		color: var(--color-text-1);
+		overflow-x: auto;
+		max-height: 400px;
+		overflow-y: auto;
+		white-space: pre;
+		margin: 0;
 	}
 
 	/* Charts grid */

@@ -38,6 +38,11 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.content).toContain('EXPOSE 3000');
 		});
+
+		it('creates writable /app/data directory', () => {
+			const result = generateDockerfile({ frameworkId: 'fresh', tier: 'deno' });
+			expect(result.content).toContain('RUN mkdir -p /app/data && chmod 777 /app/data');
+		});
 	});
 
 	describe('Tier 2 — Hybrid (Node build, Deno serve)', () => {
@@ -83,6 +88,12 @@ describe('Dockerfile Generation', () => {
 		});
 	});
 
+		it('creates writable /app/data directory in runtime stage', () => {
+			const result = generateDockerfile({ frameworkId: 'astro', tier: 'hybrid' });
+			expect(result.content).toContain('RUN mkdir -p /app/data && chmod 777 /app/data');
+		});
+	});
+
 	describe('Tier 3 — Node (Node build, Node serve)', () => {
 		it('generates Next.js Dockerfile with standalone output', () => {
 			const result = generateDockerfile({ frameworkId: 'nextjs', tier: 'node' });
@@ -119,6 +130,11 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('FROM risved-node-builder AS builder');
 			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
+		});
+
+		it('creates writable /app/data directory in runtime stage', () => {
+			const result = generateDockerfile({ frameworkId: 'nextjs', tier: 'node' });
+			expect(result.content).toContain('RUN mkdir -p /app/data && chmod 777 /app/data');
 		});
 
 		it('uses custom port for Node tier', () => {
