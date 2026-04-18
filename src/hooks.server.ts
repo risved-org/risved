@@ -11,7 +11,7 @@ import { getCronScheduler } from '$lib/server/cron';
 import { getUpdateChecker } from '$lib/server/update';
 import { getCensusReporter } from '$lib/server/census';
 import { getHeartbeatReporter } from '$lib/server/heartbeat';
-import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
+import { restoreAllRoutes } from '$lib/server/caddy/control-plane';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
@@ -26,7 +26,7 @@ if (!building) {
 	getUpdateChecker().start()
 	getCensusReporter().start()
 	getHeartbeatReporter().start()
-	ensureControlPlaneRoutes().catch(e => console.error('[caddy] Control plane route setup failed:', e))
+	restoreAllRoutes().catch(e => console.error('[caddy] Route restoration failed:', e))
 
 	/* Graceful shutdown — use a named global to avoid stacking listeners on HMR */
 	const g = globalThis as Record<string, unknown>
