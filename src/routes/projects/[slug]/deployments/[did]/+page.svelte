@@ -201,18 +201,15 @@
 		<div class="error-summary" data-testid="error-summary">
 			<span class="error-title">Build failed</span>
 			<span class="error-hint">Check the log below for details.</span>
-			<a
-				href={resolve(`/api/projects/${data.project.id}/deploy`)}
+			<button
 				class="retry-btn"
 				data-testid="retry-btn"
-				data-sveltekit-reload
-				onclick={async (e) => {
-					e.preventDefault();
+				onclick={async () => {
 					const res = await fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' })
 					if (res.ok) {
 						const { deploymentId } = await res.json()
 						if (deploymentId) {
-							goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
+							await goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
 							return
 						}
 					}
@@ -220,7 +217,7 @@
 				}}
 			>
 				Retry deployment
-			</a>
+			</button>
 		</div>
 	{/if}
 

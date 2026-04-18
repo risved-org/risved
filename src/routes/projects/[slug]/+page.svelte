@@ -127,7 +127,7 @@
 		if (res.ok) {
 			const { deploymentId } = await res.json()
 			if (deploymentId) {
-				goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
+				await goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
 			} else {
 				await invalidateAll()
 			}

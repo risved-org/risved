@@ -31,7 +31,7 @@
 		if (res.ok) {
 			const { deploymentId } = await res.json()
 			if (deploymentId) {
-				goto(resolve(`/projects/${project.slug}/deployments/${deploymentId}`))
+				await goto(resolve(`/projects/${project.slug}/deployments/${deploymentId}`))
 				return
 			}
 		}
