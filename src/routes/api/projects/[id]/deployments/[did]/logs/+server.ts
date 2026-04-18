@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { deployments, buildLogs } from '$lib/server/db/schema';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, gt } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import type { RequestHandler } from './$types';
 
@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
  * GET /api/projects/:id/deployments/:did/logs
  *
  * Returns build logs as an SSE stream. If the deployment is still running,
- * the stream stays open and polls for new logs every 2 seconds.
+ * the stream stays open and polls for new logs every 500ms.
  * Once the deployment reaches a terminal status (live, failed, stopped),
  * the stream sends all remaining logs and closes.
  */
@@ -74,13 +74,11 @@ export const GET: RequestHandler = async (event) => {
 			const encoder = new TextEncoder();
 
 			while (!closed) {
-				const logs = await db
+				const newLogs = await db
 					.select()
 					.from(buildLogs)
-					.where(eq(buildLogs.deploymentId, did))
+					.where(and(eq(buildLogs.deploymentId, did), gt(buildLogs.id, lastId)))
 					.orderBy(asc(buildLogs.id));
-
-				const newLogs = logs.filter((l) => l.id > lastId);
 
 				for (const log of newLogs) {
 					const data = JSON.stringify({
@@ -111,7 +109,7 @@ export const GET: RequestHandler = async (event) => {
 					return;
 				}
 
-				await new Promise((resolve) => setTimeout(resolve, 2000));
+				await new Promise((resolve) => setTimeout(resolve, 500));
 			}
 		},
 		cancel() {
