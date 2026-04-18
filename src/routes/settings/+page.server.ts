@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { auth } from '$lib/server/auth';
 import { getUpdateChecker } from '$lib/server/update';
+import { getCensusReporter } from '$lib/server/census';
+import { getHeartbeatReporter } from '$lib/server/heartbeat';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -28,6 +30,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.from(gitConnections);
 
 	const updateInfo = await getUpdateChecker().getCachedUpdateInfo();
+	const censusInfo = await getCensusReporter().getInfo();
+	const heartbeatInfo = await getHeartbeatReporter().getInfo();
 
 	return {
 		user: {
@@ -40,7 +44,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 		apiToken: apiToken ? maskToken(apiToken) : null,
 		retentionDays: isNaN(retentionDays) ? 30 : retentionDays,
 		connections,
-		updateInfo
+		updateInfo,
+		censusInfo,
+		heartbeatInfo
 	};
 };
 
@@ -144,5 +150,13 @@ export const actions: Actions = {
 
 		await setSetting('log_retention_days', String(days));
 		return { retentionSaved: true };
+	},
+
+	/** Toggle operational heartbeat reporting. */
+	heartbeat: async ({ request }) => {
+		const formData = await request.formData();
+		const enabled = formData.get('enabled') === 'true';
+		await getHeartbeatReporter().setEnabled(enabled);
+		return { heartbeatSaved: true };
 	}
 };

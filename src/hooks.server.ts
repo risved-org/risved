@@ -9,6 +9,8 @@ import { getMetricsCollector } from '$lib/server/metrics';
 import { getCleanupManager } from '$lib/server/cleanup';
 import { getCronScheduler } from '$lib/server/cron';
 import { getUpdateChecker } from '$lib/server/update';
+import { getCensusReporter } from '$lib/server/census';
+import { getHeartbeatReporter } from '$lib/server/heartbeat';
 import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
@@ -22,6 +24,8 @@ if (!building) {
 	getCleanupManager().start()
 	getCronScheduler().start()
 	getUpdateChecker().start()
+	getCensusReporter().start()
+	getHeartbeatReporter().start()
 	ensureControlPlaneRoutes().catch(e => console.error('[caddy] Control plane route setup failed:', e))
 
 	/* Graceful shutdown — use a named global to avoid stacking listeners on HMR */
@@ -36,6 +40,8 @@ if (!building) {
 		getCleanupManager().stop()
 		getCronScheduler().stop()
 		getUpdateChecker().stop()
+		getCensusReporter().stop()
+		getHeartbeatReporter().stop()
 		process.exit(0)
 	}
 	g.__risvedShutdown = shutdown
