@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeFile, mkdir, rm, access } from 'node:fs/promises';
+import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { db } from '$lib/server/db';
 import { deployments, projects, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -8,6 +8,7 @@ import { getSetting } from '$lib/server/settings';
 import { safeDecrypt } from '$lib/server/crypto';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
+import { detectPackageManager } from '../detect-package-manager';
 import { CaddyClient } from '../caddy';
 import {
 	gitClone,
@@ -125,21 +126,25 @@ export async function runPipeline(
 			.where(eq(projects.id, config.projectId));
 
 		/* ── Phase 3: Build ──────────────────────────────── */
-		emit('build', 'Generating Dockerfile…');
-
-		/* Detect lockfile to pick the right package manager */
-		const lockfiles = ['bun.lockb', 'bun.lock', 'pnpm-lock.yaml', 'yarn.lock', 'package-lock.json'] as const
-		let lockfile: typeof lockfiles[number] | null = null
-		for (const lf of lockfiles) {
-			try {
-				await access(join(cloneDir, lf))
-				lockfile = lf
-				break
-			} catch { /* not found */ }
+		/* Detect package manager fresh from the checked-out repo — never
+		   cached from onboarding, because the user may have changed
+		   lockfiles since then. Warnings surface in the build log so the
+		   user can see them in the deploy UI. */
+		const pmResult = await detectPackageManager(cloneDir);
+		const pmLabel = pmResult.packageManager + (pmResult.yarnVersion ? ` (${pmResult.yarnVersion})` : '');
+		const pmSource = pmResult.lockfile ? `from ${pmResult.lockfile}` : 'no lockfile — using default';
+		emit('build', `Detected package manager: ${pmLabel} (${pmSource})`);
+		for (const warning of pmResult.warnings) {
+			emit('build', warning, 'warn');
 		}
-		if (lockfile) emit('build', `Detected ${lockfile}`)
 
-		const dockerfile = generateDockerfile({ frameworkId, tier, lockfile });
+		emit('build', 'Generating Dockerfile…');
+		const dockerfile = generateDockerfile({
+			frameworkId,
+			tier,
+			lockfile: pmResult.lockfile,
+			yarnVersion: pmResult.yarnVersion
+		});
 		const dockerfileContent = dockerfile.content
 
 		/* Write all env vars into a build-time .env file so that:

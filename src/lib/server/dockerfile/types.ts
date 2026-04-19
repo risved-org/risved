@@ -17,6 +17,8 @@ export interface DockerfileOptions {
 	buildCommand?: string;
 	/** Detected lockfile in the project root */
 	lockfile?: Lockfile;
+	/** Yarn release line (only relevant when lockfile === 'yarn.lock') */
+	yarnVersion?: 'classic' | 'berry';
 }
 
 /** Result of Dockerfile generation */

@@ -52,7 +52,7 @@ describe('Dockerfile Generation', () => {
 			expect(result.frameworkId).toBe('sveltekit');
 			expect(result.tier).toBe('node');
 			// Build stage — uses pre-warmed builder
-			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('FROM risved-node-build:22 AS build');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — slim Node
@@ -67,7 +67,7 @@ describe('Dockerfile Generation', () => {
 		it('generates Astro Dockerfile with two stages', () => {
 			const result = generateDockerfile({ frameworkId: 'astro', tier: 'hybrid' });
 
-			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('FROM risved-node-build:22 AS build');
 			expect(result.content).toContain('FROM denoland/deno:latest');
 			expect(result.content).toContain('COPY --from=build /app/dist ./dist');
 			expect(result.content).toContain(
@@ -100,7 +100,7 @@ describe('Dockerfile Generation', () => {
 			expect(result.frameworkId).toBe('nextjs');
 			expect(result.tier).toBe('node');
 			// Build stage
-			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('FROM risved-node-build:22 AS build');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — also Node
@@ -118,7 +118,7 @@ describe('Dockerfile Generation', () => {
 		it('generates Nuxt Dockerfile with .output', () => {
 			const result = generateDockerfile({ frameworkId: 'nuxt', tier: 'node' });
 
-			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('FROM risved-node-build:22 AS build');
 			expect(result.content).toContain('COPY --from=build /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
@@ -126,7 +126,7 @@ describe('Dockerfile Generation', () => {
 		it('generates SolidStart Dockerfile with .output', () => {
 			const result = generateDockerfile({ frameworkId: 'solidstart', tier: 'node' });
 
-			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('FROM risved-node-build:22 AS build');
 			expect(result.content).toContain('COPY --from=build /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
@@ -161,7 +161,7 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('tanstack-start');
 			expect(result.tier).toBe('node');
-			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('FROM risved-node-build:22 AS build');
 			expect(result.content).toContain('COPY --from=build /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
@@ -173,7 +173,7 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('generic');
 			expect(result.tier).toBe('node');
-			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('FROM risved-node-build:22 AS build');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			expect(result.content).toContain('CMD ["node", "index.js"]');
@@ -231,6 +231,16 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('RUN rm -rf node_modules && bun install --frozen-lockfile --production')
 		})
 
+		it('uses yarn berry prune (workspaces focus) when yarnVersion is berry', () => {
+			const result = generateDockerfile({
+				frameworkId: 'sveltekit',
+				tier: 'node',
+				lockfile: 'yarn.lock',
+				yarnVersion: 'berry'
+			})
+			expect(result.content).toContain('yarn workspaces focus --production --all')
+		})
+
 		it('does not prune for frameworks without node_modules in copyPaths', () => {
 			const result = generateDockerfile({ frameworkId: 'nuxt', tier: 'node' })
 			expect(result.content).not.toContain('prune')
@@ -261,6 +271,51 @@ describe('Dockerfile Generation', () => {
 		it('copies package-lock.json optionally in node tier', () => {
 			const result = generateDockerfile({ frameworkId: 'nextjs', tier: 'node' });
 			expect(result.content).toContain('COPY package.json package-lock.json* ./');
+		});
+
+		it('uses yarn --immutable for Yarn Berry', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt',
+				tier: 'node',
+				lockfile: 'yarn.lock',
+				yarnVersion: 'berry'
+			});
+			expect(result.content).toContain('yarn install --immutable');
+			expect(result.content).not.toContain('yarn install --frozen-lockfile');
+		});
+
+		it('uses yarn --frozen-lockfile for Yarn Classic', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt',
+				tier: 'node',
+				lockfile: 'yarn.lock',
+				yarnVersion: 'classic'
+			});
+			expect(result.content).toContain('yarn install --frozen-lockfile');
+			expect(result.content).not.toContain('--immutable');
+		});
+
+		it('uses pnpm install --frozen-lockfile without any corepack enable prefix', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt',
+				tier: 'node',
+				lockfile: 'pnpm-lock.yaml'
+			});
+			expect(result.content).toContain('RUN pnpm install --frozen-lockfile');
+			expect(result.content).not.toContain('corepack enable');
+		});
+
+		it('runtime stage for Node tier never references a package manager', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt',
+				tier: 'node',
+				lockfile: 'bun.lockb'
+			});
+			const runtimeIdx = result.content.indexOf('AS runtime');
+			const runtime = result.content.slice(runtimeIdx);
+			expect(runtime).not.toMatch(/\bbun\b/);
+			expect(runtime).not.toMatch(/\bpnpm\b/);
+			expect(runtime).not.toMatch(/\byarn\b/);
 		});
 
 		it('Deno tier names its stage `build` so release containers can target it', () => {
