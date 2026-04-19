@@ -128,7 +128,8 @@ export const actions: Actions = {
 					port: project.port,
 					domain: project.domain ?? undefined,
 					frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
-					tier: (project.tier as Tier) ?? undefined
+					tier: (project.tier as Tier) ?? undefined,
+					releaseCommand: project.releaseCommand
 				},
 				createCommandRunner()
 			).catch(() => {

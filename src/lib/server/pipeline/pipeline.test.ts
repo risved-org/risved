@@ -68,7 +68,8 @@ vi.mock('../dockerfile', () => ({
 vi.mock('node:fs/promises', () => ({
 	writeFile: vi.fn().mockResolvedValue(undefined),
 	mkdir: vi.fn().mockResolvedValue(undefined),
-	rm: vi.fn().mockResolvedValue(undefined)
+	rm: vi.fn().mockResolvedValue(undefined),
+	access: vi.fn().mockRejectedValue(new Error('no lockfile'))
 }));
 
 import { runPipeline } from './index';
@@ -328,6 +329,97 @@ describe('runPipeline', () => {
 		const rmIdx = calls.findIndex((c) => c.includes('docker rm -f abc123def456'));
 		const runIdx = calls.findIndex((c) => c.includes('docker run'));
 		expect(rmIdx).toBeLessThan(runIdx);
+	});
+
+	it('skips the release phase when releaseCommand is null', async () => {
+		const calls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				calls.push(joined);
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run'))
+					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ releaseCommand: null }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		/* No `--target build` invocations means the release runner never fired. */
+		expect(calls.some((c) => c.includes('--target') && c.includes('build'))).toBe(false);
+		expect(result.logs.some((l) => l.phase === 'release')).toBe(false);
+	});
+
+	it('runs the release phase after build and before start when releaseCommand is set', async () => {
+		const calls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				calls.push(joined);
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run'))
+					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ releaseCommand: 'bun run migrate' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		const buildIdx = calls.findIndex((c) => c.includes('docker build'));
+		const releaseIdx = calls.findIndex(
+			(c) => c.includes('docker run') && c.includes('--target') && c.includes('build')
+		);
+		const startIdx = calls.findIndex(
+			(c) => c.includes('docker run') && !c.includes('--target')
+		);
+		expect(buildIdx).toBeGreaterThanOrEqual(0);
+		expect(releaseIdx).toBeGreaterThan(buildIdx);
+		expect(startIdx).toBeGreaterThan(releaseIdx);
+		expect(result.logs.some((l) => l.phase === 'release')).toBe(true);
+	});
+
+	it('fails the deploy when the release command exits non-zero and does not start the runtime container', async () => {
+		const calls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				calls.push(joined);
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run') && joined.includes('--target')) {
+					return { exitCode: 1, stdout: '', stderr: 'migration failed' };
+				}
+				if (joined.includes('docker run'))
+					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ releaseCommand: 'bun run migrate' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Release command failed');
+		/* The runtime container must NOT have been started — old version keeps serving. */
+		const runtimeRun = calls.find(
+			(c) => c.includes('docker run') && !c.includes('--target')
+		);
+		expect(runtimeRun).toBeUndefined();
+		const failureLog = result.logs.find((l) => l.phase === 'release' && l.level === 'error');
+		expect(failureLog).toBeTruthy();
 	});
 
 	it('each log entry has timestamp, phase, level, and message', async () => {

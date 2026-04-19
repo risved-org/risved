@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit'
 import { db } from '$lib/server/db'
-import { projects, envVars } from '$lib/server/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { projects, envVars, deployments } from '$lib/server/db/schema'
+import { eq, and, desc, isNotNull } from 'drizzle-orm'
 import { encrypt, safeDecrypt } from '$lib/server/crypto'
 import type { PageServerLoad, Actions } from './$types'
 
@@ -15,20 +15,47 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const envs = await db.select().from(envVars).where(eq(envVars.projectId, project.id))
 
+	/* Last deployment that actually ran a release command (for the settings panel). */
+	const lastReleaseRows = await db
+		.select()
+		.from(deployments)
+		.where(
+			and(eq(deployments.projectId, project.id), isNotNull(deployments.releaseCommand))
+		)
+		.orderBy(desc(deployments.createdAt))
+		.limit(1)
+
+	const lastRelease = lastReleaseRows[0]
+		? {
+				command: lastReleaseRows[0].releaseCommand!,
+				status:
+					lastReleaseRows[0].releaseExitCode === 0
+						? 'success'
+						: lastReleaseRows[0].releaseExitCode == null
+							? lastReleaseRows[0].status
+							: 'failed',
+				timestamp: lastReleaseRows[0].finishedAt ?? lastReleaseRows[0].createdAt,
+				deploymentId: lastReleaseRows[0].id,
+				projectSlug: project.slug
+			}
+		: null
+
 	return {
 		project: {
 			id: project.id,
 			name: project.name,
 			slug: project.slug,
 			repoUrl: project.repoUrl,
-			branch: project.branch
+			branch: project.branch,
+			releaseCommand: project.releaseCommand ?? ''
 		},
 		envVars: envs.map((e) => ({
 			id: e.id,
 			key: e.key,
 			value: safeDecrypt(e.value),
 			isSecret: e.isSecret
-		}))
+		})),
+		lastRelease
 	}
 }
 
@@ -44,6 +71,7 @@ export const actions: Actions = {
 		const envKeysRaw = formData.get('envKeys') as string | null
 		const envValsRaw = formData.get('envValues') as string | null
 		const envSecretsRaw = formData.get('envSecrets') as string | null
+		const releaseCommand = (formData.get('releaseCommand') as string | null)?.trim() ?? ''
 
 		const envKeys = envKeysRaw ? envKeysRaw.split('\x1F') : []
 		const envValues = envValsRaw ? envValsRaw.split('\x1F') : []
@@ -65,6 +93,14 @@ export const actions: Actions = {
 				})
 			}
 		}
+
+		await db
+			.update(projects)
+			.set({
+				releaseCommand: releaseCommand || null,
+				updatedAt: new Date().toISOString()
+			})
+			.where(eq(projects.id, projectId))
 
 		return { success: true }
 	}

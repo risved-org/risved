@@ -41,6 +41,7 @@ export const actions: Actions = {
 		const rootDir = (formData.get('rootDir') as string | null)?.trim() || '/';
 		const projectName = (formData.get('projectName') as string | null)?.trim() || '';
 		const frameworkId = (formData.get('frameworkId') as string | null)?.trim() || '';
+		const releaseCommand = (formData.get('releaseCommand') as string | null)?.trim() || '';
 		const envKeysRaw = formData.get('envKeys') as string | null;
 		const envValsRaw = formData.get('envValues') as string | null;
 		const envSecretsRaw = formData.get('envSecrets') as string | null;
@@ -111,7 +112,8 @@ export const actions: Actions = {
 				frameworkId: frameworkId || undefined,
 				tier: matchedFramework?.tier ?? undefined,
 				port,
-				webhookSecret
+				webhookSecret,
+				releaseCommand: releaseCommand || null
 			})
 			.returning();
 
@@ -144,7 +146,8 @@ export const actions: Actions = {
 				port: project.port!,
 				domain: project.domain ?? undefined,
 				frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
-				tier: (project.tier as Tier) ?? undefined
+				tier: (project.tier as Tier) ?? undefined,
+				releaseCommand: project.releaseCommand
 			},
 			createCommandRunner()
 		);

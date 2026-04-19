@@ -37,6 +37,7 @@ export const projects = sqliteTable('projects', {
 		.notNull()
 		.default(false),
 	requiredCheck: integer('required_check', { mode: 'boolean' }).notNull().default(false),
+	releaseCommand: text('release_command'),
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
@@ -55,6 +56,10 @@ export const deployments = sqliteTable('deployments', {
 	triggerType: text('trigger_type').notNull().default('manual'), // 'manual' | 'webhook' | 'rollback'
 	imageTag: text('image_tag'),
 	containerName: text('container_name'),
+	/** The release command that ran (or null if no release phase) */
+	releaseCommand: text('release_command'),
+	/** Exit code of the release container; null if skipped */
+	releaseExitCode: integer('release_exit_code'),
 	startedAt: text('started_at'),
 	finishedAt: text('finished_at'),
 	createdAt: text('created_at')

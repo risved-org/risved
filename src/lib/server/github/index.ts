@@ -99,6 +99,52 @@ export class GitHubClient {
 		});
 	}
 
+	/**
+	 * Fetch the raw contents of a file in the given repo at the given ref.
+	 * Returns null when the file does not exist.
+	 */
+	async getFileContents(
+		owner: string,
+		repo: string,
+		path: string,
+		ref: string
+	): Promise<string | null> {
+		const url = `${GITHUB_API}/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`;
+		const res = await this.fetchFn(url, {
+			headers: {
+				Authorization: `Bearer ${this.accessToken}`,
+				Accept: 'application/vnd.github.raw',
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
+		if (res.status === 404) return null;
+		if (!res.ok) {
+			throw new Error(`GitHub API ${res.status}`);
+		}
+		return res.text();
+	}
+
+	/**
+	 * List files in a directory of a repo. Returns an array of names with last-modified info.
+	 * We only use this to check lockfile presence, so keep it minimal.
+	 */
+	async listRootFiles(
+		owner: string,
+		repo: string,
+		ref: string
+	): Promise<Array<{ name: string; type: string }>> {
+		const url = `${GITHUB_API}/repos/${owner}/${repo}/contents?ref=${encodeURIComponent(ref)}`;
+		const res = await this.fetchFn(url, {
+			headers: {
+				Authorization: `Bearer ${this.accessToken}`,
+				Accept: 'application/vnd.github+json',
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
+		if (!res.ok) return [];
+		return (await res.json()) as Array<{ name: string; type: string }>;
+	}
+
 	/** Delete a webhook from a repository. */
 	async deleteWebhook(owner: string, repo: string, hookId: number): Promise<void> {
 		await this.fetchFn(`${GITHUB_API}/repos/${owner}/${repo}/hooks/${hookId}`, {

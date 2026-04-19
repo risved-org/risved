@@ -127,7 +127,8 @@ export async function createPreview(
 			port,
 			domain,
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
-			tier: (project.tier as Tier) ?? undefined
+			tier: (project.tier as Tier) ?? undefined,
+			releaseCommand: project.releaseCommand
 		},
 		createCommandRunner()
 	)

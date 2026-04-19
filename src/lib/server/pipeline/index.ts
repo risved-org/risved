@@ -20,6 +20,7 @@ import {
 	getContainerLogs,
 	projectVolumeName
 } from './docker';
+import { runRelease } from './release';
 import { createLogCollector } from './log';
 import type {
 	PipelineConfig,
@@ -184,6 +185,46 @@ export async function runPipeline(
 		}
 		emit('build', 'Image built successfully');
 
+		/* ── Phase 3b: Release ───────────────────────────── */
+		const releaseCommand = config.releaseCommand?.trim() || null;
+		const volumeName = projectVolumeName(config.projectId);
+		const volumes = [`${volumeName}:/app/data`];
+
+		if (releaseCommand) {
+			emit('release', `Running release command: ${releaseCommand}`);
+
+			const releaseResult = await runRelease(runner, {
+				imageTag,
+				command: releaseCommand,
+				env: envMap,
+				volumes,
+				containerName: `risved-release-${deploymentId.slice(0, 8)}`,
+				onLine: (line) => emit('release', line)
+			});
+
+			await db
+				.update(deployments)
+				.set({
+					releaseCommand,
+					releaseExitCode: releaseResult.exitCode
+				})
+				.where(eq(deployments.id, deploymentId));
+
+			if (releaseResult.timedOut) {
+				throw new PipelineError(
+					'release',
+					`Release command timed out (exit code ${releaseResult.exitCode})`
+				);
+			}
+			if (releaseResult.exitCode !== 0) {
+				throw new PipelineError(
+					'release',
+					`Release command failed (exit code ${releaseResult.exitCode})`
+				);
+			}
+			emit('release', 'Release command completed');
+		}
+
 		/* ── Phase 4: Start ──────────────────────────────── */
 		const containerName = config.projectSlug;
 		emit('start', `Starting container ${containerName} on port ${config.port}…`);
@@ -200,7 +241,6 @@ export async function runPipeline(
 		/* Remove existing container with the same name */
 		await runner.exec('docker', ['rm', '-f', containerName]);
 
-		const volumeName = projectVolumeName(config.projectId)
 		emit('start', `Mounting persistent volume at /app/data`)
 
 		const runResult = await dockerRun(runner, {
@@ -208,7 +248,7 @@ export async function runPipeline(
 			containerName,
 			port: config.port,
 			env: envMap,
-			volumes: [`${volumeName}:/app/data`]
+			volumes
 		});
 		if (!runResult.success) {
 			throw new PipelineError('start', `Docker run failed: ${runResult.error}`);
