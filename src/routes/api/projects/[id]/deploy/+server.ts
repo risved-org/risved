@@ -35,7 +35,8 @@ export const POST: RequestHandler = async (event) => {
 		port: project.port,
 		domain: project.domain ?? undefined,
 		frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
-		tier: (project.tier as Tier) ?? undefined
+		tier: (project.tier as Tier) ?? undefined,
+		releaseCommand: project.releaseCommand
 	}
 
 	/* Create deployment record now so the client can navigate to it immediately */

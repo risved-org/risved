@@ -9,6 +9,7 @@ const PHASE_LABELS: Record<string, string> = {
 	clone: 'Clone',
 	detect: 'Detect',
 	build: 'Build',
+	release: 'Release',
 	start: 'Start',
 	health: 'Health',
 	route: 'Route',
@@ -16,8 +17,9 @@ const PHASE_LABELS: Record<string, string> = {
 	live: 'Live'
 };
 
-/** Ordered phase list for the indicator */
-const PHASE_ORDER = ['clone', 'detect', 'build', 'start', 'health', 'live'];
+/** Ordered phase list for the indicator. `release` appears only when a release command was run. */
+const PHASE_ORDER_BASE = ['clone', 'detect', 'build', 'start', 'health', 'live'];
+const PHASE_ORDER_WITH_RELEASE = ['clone', 'detect', 'build', 'release', 'start', 'health', 'live'];
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { slug, did } = params;
@@ -62,6 +64,9 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const isTerminal = ['live', 'failed', 'stopped'].includes(deployment.status);
 
+	const hasReleasePhase = !!deployment.releaseCommand;
+	const phaseOrder = hasReleasePhase ? PHASE_ORDER_WITH_RELEASE : PHASE_ORDER_BASE;
+
 	return {
 		project: {
 			id: project.id,
@@ -75,7 +80,9 @@ export const load: PageServerLoad = async ({ params }) => {
 			commitSha: deployment.commitSha,
 			startedAt: deployment.startedAt,
 			finishedAt: deployment.finishedAt,
-			createdAt: deployment.createdAt
+			createdAt: deployment.createdAt,
+			releaseCommand: deployment.releaseCommand,
+			releaseExitCode: deployment.releaseExitCode
 		},
 		logs: logs.map((l) => ({
 			timestamp: l.timestamp,
@@ -84,6 +91,6 @@ export const load: PageServerLoad = async ({ params }) => {
 			message: l.message
 		})),
 		isTerminal,
-		phases: PHASE_ORDER.map((id) => ({ id, label: PHASE_LABELS[id] ?? id }))
+		phases: phaseOrder.map((id) => ({ id, label: PHASE_LABELS[id] ?? id }))
 	};
 };

@@ -9,6 +9,7 @@ export interface PreviewProject {
 	previewLimit: number;
 	previewsEnabled: boolean;
 	previewAutoDelete: boolean;
+	releaseCommand: string | null;
 }
 
 /** Result of creating a preview deployment. */

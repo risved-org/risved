@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
+	import ProjectScriptsForm from '$lib/components/ProjectScriptsForm.svelte'
 	import type { ActionData, PageData } from './$types'
 
 	let { data, form }: { data: PageData; form: ActionData } = $props()
@@ -8,6 +9,10 @@
 	let envRows = $state(
 		data.envVars.map((e) => ({ key: e.key, value: e.value, isSecret: e.isSecret }))
 	)
+	/* Scripts state (build + start are future-wired here; only release is persisted today). */
+	let buildCommand = $state('')
+	let startCommand = $state('')
+	let releaseCommand = $state(data.project.releaseCommand)
 	let saving = $state(false)
 
 	function addEnvRow() {
@@ -60,7 +65,7 @@
 		<h1>Settings</h1>
 	</header>
 
-	<!-- Environment Variables -->
+	<!-- Environment Variables + Scripts -->
 	<section class="section" data-testid="env-section">
 		<h2 class="section-title">Environment Variables</h2>
 		<form
@@ -74,6 +79,13 @@
 				}
 			}}
 		>
+			<ProjectScriptsForm
+				bind:buildCommand
+				bind:startCommand
+				bind:releaseCommand
+				settingsContext={true}
+				lastRelease={data.lastRelease}
+			/>
 			<div class="env-editor">
 				{#each envRows as row, i (i)}
 					<div class="env-row" data-testid="env-row">

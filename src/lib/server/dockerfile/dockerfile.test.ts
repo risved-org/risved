@@ -52,12 +52,12 @@ describe('Dockerfile Generation', () => {
 			expect(result.frameworkId).toBe('sveltekit');
 			expect(result.tier).toBe('node');
 			// Build stage — uses pre-warmed builder
-			expect(result.content).toContain('FROM risved-node-builder AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS build');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — slim Node
-			expect(result.content).toMatch(/FROM node:22-slim\n/);
-			expect(result.content).toContain('COPY --from=builder /app/build ./build');
+			expect(result.content).toContain('FROM node:22-slim AS runtime');
+			expect(result.content).toContain('COPY --from=build /app/build ./build');
 			expect(result.content).toContain(
 				'CMD ["node", "build/index.js"]'
 			);
@@ -67,9 +67,9 @@ describe('Dockerfile Generation', () => {
 		it('generates Astro Dockerfile with two stages', () => {
 			const result = generateDockerfile({ frameworkId: 'astro', tier: 'hybrid' });
 
-			expect(result.content).toContain('FROM risved-node-builder AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS build');
 			expect(result.content).toContain('FROM denoland/deno:latest');
-			expect(result.content).toContain('COPY --from=builder /app/dist ./dist');
+			expect(result.content).toContain('COPY --from=build /app/dist ./dist');
 			expect(result.content).toContain(
 				'CMD ["deno", "run", "--allow-all", "dist/server/entry.mjs"]'
 			);
@@ -86,7 +86,6 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('RUN pnpm install --frozen-lockfile');
 			expect(result.content).toContain('RUN pnpm build');
 		});
-	});
 
 		it('creates writable /app/data directory in runtime stage', () => {
 			const result = generateDockerfile({ frameworkId: 'astro', tier: 'hybrid' });
@@ -101,34 +100,34 @@ describe('Dockerfile Generation', () => {
 			expect(result.frameworkId).toBe('nextjs');
 			expect(result.tier).toBe('node');
 			// Build stage
-			expect(result.content).toContain('FROM risved-node-builder AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS build');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — also Node
-			expect(result.content).toMatch(/FROM node:22-slim\n/);
+			expect(result.content).toContain('FROM node:22-slim AS runtime');
 			expect(result.content).toContain(
-				'COPY --from=builder /app/.next/standalone ./.next/standalone'
+				'COPY --from=build /app/.next/standalone ./.next/standalone'
 			);
 			expect(result.content).toContain(
-				'COPY --from=builder /app/.next/static ./.next/static'
+				'COPY --from=build /app/.next/static ./.next/static'
 			);
-			expect(result.content).toContain('COPY --from=builder /app/public ./public');
+			expect(result.content).toContain('COPY --from=build /app/public ./public');
 			expect(result.content).toContain('CMD ["node", "server.js"]');
 		});
 
 		it('generates Nuxt Dockerfile with .output', () => {
 			const result = generateDockerfile({ frameworkId: 'nuxt', tier: 'node' });
 
-			expect(result.content).toContain('FROM risved-node-builder AS builder');
-			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
+			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('COPY --from=build /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
 
 		it('generates SolidStart Dockerfile with .output', () => {
 			const result = generateDockerfile({ frameworkId: 'solidstart', tier: 'node' });
 
-			expect(result.content).toContain('FROM risved-node-builder AS builder');
-			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
+			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('COPY --from=build /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
 
@@ -162,8 +161,8 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('tanstack-start');
 			expect(result.tier).toBe('node');
-			expect(result.content).toContain('FROM risved-node-builder AS builder');
-			expect(result.content).toContain('COPY --from=builder /app/.output ./.output');
+			expect(result.content).toContain('FROM risved-node-builder AS build');
+			expect(result.content).toContain('COPY --from=build /app/.output ./.output');
 			expect(result.content).toContain('CMD ["node", ".output/server/index.mjs"]');
 		});
 	});
@@ -174,7 +173,7 @@ describe('Dockerfile Generation', () => {
 
 			expect(result.frameworkId).toBe('generic');
 			expect(result.tier).toBe('node');
-			expect(result.content).toContain('FROM risved-node-builder AS builder');
+			expect(result.content).toContain('FROM risved-node-builder AS build');
 			expect(result.content).toMatch(/RUN .*npm ci/);
 			expect(result.content).toContain('RUN npm run build');
 			expect(result.content).toContain('CMD ["node", "index.js"]');
@@ -264,10 +263,19 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('COPY package.json package-lock.json* ./');
 		});
 
-		it('Deno tier has no multi-stage build', () => {
+		it('Deno tier names its stage `build` so release containers can target it', () => {
 			const result = generateDockerfile({ frameworkId: 'hono', tier: 'deno' });
-			expect(result.content).not.toContain('AS builder');
-			expect(result.content).not.toContain('--from=builder');
+			expect(result.content).toContain('FROM denoland/deno:latest AS build');
+			expect(result.content).not.toContain('--from=build');
+		});
+
+		it('all tiers expose a stage named `build`', () => {
+			const deno = generateDockerfile({ frameworkId: 'fresh', tier: 'deno' });
+			const hybrid = generateDockerfile({ frameworkId: 'astro', tier: 'hybrid' });
+			const node = generateDockerfile({ frameworkId: 'nextjs', tier: 'node' });
+			expect(deno.content).toContain('AS build');
+			expect(hybrid.content).toContain('AS build');
+			expect(node.content).toContain('AS build');
 		});
 
 		it('Deno tier for Lume includes build step but Hono does not', () => {
@@ -275,12 +283,9 @@ describe('Dockerfile Generation', () => {
 			const hono = generateDockerfile({ frameworkId: 'hono', tier: 'deno' });
 
 			expect(lume.content).toContain('RUN deno task build');
-			// Hono only has the cache line as RUN, no build step
-			const honoRunLines = hono.content
-				.split('\n')
-				.filter((l) => l.startsWith('RUN '));
-			expect(honoRunLines).toHaveLength(1);
-			expect(honoRunLines[0]).toContain('deno cache');
+			// Hono has no build step — only the cache line and the data-dir prep.
+			expect(hono.content).toContain('RUN deno cache main.ts');
+			expect(hono.content).not.toContain('task build');
 		});
 	});
 });

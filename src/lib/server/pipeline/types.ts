@@ -5,6 +5,7 @@ export type PipelinePhase =
 	| 'clone'
 	| 'detect'
 	| 'build'
+	| 'release'
 	| 'start'
 	| 'health'
 	| 'route'
@@ -34,6 +35,8 @@ export interface PipelineConfig {
 	frameworkId?: FrameworkId;
 	/** Override the detected tier */
 	tier?: Tier;
+	/** Shell command to run once per deploy before traffic switches. Null/empty skips the phase. */
+	releaseCommand?: string | null;
 }
 
 /** Result of a completed pipeline run */

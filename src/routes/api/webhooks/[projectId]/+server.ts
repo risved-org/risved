@@ -124,7 +124,8 @@ export const POST: RequestHandler = async (event) => {
 			port: project.port,
 			domain: project.domain ?? undefined,
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
-			tier: (project.tier as Tier) ?? undefined
+			tier: (project.tier as Tier) ?? undefined,
+			releaseCommand: project.releaseCommand
 		},
 		createCommandRunner()
 	).catch(() => {
@@ -168,7 +169,8 @@ async function handlePrPreview(
 			tier: project.tier,
 			previewLimit: project.previewLimit,
 			previewsEnabled: project.previewsEnabled,
-			previewAutoDelete: project.previewAutoDelete
+			previewAutoDelete: project.previewAutoDelete,
+			releaseCommand: project.releaseCommand
 		},
 		webhookEvent.prNumber,
 		webhookEvent.prTitle,

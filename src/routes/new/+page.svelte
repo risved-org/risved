@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
+	import ProjectScriptsForm from '$lib/components/ProjectScriptsForm.svelte'
+	import type { DetectScriptsResult } from '$lib/scripts-detect'
 	import type { ActionData, PageData } from './$types'
 
 	let { form, data }: { form: ActionData; data: PageData } = $props()
@@ -10,6 +12,10 @@
 	let rootDir = $state(form?.rootDir ?? '/')
 	let projectName = $state(form?.projectName ?? '')
 	let frameworkId = $state(form?.frameworkId ?? '')
+	let buildCommand = $state('')
+	let startCommand = $state('')
+	let releaseCommand = $state('')
+	let detection = $state<DetectScriptsResult | null>(null)
 	let submitting = $state(false)
 
 	/* Tab state */
@@ -61,11 +67,12 @@
 		}
 	}
 
-	function selectRepo(repo: Repo) {
+	async function selectRepo(repo: Repo) {
 		selectedRepo = repo
 		repoUrl = repo.cloneUrl
 		branch = repo.defaultBranch
 		projectName = repo.name
+		await loadDetection(repo)
 	}
 
 	function clearSelection() {
@@ -74,6 +81,27 @@
 		branch = 'main'
 		projectName = ''
 		frameworkId = ''
+		detection = null
+	}
+
+	async function loadDetection(repo: Repo) {
+		const provider = selectedConnection?.provider ?? 'github'
+		const params = new URLSearchParams({
+			connectionId: selectedConnectionId,
+			owner: repo.owner,
+			repo: repo.name,
+			branch: repo.defaultBranch
+		})
+		try {
+			const res = await fetch(`/api/git/${provider}/detect-scripts?${params}`)
+			if (res.ok) {
+				detection = await res.json()
+			} else {
+				detection = null
+			}
+		} catch {
+			detection = null
+		}
 	}
 
 	function formatDate(iso: string): string {
@@ -345,6 +373,17 @@
 					</select>
 				</label>
 			</fieldset>
+		</section>
+
+		<!-- Scripts: build, start, release -->
+		<section class="section" data-testid="scripts-section">
+			<h2 class="section-title">How do we run your code</h2>
+			<ProjectScriptsForm
+				bind:buildCommand
+				bind:startCommand
+				bind:releaseCommand
+				{detection}
+			/>
 		</section>
 
 		<!-- Configuration -->

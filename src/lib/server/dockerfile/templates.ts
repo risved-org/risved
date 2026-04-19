@@ -58,7 +58,7 @@ function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install
  * Single stage using denoland/deno image.
  */
 export function denoTemplate(config: FrameworkBuildConfig, port: number): string {
-	const lines: string[] = [`FROM ${DENO_IMAGE}`, '', 'WORKDIR /app', ''];
+	const lines: string[] = [`FROM ${DENO_IMAGE} AS build`, '', 'WORKDIR /app', ''];
 
 	// Copy all source files
 	lines.push('COPY . .');
@@ -101,7 +101,7 @@ export function hybridTemplate(
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
 		`# Build stage`,
-		`FROM ${builderImage} AS builder`,
+		`FROM ${builderImage} AS build`,
 		'',
 		'WORKDIR /app',
 		'',
@@ -119,7 +119,7 @@ export function hybridTemplate(
 	lines.push(
 		'',
 		`# Runtime stage`,
-		`FROM ${DENO_IMAGE}`,
+		`FROM ${DENO_IMAGE} AS runtime`,
 		'',
 		'WORKDIR /app',
 		''
@@ -127,7 +127,7 @@ export function hybridTemplate(
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`)
+		lines.push(`COPY --from=build /app/${copyPath} ./${copyPath}`)
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
@@ -160,7 +160,7 @@ export function nodeTemplate(
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
 		`# Build stage`,
-		`FROM ${builderImage} AS builder`,
+		`FROM ${builderImage} AS build`,
 		'',
 		'WORKDIR /app',
 		'',
@@ -178,7 +178,7 @@ export function nodeTemplate(
 	lines.push(
 		'',
 		`# Runtime stage`,
-		`FROM ${NODE_IMAGE}`,
+		`FROM ${NODE_IMAGE} AS runtime`,
 		'',
 		'WORKDIR /app',
 		''
@@ -186,7 +186,7 @@ export function nodeTemplate(
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=builder /app/${copyPath} ./${copyPath}`)
+		lines.push(`COPY --from=build /app/${copyPath} ./${copyPath}`)
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
