@@ -385,15 +385,15 @@
 						<a href="https://risved.org/docs/release-commands" target="_blank" rel="noopener">Learn more</a>
 					</span>
 				</label>
+				<div class="scripts-actions">
+					<button type="submit" class="btn-primary" disabled={savingScripts} data-testid="save-scripts-btn">
+						{savingScripts ? 'Saving…' : 'Save'}
+					</button>
+					{#if form?.scriptsSaved}
+						<span class="save-success">Saved</span>
+					{/if}
+				</div>
 			</fieldset>
-			<div class="save-bar">
-				<button type="submit" class="btn-sm btn-save" disabled={savingScripts} data-testid="save-scripts-btn">
-					{savingScripts ? 'Saving…' : 'Save'}
-				</button>
-				{#if form?.scriptsSaved}
-					<span class="save-success">Saved</span>
-				{/if}
-			</div>
 		</form>
 	</section>
 
@@ -937,20 +937,10 @@
 		color: var(--color-text-1);
 	}
 
-	.save-bar {
+	.scripts-actions {
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
-		margin-top: var(--space-3);
-	}
-
-	.btn-save {
-		border-color: var(--color-accent);
-		color: var(--color-accent);
-	}
-
-	.btn-save:hover:not(:disabled) {
-		background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 	}
 
 	.save-success {
