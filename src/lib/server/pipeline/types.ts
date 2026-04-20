@@ -62,6 +62,8 @@ export interface DockerBuildOptions {
 	contextDir: string;
 	imageTag: string;
 	network?: string;
+	/** Multi-stage target (passed as --target) */
+	target?: string;
 	/** Build-time environment variables (passed as --build-arg) */
 	buildArgs?: Record<string, string>;
 	/** Called for each line of build output (enables streaming) */

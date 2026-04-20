@@ -198,10 +198,24 @@ export async function runPipeline(
 		const volumes = [`${volumeName}:/app/data`];
 
 		if (releaseCommand) {
+			/* Build a throwaway image from the build stage so the release
+			   command has access to dev dependencies (e.g. drizzle-kit).
+			   All layers are cached from the main build, so this is near-instant. */
+			const releaseImageTag = `${imageTag}-release`
+			const releaseBuild = await dockerBuild(runner, {
+				contextDir: cloneDir,
+				imageTag: releaseImageTag,
+				target: 'build',
+				onLine: (line) => emit('release', line)
+			})
+			if (!releaseBuild.success) {
+				throw new PipelineError('release', 'Failed to build release image')
+			}
+
 			emit('release', `Running release command: ${releaseCommand}`);
 
 			const releaseResult = await runRelease(runner, {
-				imageTag,
+				imageTag: releaseImageTag,
 				command: releaseCommand,
 				env: envMap,
 				volumes,
@@ -230,6 +244,9 @@ export async function runPipeline(
 				);
 			}
 			emit('release', 'Release command completed');
+
+			/* Remove the throwaway release image */
+			await runner.exec('docker', ['rmi', releaseImageTag]).catch(() => {})
 		}
 
 		/* ── Phase 4: Start ──────────────────────────────── */

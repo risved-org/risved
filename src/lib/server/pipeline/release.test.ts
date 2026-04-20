@@ -18,7 +18,7 @@ function makeRunner(
 }
 
 describe('runRelease', () => {
-	it('spawns docker run targeting the build stage with sh -c', async () => {
+	it('spawns docker run with sh -c', async () => {
 		const calls: string[][] = [];
 		const runner = makeRunner(async (cmd, args) => {
 			calls.push([cmd, ...args]);
@@ -35,12 +35,11 @@ describe('runRelease', () => {
 		expect(result.timedOut).toBe(false);
 
 		const dockerCall = calls.find((c) => c[0] === 'docker' && c[1] === 'run')!;
-		expect(dockerCall).toContain('--target');
-		expect(dockerCall).toContain('build');
 		expect(dockerCall).toContain('--rm');
 		expect(dockerCall).toContain('--network');
 		expect(dockerCall).toContain('risved');
 		expect(dockerCall).toContain('--env-file');
+		expect(dockerCall).not.toContain('--target');
 
 		/* The last four args are the image tag and `sh -c "<command>"` so users can
 		   write compound commands without us parsing shell syntax. */

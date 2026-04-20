@@ -78,8 +78,6 @@ export async function runRelease(
 		'--rm',
 		'--name',
 		containerName,
-		'--target',
-		'build',
 		'--network',
 		network,
 		'--env-file',
