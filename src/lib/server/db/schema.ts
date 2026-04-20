@@ -37,6 +37,8 @@ export const projects = sqliteTable('projects', {
 		.notNull()
 		.default(false),
 	requiredCheck: integer('required_check', { mode: 'boolean' }).notNull().default(false),
+	buildCommand: text('build_command'),
+	startCommand: text('start_command'),
 	releaseCommand: text('release_command'),
 	createdAt: text('created_at')
 		.notNull()

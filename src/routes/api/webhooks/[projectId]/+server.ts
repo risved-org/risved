@@ -125,6 +125,8 @@ export const POST: RequestHandler = async (event) => {
 			domain: project.domain ?? undefined,
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 			tier: (project.tier as Tier) ?? undefined,
+			buildCommand: project.buildCommand,
+			startCommand: project.startCommand,
 			releaseCommand: project.releaseCommand
 		},
 		createCommandRunner()

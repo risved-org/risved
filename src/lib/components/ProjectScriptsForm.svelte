@@ -79,10 +79,7 @@
 	{/if}
 
 	<!-- Build command -->
-	<label class="field">
-		<span class="field-label">Build command</span>
-		<span class="field-sub">Runs during image build. Leave blank to use the framework default.</span
-		>
+	<label>Build command
 		<input
 			type="text"
 			name="buildCommand"
@@ -90,6 +87,7 @@
 			placeholder="e.g. bun run build"
 			data-testid="build-command-input"
 		/>
+		<span class="field-hint">Runs during image build. Leave blank to use the framework default.</span>
 		{#if buildSuggestions.length > 0}
 			<div class="chips" data-testid="build-chips">
 				{#each buildSuggestions as s (s.name)}
@@ -108,11 +106,7 @@
 	</label>
 
 	<!-- Start command -->
-	<label class="field">
-		<span class="field-label">Start command</span>
-		<span class="field-sub"
-			>Runs in the runtime container. Leave blank to use the framework default.</span
-		>
+	<label>Start command
 		<input
 			type="text"
 			name="startCommand"
@@ -120,6 +114,7 @@
 			placeholder="e.g. node build/index.js"
 			data-testid="start-command-input"
 		/>
+		<span class="field-hint">Runs in the runtime container. Leave blank to use the framework default.</span>
 		{#if startSuggestions.length > 0}
 			<div class="chips" data-testid="start-chips">
 				{#each startSuggestions as s (s.name)}
@@ -138,14 +133,7 @@
 	</label>
 
 	<!-- Release command -->
-	<label class="field">
-		<span class="field-label">Release command</span>
-		<span class="field-sub">
-			Runs once per deploy, before traffic switches. Usually migrations.
-			<a href="https://risved.org/docs/release-commands" target="_blank" rel="noopener"
-				>Learn more</a
-			>
-		</span>
+	<label>Release command
 		<input
 			type="text"
 			name="releaseCommand"
@@ -153,6 +141,10 @@
 			placeholder="e.g. bun run migrate"
 			data-testid="release-command-input"
 		/>
+		<span class="field-hint">
+			Runs once per deploy, before traffic switches. Usually migrations.
+			<a href="https://risved.org/docs/release-commands" target="_blank" rel="noopener">Learn more</a>
+		</span>
 
 		{#if detection?.empty}
 			<p class="empty-state" data-testid="release-empty-state">
@@ -211,30 +203,34 @@
 		flex-direction: column;
 		gap: var(--space-4);
 		padding: var(--space-4);
+		padding-bottom: var(--space-5);
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 	}
 
-	.field {
+	label {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
-		font-size: 0.875rem;
+		font-size: .875rem;
+		font-weight: 500;
+		color: var(--color-text-1);
 	}
 
-	.field-label {
-		font-weight: 600;
-		color: var(--color-text-0);
-	}
-
-	.field-sub {
-		font-size: 0.8125rem;
+	.field-hint {
+		font-size: .875rem;
+		font-weight: 400;
 		color: var(--color-text-2);
 	}
 
-	.field-sub a {
-		color: var(--color-accent);
+	.field-hint a {
+		color: var(--color-text-2);
+		text-decoration: underline;
+	}
+
+	.field-hint a:hover {
+		color: var(--color-text-1);
 	}
 
 	input[type='text'] {
@@ -243,13 +239,19 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-0);
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
+		font-size: 1rem;
+		font-weight: 400;
 		outline: none;
+		transition: border-color 0.15s, box-shadow 0.15s;
 	}
 
 	input[type='text']:focus {
 		border-color: var(--color-accent);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
+	}
+
+	input::placeholder {
+		color: var(--color-text-2);
 	}
 
 	.chips {
@@ -269,6 +271,7 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
 		font-size: 0.75rem;
+		font-weight: 400;
 		cursor: pointer;
 	}
 
@@ -299,10 +302,12 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
 		font-size: 0.8125rem;
+		font-weight: 400;
 	}
 
 	.detected-pm {
 		font-size: 0.8125rem;
+		font-weight: 400;
 		color: var(--color-text-1);
 	}
 
@@ -327,16 +332,23 @@
 	}
 
 	.empty-state {
-		font-size: 0.8125rem;
+		font-size: .875rem;
+		font-weight: 400;
 		color: var(--color-text-2);
 	}
 
 	.empty-state a {
-		color: var(--color-accent);
+		color: var(--color-text-2);
+		text-decoration: underline;
+	}
+
+	.empty-state a:hover {
+		color: var(--color-text-1);
 	}
 
 	.last-release {
 		font-size: 0.8125rem;
+		font-weight: 400;
 		color: var(--color-text-1);
 	}
 
@@ -356,6 +368,7 @@
 
 	.hint {
 		font-size: 0.75rem;
+		font-weight: 400;
 		color: var(--color-text-2);
 	}
 </style>

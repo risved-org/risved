@@ -40,6 +40,16 @@ function maskValue(value: string, isSecret: boolean): string {
 	return plain.slice(0, 4) + '••••••••';
 }
 
+/** Fully mask a value with dots matching approximate length (±2 random offset). */
+function dotMask(value: string): string {
+	const plain = safeDecrypt(value);
+	const len = plain.length
+	if (len <= 2) return '••••'
+	const offset = Math.floor(Math.random() * 5) - 2 // -2 to +2
+	const dotCount = Math.max(4, len + offset)
+	return '•'.repeat(dotCount)
+}
+
 export const load: PageServerLoad = async ({ params }) => {
 	const { slug } = params;
 
@@ -74,6 +84,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		id: e.id,
 		key: e.key,
 		value: maskValue(e.value, e.isSecret),
+		dotMask: dotMask(e.value),
 		isSecret: e.isSecret
 	}));
 
@@ -154,6 +165,9 @@ export const load: PageServerLoad = async ({ params }) => {
 			webhookSecret: project.webhookSecret,
 			port: project.port,
 			status,
+			buildCommand: project.buildCommand ?? '',
+			startCommand: project.startCommand ?? '',
+			releaseCommand: project.releaseCommand ?? '',
 			createdAt: project.createdAt
 		},
 		deployments: deps.map((d) => ({
@@ -196,6 +210,24 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions: Actions = {
+	saveScripts: async ({ params, request }) => {
+		const { slug } = params
+		const formData = await request.formData()
+		const buildCommand = (formData.get('buildCommand') as string)?.trim() || null
+		const startCommand = (formData.get('startCommand') as string)?.trim() || null
+		const releaseCommand = (formData.get('releaseCommand') as string)?.trim() || null
+
+		const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
+		if (proj.length === 0) return fail(404, { error: 'Project not found' })
+
+		await db
+			.update(projects)
+			.set({ buildCommand, startCommand, releaseCommand, updatedAt: new Date().toISOString() })
+			.where(eq(projects.id, proj[0].id))
+
+		return { scriptsSaved: true }
+	},
+
 	delete: async ({ params }) => {
 		const { slug } = params;
 

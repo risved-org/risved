@@ -41,7 +41,9 @@ export const actions: Actions = {
 		const rootDir = (formData.get('rootDir') as string | null)?.trim() || '/';
 		const projectName = (formData.get('projectName') as string | null)?.trim() || '';
 		const frameworkId = (formData.get('frameworkId') as string | null)?.trim() || '';
-		const releaseCommand = (formData.get('releaseCommand') as string | null)?.trim() || '';
+		const buildCommand = (formData.get('buildCommand') as string | null)?.trim() || ''
+		const startCommand = (formData.get('startCommand') as string | null)?.trim() || ''
+		const releaseCommand = (formData.get('releaseCommand') as string | null)?.trim() || ''
 		const envKeysRaw = formData.get('envKeys') as string | null;
 		const envValsRaw = formData.get('envValues') as string | null;
 		const envSecretsRaw = formData.get('envSecrets') as string | null;
@@ -113,6 +115,8 @@ export const actions: Actions = {
 				tier: matchedFramework?.tier ?? undefined,
 				port,
 				webhookSecret,
+				buildCommand: buildCommand || null,
+				startCommand: startCommand || null,
 				releaseCommand: releaseCommand || null
 			})
 			.returning();
@@ -147,6 +151,8 @@ export const actions: Actions = {
 				domain: project.domain ?? undefined,
 				frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 				tier: (project.tier as Tier) ?? undefined,
+				buildCommand: project.buildCommand,
+				startCommand: project.startCommand,
 				releaseCommand: project.releaseCommand
 			},
 			createCommandRunner()

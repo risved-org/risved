@@ -3,9 +3,9 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import LineChart from '$lib/components/LineChart.svelte';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
 
@@ -50,6 +50,11 @@
 	let rollingBack = $state<string | null>(null);
 	let triggeringCron = $state<string | null>(null);
 	let expandedCron = $state<string | null>(null);
+
+	let buildCommand = $state(data.project.buildCommand)
+	let startCommand = $state(data.project.startCommand)
+	let releaseCommand = $state(data.project.releaseCommand)
+	let savingScripts = $state(false)
 
 	let containerLogs = $state('')
 	let logsOpen = $state(false)
@@ -330,6 +335,68 @@
 		</div>
 	</section>
 
+	<!-- Build / Start / Release Commands -->
+	<section class="section" data-testid="scripts-section">
+		<div class="section-header">
+			<h2 class="section-title">Commands</h2>
+		</div>
+		<form
+			method="post"
+			action="?/saveScripts"
+			use:enhance={() => {
+				savingScripts = true
+				return async ({ update }) => {
+					savingScripts = false
+					await update()
+				}
+			}}
+		>
+			<fieldset class="scripts-fieldset">
+				<label>Build command
+					<input
+						type="text"
+						name="buildCommand"
+						bind:value={buildCommand}
+						placeholder="e.g. bun run build"
+						data-testid="build-command-input"
+					/>
+					<span class="field-hint">Runs during image build. Leave blank to use the framework default.</span>
+				</label>
+				<label>Start command
+					<input
+						type="text"
+						name="startCommand"
+						bind:value={startCommand}
+						placeholder="e.g. node build/index.js"
+						data-testid="start-command-input"
+					/>
+					<span class="field-hint">Runs in the runtime container. Leave blank to use the framework default.</span>
+				</label>
+				<label>Release command
+					<input
+						type="text"
+						name="releaseCommand"
+						bind:value={releaseCommand}
+						placeholder="e.g. bun run migrate"
+						data-testid="release-command-input"
+					/>
+					<span class="field-hint">
+						Runs once per deploy, before traffic switches. Usually migrations.
+						<a href="https://risved.org/docs/release-commands" target="_blank" rel="noopener">Learn more</a>
+					</span>
+				</label>
+			</fieldset>
+			<div class="save-bar">
+				<button type="submit" class="btn-sm btn-save" disabled={savingScripts} data-testid="save-scripts-btn">
+					{savingScripts ? 'Saving…' : 'Save'}
+				</button>
+				{#if form?.scriptsSaved}
+					<span class="save-success">Saved</span>
+				{/if}
+			</div>
+		</form>
+	</section>
+
 	<!-- Environment Variables -->
 	<section class="section" data-testid="env-section">
 		<div class="section-header">
@@ -348,7 +415,7 @@
 					<div class="env-line" data-testid="env-line">
 						<span class="env-key">{env.key}</span>
 						<span class="env-eq">=</span>
-						<span class="env-val" class:env-secret={env.isSecret}>{env.value}</span>
+						<span class="env-val env-masked">{env.dotMask}</span>
 					</div>
 				{/each}
 			</div>
@@ -808,8 +875,88 @@
 	.env-val {
 		color: var(--color-term-success);
 	}
-	.env-secret {
+	.env-masked {
 		color: var(--color-text-2);
+		letter-spacing: 0.05em;
+	}
+
+	/* Scripts section */
+	.scripts-fieldset {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		padding: var(--space-4);
+		padding-bottom: var(--space-5);
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+
+	.scripts-fieldset label {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		font-size: .875rem;
+		font-weight: 500;
+		color: var(--color-text-1);
+	}
+
+	.scripts-fieldset input[type='text'] {
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-bg-2);
+		border: 1.5px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-0);
+		font-size: 1rem;
+		font-weight: 400;
+		outline: none;
+		transition: border-color 0.15s, box-shadow 0.15s;
+	}
+
+	.scripts-fieldset input[type='text']:focus {
+		border-color: var(--color-accent);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
+	}
+
+	.scripts-fieldset input::placeholder {
+		color: var(--color-text-2);
+	}
+
+	.field-hint {
+		font-size: .875rem;
+		font-weight: 400;
+		color: var(--color-text-2);
+	}
+
+	.field-hint a {
+		color: var(--color-text-2);
+		text-decoration: underline;
+	}
+
+	.field-hint a:hover {
+		color: var(--color-text-1);
+	}
+
+	.save-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		margin-top: var(--space-3);
+	}
+
+	.btn-save {
+		border-color: var(--color-accent);
+		color: var(--color-accent);
+	}
+
+	.btn-save:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+	}
+
+	.save-success {
+		font-size: .875rem;
+		font-weight: 500;
+		color: var(--color-live);
 	}
 
 	/* Domains */

@@ -35,6 +35,10 @@ export interface PipelineConfig {
 	frameworkId?: FrameworkId;
 	/** Override the detected tier */
 	tier?: Tier;
+	/** Override the detected build command. Null/empty uses framework default. */
+	buildCommand?: string | null;
+	/** Override the detected start command. Null/empty uses framework default. */
+	startCommand?: string | null;
 	/** Shell command to run once per deploy before traffic switches. Null/empty skips the phase. */
 	releaseCommand?: string | null;
 }

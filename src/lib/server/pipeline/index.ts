@@ -143,7 +143,9 @@ export async function runPipeline(
 			frameworkId,
 			tier,
 			lockfile: pmResult.lockfile,
-			yarnVersion: pmResult.yarnVersion
+			yarnVersion: pmResult.yarnVersion,
+			buildCommand: config.buildCommand || undefined,
+			startCommand: config.startCommand || undefined
 		});
 		const dockerfileContent = dockerfile.content
 

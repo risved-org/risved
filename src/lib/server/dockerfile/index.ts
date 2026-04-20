@@ -22,6 +22,7 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 		port = DEFAULT_PORT,
 		installCommand,
 		buildCommand,
+		startCommand,
 		lockfile,
 		yarnVersion
 	} = options;
@@ -36,6 +37,11 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 			serveCommand: 'deno run --allow-all main.ts',
 			denoPermissions: '--allow-all'
 		};
+	}
+
+	/* Apply startCommand override to the framework config's serveCommand */
+	if (startCommand) {
+		config = { ...config, serveCommand: startCommand }
 	}
 
 	let content: string;

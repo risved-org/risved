@@ -15,6 +15,8 @@ export interface DockerfileOptions {
 	installCommand?: string;
 	/** Custom build command override (default: npm run build) */
 	buildCommand?: string;
+	/** Custom start/serve command override (default: framework-specific) */
+	startCommand?: string;
 	/** Detected lockfile in the project root */
 	lockfile?: Lockfile;
 	/** Yarn release line (only relevant when lockfile === 'yarn.lock') */
