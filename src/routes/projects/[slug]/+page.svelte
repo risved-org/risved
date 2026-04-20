@@ -346,8 +346,11 @@
 			use:enhance={() => {
 				savingScripts = true
 				return async ({ update }) => {
-					savingScripts = false
 					await update()
+					buildCommand = data.project.buildCommand
+					startCommand = data.project.startCommand
+					releaseCommand = data.project.releaseCommand
+					savingScripts = false
 				}
 			}}
 		>
