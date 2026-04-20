@@ -199,8 +199,8 @@
 				>
 			</div>
 
-			<div class="form-group">
-				<label class="form-label">Events</label>
+			<fieldset class="form-group">
+				<legend class="form-label">Events</legend>
 				<div class="toggle-list">
 					<label class="toggle-row" data-testid="toggle-push">
 						<input
@@ -219,7 +219,7 @@
 						<span class="toggle-label">PR merged</span>
 					</label>
 				</div>
-			</div>
+			</fieldset>
 
 			<button type="submit" class="btn-save" data-testid="save-btn">Save settings</button>
 		</form>
@@ -346,6 +346,11 @@
 	}
 	.form-group {
 		gap: var(--space-2);
+	}
+	fieldset.form-group {
+		border: none;
+		padding: 0;
+		margin: 0;
 	}
 	.form-input {
 		background: var(--color-bg-1);

@@ -527,13 +527,6 @@
 		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
 	}
 
-	.form-input[readonly] {
-		border-color: var(--color-border);
-		box-shadow: none;
-		color: var(--color-text-2);
-		cursor: default;
-	}
-
 	.mono {
 		font-family: var(--font-mono);
 		font-size: .875rem;
