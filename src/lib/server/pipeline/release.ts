@@ -88,7 +88,9 @@ export async function runRelease(
 		args.push('-v', vol);
 	}
 
-	args.push(imageTag, 'sh', '-c', command);
+	/* Redirect stdin from /dev/null so interactive prompts fail fast
+	   instead of silently picking a default (e.g. drizzle-kit push). */
+	args.push(imageTag, 'sh', '-c', `${command} < /dev/null`);
 
 	/* Enforce the timeout by racing the exec against a timer that
 	   force-removes the container. The exec resolves with whatever

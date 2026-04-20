@@ -46,7 +46,7 @@ describe('runRelease', () => {
 		const imageIdx = dockerCall.indexOf('my-app:abc1234');
 		expect(dockerCall[imageIdx + 1]).toBe('sh');
 		expect(dockerCall[imageIdx + 2]).toBe('-c');
-		expect(dockerCall[imageIdx + 3]).toBe('bun run migrate');
+		expect(dockerCall[imageIdx + 3]).toBe('bun run migrate < /dev/null');
 	});
 
 	it('passes volume mounts through', async () => {
