@@ -40,14 +40,11 @@ function maskValue(value: string, isSecret: boolean): string {
 	return plain.slice(0, 4) + '••••••••';
 }
 
-/** Fully mask a value with dots matching approximate length (±2 random offset). */
+/** Fully mask a value with a fixed dot count so it doesn't shift on every load. */
 function dotMask(value: string): string {
-	const plain = safeDecrypt(value);
-	const len = plain.length
-	if (len <= 2) return '••••'
-	const offset = Math.floor(Math.random() * 5) - 2 // -2 to +2
-	const dotCount = Math.max(4, len + offset)
-	return '•'.repeat(dotCount)
+	const plain = safeDecrypt(value)
+	if (plain.length <= 2) return '••••••••'
+	return '••••••••'
 }
 
 export const load: PageServerLoad = async ({ params }) => {
