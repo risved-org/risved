@@ -16,7 +16,15 @@ const DEFAULT_PORT = 8000;
  * - node: Node build + Node serve (Next.js, Nuxt, SolidStart)
  */
 export function generateDockerfile(options: DockerfileOptions): DockerfileResult {
-	const { frameworkId, tier, port = DEFAULT_PORT, installCommand, buildCommand, lockfile } = options;
+	const {
+		frameworkId,
+		tier,
+		port = DEFAULT_PORT,
+		installCommand,
+		buildCommand,
+		lockfile,
+		yarnVersion
+	} = options;
 	let config = getFrameworkConfig(frameworkId);
 
 	/* Generic framework: adjust commands based on actual tier */
@@ -37,10 +45,10 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 			content = denoTemplate(config, port);
 			break;
 		case 'hybrid':
-			content = hybridTemplate(config, port, installCommand, buildCommand, lockfile);
+			content = hybridTemplate(config, port, installCommand, buildCommand, lockfile, yarnVersion);
 			break;
 		case 'node':
-			content = nodeTemplate(config, port, installCommand, buildCommand, lockfile);
+			content = nodeTemplate(config, port, installCommand, buildCommand, lockfile, yarnVersion);
 			break;
 		default:
 			throw new Error(`Unknown tier: ${tier}`);

@@ -61,6 +61,19 @@
 </script>
 
 <fieldset class="scripts-form" data-testid="scripts-form">
+	{#if detection}
+		<p class="detected-pm" data-testid="detected-package-manager">
+			<span class="detected-label">Detected package manager:</span>
+			<strong>{detection.packageManager}</strong>
+			<span class="detected-source">
+				{#if detection.lockfile}
+					(from <code>{detection.lockfile}</code>)
+				{:else}
+					(no lockfile found — using default)
+				{/if}
+			</span>
+		</p>
+	{/if}
 	{#if detection?.warning}
 		<p class="warning" data-testid="lockfile-warning">{detection.warning}</p>
 	{/if}
@@ -286,6 +299,31 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
 		font-size: 0.8125rem;
+	}
+
+	.detected-pm {
+		font-size: 0.8125rem;
+		color: var(--color-text-1);
+	}
+
+	.detected-label {
+		color: var(--color-text-2);
+	}
+
+	.detected-pm strong {
+		color: var(--color-text-0);
+		text-transform: capitalize;
+	}
+
+	.detected-source {
+		color: var(--color-text-2);
+	}
+
+	.detected-source code {
+		font-family: var(--font-mono);
+		padding: 0 4px;
+		background: var(--color-bg-2);
+		border-radius: var(--radius-sm);
 	}
 
 	.empty-state {

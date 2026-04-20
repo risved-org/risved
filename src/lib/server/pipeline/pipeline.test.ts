@@ -69,7 +69,8 @@ vi.mock('node:fs/promises', () => ({
 	writeFile: vi.fn().mockResolvedValue(undefined),
 	mkdir: vi.fn().mockResolvedValue(undefined),
 	rm: vi.fn().mockResolvedValue(undefined),
-	access: vi.fn().mockRejectedValue(new Error('no lockfile'))
+	access: vi.fn().mockRejectedValue(new Error('no lockfile')),
+	stat: vi.fn().mockRejectedValue(new Error('no lockfile'))
 }));
 
 import { runPipeline } from './index';

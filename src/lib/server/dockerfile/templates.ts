@@ -2,44 +2,65 @@ import type { FrameworkBuildConfig, Lockfile } from './types';
 
 const DENO_IMAGE = 'denoland/deno:latest';
 const NODE_IMAGE = 'node:22-slim';
-const BUN_IMAGE = 'oven/bun:1';
 
-/* Pre-warmed builder images with native compilation tools pre-installed.
-   Built on install and rebuilt weekly via cron. Falls back to upstream
-   images if the local builders don't exist (custom install commands). */
-const NODE_BUILDER = 'risved-node-builder';
-const BUN_BUILDER = 'risved-bun-builder';
+/* Unified warm base image for Node-tier builds. Contains Node 22, Corepack-
+   managed pnpm and Yarn (Classic + Berry), and Bun installed globally.
+   Rebuilt on the Sunday cron schedule. */
+const NODE_BUILD_IMAGE = 'risved-node-build:22';
 
 function isBun(lockfile?: Lockfile | null): boolean {
 	return lockfile === 'bun.lockb' || lockfile === 'bun.lock'
 }
 
-/** Map lockfile to the correct install/build commands, COPY line, and cache mount */
-function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install: string; run: string; cacheMount: string; prune: string } {
+interface PackageManagerCommands {
+	/** Line that copies package.json and any relevant lockfile wildcards. */
+	copyLine: string;
+	/** Install command that honours frozen-lockfile semantics. */
+	install: string;
+	/** `<pm> run` prefix for substituting into the framework build command. */
+	run: string;
+	/** Prune command for frameworks that copy node_modules to runtime. */
+	prune: string;
+}
+
+/**
+ * Map a detected lockfile (and optionally the Yarn release line) to the right
+ * shell commands. All package managers live in the unified warm image, so no
+ * per-manager cache-mount or conditional install step is needed here.
+ */
+function pmFromLockfile(
+	lockfile?: Lockfile | null,
+	yarnVersion?: 'classic' | 'berry'
+): PackageManagerCommands {
 	switch (lockfile) {
 		case 'bun.lockb':
 		case 'bun.lock':
 			return {
-				copyLine: `COPY package.json ${lockfile} ./`,
+				copyLine: 'COPY package.json bun.lockb* bun.lock* ./',
 				install: 'bun install --frozen-lockfile',
 				run: 'bun run',
-				cacheMount: '--mount=type=cache,target=/root/.bun/install/cache ',
 				prune: 'rm -rf node_modules && bun install --frozen-lockfile --production'
 			}
 		case 'pnpm-lock.yaml':
 			return {
 				copyLine: 'COPY package.json pnpm-lock.yaml ./',
-				install: 'corepack enable && pnpm install --frozen-lockfile',
+				install: 'pnpm install --frozen-lockfile',
 				run: 'pnpm run',
-				cacheMount: '--mount=type=cache,target=/root/.local/share/pnpm/store ',
 				prune: 'pnpm prune --prod'
 			}
 		case 'yarn.lock':
+			if (yarnVersion === 'berry') {
+				return {
+					copyLine: 'COPY package.json yarn.lock .yarnrc.yml* ./',
+					install: 'yarn install --immutable',
+					run: 'yarn',
+					prune: 'yarn workspaces focus --production --all'
+				}
+			}
 			return {
 				copyLine: 'COPY package.json yarn.lock ./',
-				install: 'corepack enable && yarn install --frozen-lockfile',
+				install: 'yarn install --frozen-lockfile',
 				run: 'yarn',
-				cacheMount: '--mount=type=cache,target=/usr/local/share/.cache/yarn ',
 				prune: 'yarn install --production --ignore-scripts'
 			}
 		default:
@@ -47,11 +68,14 @@ function pmFromLockfile(lockfile?: Lockfile | null): { copyLine: string; install
 				copyLine: 'COPY package.json package-lock.json* ./',
 				install: 'npm ci',
 				run: 'npm run',
-				cacheMount: '--mount=type=cache,target=/root/.npm ',
 				prune: 'npm prune --omit=dev'
 			}
 	}
 }
+
+/** Wildcard copy line that captures every lockfile we support at once. */
+const ALL_LOCKFILES_COPY =
+	'COPY package.json bun.lockb* bun.lock* pnpm-lock.yaml* yarn.lock* package-lock.json* .yarnrc.yml* ./';
 
 /**
  * Tier 1 (Pure Deno): Fresh, Hono, Lume
@@ -86,27 +110,25 @@ export function hybridTemplate(
 	port: number,
 	installCommand?: string,
 	buildCommand?: string,
-	lockfile?: Lockfile | null
+	lockfile?: Lockfile | null,
+	yarnVersion?: 'classic' | 'berry'
 ): string {
-	const pm = pmFromLockfile(lockfile)
+	const pm = pmFromLockfile(lockfile, yarnVersion)
 	const install = installCommand ?? pm.install
 	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
-	const builderImage = installCommand
-		? (isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE)
-		: (isBun(lockfile) ? BUN_BUILDER : NODE_BUILDER)
-	const cache = installCommand ? '' : pm.cacheMount
+	const copyLine = installCommand ? ALL_LOCKFILES_COPY : pm.copyLine
 	const needsNodeModules = config.copyPaths.includes('node_modules')
 
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
 		`# Build stage`,
-		`FROM ${builderImage} AS build`,
+		`FROM ${NODE_BUILD_IMAGE} AS build`,
 		'',
 		'WORKDIR /app',
 		'',
-		installCommand ? 'COPY package.json ./' : pm.copyLine,
-		`RUN ${cache}${install}`,
+		copyLine,
+		`RUN ${install}`,
 		'',
 		'COPY . .',
 		`RUN ${build}`,
@@ -119,7 +141,7 @@ export function hybridTemplate(
 	lines.push(
 		'',
 		`# Runtime stage`,
-		`FROM ${DENO_IMAGE} AS runtime`,
+		`FROM ${DENO_IMAGE}`,
 		'',
 		'WORKDIR /app',
 		''
@@ -133,39 +155,38 @@ export function hybridTemplate(
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
 	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '')
 
-	return lines.join('\n')
+	return lines.join('\n');
 }
 
 /**
  * Tier 3 (Node): Node build, Node serve
- * Two stages: Node for building, Node slim for serving.
+ * Build stage uses the unified warm image (all package managers pre-installed);
+ * runtime is slim Node with no package manager tooling or dev deps.
  */
 export function nodeTemplate(
 	config: FrameworkBuildConfig,
 	port: number,
 	installCommand?: string,
 	buildCommand?: string,
-	lockfile?: Lockfile | null
+	lockfile?: Lockfile | null,
+	yarnVersion?: 'classic' | 'berry'
 ): string {
-	const pm = pmFromLockfile(lockfile)
+	const pm = pmFromLockfile(lockfile, yarnVersion)
 	const install = installCommand ?? pm.install
 	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
 
-	const builderImage = installCommand
-		? (isBun(lockfile) ? BUN_IMAGE : NODE_IMAGE)
-		: (isBun(lockfile) ? BUN_BUILDER : NODE_BUILDER)
-	const cache = installCommand ? '' : pm.cacheMount
+	const copyLine = installCommand ? ALL_LOCKFILES_COPY : pm.copyLine
 	const needsNodeModules = config.copyPaths.includes('node_modules')
 
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
 		`# Build stage`,
-		`FROM ${builderImage} AS build`,
+		`FROM ${NODE_BUILD_IMAGE} AS build`,
 		'',
 		'WORKDIR /app',
 		'',
-		installCommand ? 'COPY package.json ./' : pm.copyLine,
-		`RUN ${cache}${install}`,
+		copyLine,
+		`RUN ${install}`,
 		'',
 		'COPY . .',
 		`RUN ${build}`,
