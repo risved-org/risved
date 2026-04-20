@@ -122,7 +122,7 @@ export function hybridTemplate(
 
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
-		`# Build stage`,
+		`# Build stage (retains dev deps for release commands)`,
 		`FROM ${NODE_BUILD_IMAGE} AS build`,
 		'',
 		'WORKDIR /app',
@@ -134,8 +134,15 @@ export function hybridTemplate(
 		`RUN ${build}`,
 	]
 
+	/* Prune in a separate stage so --target build still has dev deps */
+	const copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {
-		lines.push(`RUN ${pm.prune}`)
+		lines.push(
+			'',
+			`# Pruned deps stage`,
+			`FROM build AS deps`,
+			`RUN ${pm.prune}`
+		)
 	}
 
 	lines.push(
@@ -149,7 +156,7 @@ export function hybridTemplate(
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=build /app/${copyPath} ./${copyPath}`)
+		lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./${copyPath}`)
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
@@ -180,7 +187,7 @@ export function nodeTemplate(
 
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
-		`# Build stage`,
+		`# Build stage (retains dev deps for release commands)`,
 		`FROM ${NODE_BUILD_IMAGE} AS build`,
 		'',
 		'WORKDIR /app',
@@ -192,8 +199,15 @@ export function nodeTemplate(
 		`RUN ${build}`,
 	]
 
+	/* Prune in a separate stage so --target build still has dev deps */
+	const copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {
-		lines.push(`RUN ${pm.prune}`)
+		lines.push(
+			'',
+			`# Pruned deps stage`,
+			`FROM build AS deps`,
+			`RUN ${pm.prune}`
+		)
 	}
 
 	lines.push(
@@ -207,7 +221,7 @@ export function nodeTemplate(
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=build /app/${copyPath} ./${copyPath}`)
+		lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./${copyPath}`)
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')

@@ -57,7 +57,7 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('RUN npm run build');
 			// Runtime stage — slim Node
 			expect(result.content).toContain('FROM node:22-slim AS runtime');
-			expect(result.content).toContain('COPY --from=build /app/build ./build');
+			expect(result.content).toContain('COPY --from=deps /app/build ./build');
 			expect(result.content).toContain(
 				'CMD ["node", "build/index.js"]'
 			);
