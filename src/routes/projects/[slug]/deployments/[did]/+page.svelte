@@ -30,12 +30,29 @@
 		return 'clone';
 	});
 
+	/* All pipeline phases in order, used to map hidden phases to visible ones */
+	const ALL_PHASES = ['clone', 'detect', 'build', 'release', 'start', 'health', 'route', 'cutover', 'live']
+
 	/* Phase state for indicator */
 	function phaseState(phaseId: string): 'completed' | 'active' | 'pending' | 'failed' {
-		if (status === 'failed' && currentPhase === phaseId) return 'failed';
 		const phases = data.phases.map((p) => p.id);
-		const currentIdx = phases.indexOf(currentPhase);
+		let currentIdx = phases.indexOf(currentPhase);
+
+		/* If the current phase isn't in the indicator (e.g. route, cutover),
+		   find the last visible phase that comes before it in the full pipeline. */
+		if (currentIdx === -1) {
+			const allIdx = ALL_PHASES.indexOf(currentPhase)
+			for (let j = allIdx - 1; j >= 0; j--) {
+				const visIdx = phases.indexOf(ALL_PHASES[j])
+				if (visIdx !== -1) {
+					currentIdx = visIdx
+					break
+				}
+			}
+		}
+
 		const phaseIdx = phases.indexOf(phaseId);
+		if (status === 'failed' && phaseIdx === currentIdx) return 'failed';
 		if (phaseIdx < currentIdx) return 'completed';
 		if (phaseIdx === currentIdx) return status === 'live' ? 'completed' : 'active';
 		return 'pending';
