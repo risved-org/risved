@@ -49,7 +49,7 @@
 		flex: 1;
 		padding: var(--space-4);
 		gap: var(--space-4);
-		max-width: 1200px;
+		max-width: 64rem;
 		margin: 0 auto;
 		width: 100%;
 	}
