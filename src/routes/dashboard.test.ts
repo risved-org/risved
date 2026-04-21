@@ -176,10 +176,10 @@ describe('dashboard page source', () => {
 		}
 	});
 
-	it('has project table with dense rows', async () => {
+	it('has project card grid', async () => {
 		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
-		expect(mod.default).toContain('project-table');
-		expect(mod.default).toContain('table-row');
+		expect(mod.default).toContain('project-grid');
+		expect(mod.default).toContain('project-card');
 	});
 
 	it('has status dots for project states', async () => {
@@ -207,9 +207,9 @@ describe('dashboard page source', () => {
 		expect(mod.default).toContain('goto(');
 	});
 
-	it('uses mono font and CSS custom properties', async () => {
+	it('uses mono class and CSS custom properties', async () => {
 		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
-		expect(mod.default).toContain('font-mono');
+		expect(mod.default).toContain('mono');
 		expect(mod.default).toContain('--color-bg-1');
 	});
 });
