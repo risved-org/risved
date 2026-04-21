@@ -782,88 +782,6 @@
 		</div>
 	</section>
 
-	<!-- Census Reporting -->
-	<section class="section" data-testid="census-section">
-		<h2 class="section-title">Census reporting</h2>
-		<div class="form-card">
-			<div class="census-status">
-				<span class="form-label">Status</span>
-				<span class="census-enabled">Enabled</span>
-			</div>
-			<p class="form-hint">
-				Risved sends a minimal daily ping to risved.com for install census and version tracking. No domains, IPs, project data, or user data is included.
-			</p>
-			{#if data.censusInfo}
-				<div class="census-payload" data-testid="census-payload">
-					<span class="form-label">Payload sent</span>
-					<pre class="census-json mono">{JSON.stringify({
-	instance_id: data.censusInfo.instanceId,
-	version: data.censusInfo.version,
-	timestamp: new Date().toISOString()
-}, null, 2)}</pre>
-				</div>
-				{#if data.censusInfo.lastPing}
-					<p class="form-hint">
-						Last ping: <TimeAgo value={data.censusInfo.lastPing} includeTime />
-					</p>
-				{/if}
-			{/if}
-		</div>
-	</section>
-
-	<!-- Operational Reporting -->
-	<section class="section" data-testid="heartbeat-section">
-		<h2 class="section-title">Operational reporting</h2>
-		<form
-			method="post"
-			action="?/heartbeat"
-			use:enhance={() => {
-				heartbeatSaving = true
-				return async ({ update }) => {
-					heartbeatSaving = false
-					await update()
-				}
-			}}
-		>
-			<div class="form-card">
-				<p class="form-hint">
-					Send anonymous operational metadata to Risved every 5 minutes.
-					This powers live status in your Cloud dashboard.
-				</p>
-				<p class="form-hint">
-					Includes: version, uptime, project count, last deploy time, aggregate usage metrics.
-				</p>
-				<p class="form-hint">
-					Does NOT include: project names, domain names, log contents, or any project data.
-				</p>
-				<input type="hidden" name="enabled" value={heartbeatEnabled ? 'false' : 'true'} />
-				<div class="form-actions">
-					<label class="toggle-label">
-						<button
-							type="submit"
-							class="toggle-btn"
-							class:toggle-on={heartbeatEnabled}
-							disabled={heartbeatSaving}
-							data-testid="heartbeat-toggle"
-							aria-label={heartbeatEnabled ? 'Disable operational reporting' : 'Enable operational reporting'}
-						>
-							<span class="toggle-knob"></span>
-						</button>
-						<span class="toggle-text">{heartbeatEnabled ? 'Enabled' : 'Disabled'}</span>
-					</label>
-					{#if showHeartbeatSaved}
-						<span class="save-success" data-testid="heartbeat-saved">Saved</span>
-					{/if}
-				</div>
-				{#if heartbeatEnabled && data.heartbeatInfo?.lastPing}
-					<p class="form-hint">
-						Last ping: <TimeAgo value={data.heartbeatInfo.lastPing} includeTime />
-					</p>
-				{/if}
-			</div>
-		</form>
-	</section>
-
 	<!-- Docker Disk Usage -->
 	<section class="section" data-testid="docker-section">
 		<h2 class="section-title">Docker resources</h2>
@@ -948,6 +866,84 @@
 					<span class="save-success" data-testid="prune-result">{pruneResult}</span>
 				{/if}
 			</div>
+		</div>
+	</section>
+
+	<!-- Operational Reporting -->
+	<section class="section" data-testid="heartbeat-section">
+		<h2 class="section-title">Operational reporting</h2>
+		<form
+			method="post"
+			action="?/heartbeat"
+			use:enhance={() => {
+				heartbeatSaving = true
+				return async ({ update }) => {
+					heartbeatSaving = false
+					await update()
+				}
+			}}
+		>
+			<div class="form-card">
+				<p class="form-hint">
+					Send anonymous operational metadata to Risved every 5 minutes.
+					This powers live status in your Cloud dashboard.
+				</p>
+				<p class="form-hint">
+					Includes: version, uptime, project count, last deploy time, aggregate usage metrics.
+				</p>
+				<p class="form-hint">
+					Does NOT include: project names, domain names, log contents, or any project data.
+				</p>
+				<input type="hidden" name="enabled" value={heartbeatEnabled ? 'false' : 'true'} />
+				<div class="form-actions">
+					<label class="toggle-label">
+						<button
+							type="submit"
+							class="toggle-btn"
+							class:toggle-on={heartbeatEnabled}
+							disabled={heartbeatSaving}
+							data-testid="heartbeat-toggle"
+							aria-label={heartbeatEnabled ? 'Disable operational reporting' : 'Enable operational reporting'}
+						>
+							<span class="toggle-knob"></span>
+						</button>
+						<span class="toggle-text">{heartbeatEnabled ? 'Enabled' : 'Disabled'}</span>
+					</label>
+					{#if showHeartbeatSaved}
+						<span class="save-success" data-testid="heartbeat-saved">Saved</span>
+					{/if}
+				</div>
+				{#if heartbeatEnabled && data.heartbeatInfo?.lastPing}
+					<p class="form-hint">
+						Last ping: <TimeAgo value={data.heartbeatInfo.lastPing} includeTime />
+					</p>
+				{/if}
+			</div>
+		</form>
+	</section>
+
+	<!-- Census Reporting -->
+	<section class="section" data-testid="census-section">
+		<h2 class="section-title">Census reporting</h2>
+		<div class="form-card">
+			<p class="form-hint">
+				Risved sends a minimal daily ping to risved.com for install census and version tracking. No domains, IPs, project data, or user data is included.
+			</p>
+			{#if data.censusInfo}
+				<div class="census-payload" data-testid="census-payload">
+					<span class="form-label">Payload sent</span>
+					<pre class="census-json mono">{JSON.stringify({
+	instance_id: data.censusInfo.instanceId,
+	version: data.censusInfo.version,
+	timestamp: new Date().toISOString()
+}, null, 2)}</pre>
+				</div>
+				{#if data.censusInfo.lastPing}
+					<p class="form-hint">
+						Last ping: <TimeAgo value={data.censusInfo.lastPing} includeTime />
+					</p>
+				{/if}
+			{/if}
 		</div>
 	</section>
 </article>
@@ -1114,15 +1110,6 @@
 	}
 
 	/* Census */
-	.census-status {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-	.census-enabled {
-		color: var(--color-live);
-		font-weight: 500;
-	}
 	.census-json {
 		padding: var(--space-3);
 		background: var(--color-bg-0);
