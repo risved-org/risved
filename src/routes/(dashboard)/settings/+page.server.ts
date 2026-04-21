@@ -12,9 +12,10 @@ import type { PageServerLoad, Actions } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	const currentUser = locals.user;
 	if (!currentUser) {
-		return { user: null, hostname: null, timezone: null, apiToken: null, retentionDays: 30, connections: [] };
+		return { user: null, displayName: null, hostname: null, timezone: null, apiToken: null, retentionDays: 30, connections: [] };
 	}
 
+	const displayName = await getSetting('display_name');
 	const hostname = await getSetting('hostname');
 	const timezone = await getSetting('timezone');
 	const apiToken = await getSetting('api_token');
@@ -39,6 +40,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			email: currentUser.email,
 			name: currentUser.name
 		},
+		displayName: displayName ?? '',
 		hostname: hostname ?? '',
 		timezone: timezone ?? '',
 		apiToken: apiToken ? maskToken(apiToken) : null,
@@ -57,12 +59,14 @@ function maskToken(token: string): string {
 }
 
 export const actions: Actions = {
-	/** Update general settings (hostname, timezone). */
+	/** Update general settings (display name, hostname, timezone). */
 	general: async ({ request }) => {
 		const formData = await request.formData();
+		const displayName = (formData.get('displayName') as string)?.trim() ?? '';
 		const hostname = (formData.get('hostname') as string)?.trim() ?? '';
 		const timezone = (formData.get('timezone') as string)?.trim() ?? 'UTC';
 
+		await setSetting('display_name', displayName);
 		if (hostname) {
 			await setSetting('hostname', hostname);
 		}

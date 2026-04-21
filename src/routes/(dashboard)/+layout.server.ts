@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process'
 import os from 'node:os'
+import { getSetting } from '$lib/server/settings'
 import type { LayoutServerLoad } from './$types'
 
 /** Reads system health metrics from OS APIs and shell commands */
@@ -52,5 +53,7 @@ export function _getSystemHealth() {
 
 export const load: LayoutServerLoad = async () => {
 	const health = _getSystemHealth()
-	return { health }
+	const displayName = await getSetting('display_name') || ''
+	const hostname = await getSetting('hostname') || os.hostname()
+	return { health, displayName, hostname }
 }

@@ -9,6 +9,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	let displayName = $state(data.displayName ?? '');
 	let hostname = $state(data.hostname ?? '');
 	let timezone = $state(
 		data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
@@ -339,6 +340,19 @@
 			}}
 		>
 			<div class="form-card">
+				<label class="form-group">
+					<span class="form-label">Display name</span>
+					<input
+						type="text"
+						name="displayName"
+						bind:value={displayName}
+						placeholder="e.g. Production EU"
+						class="form-input"
+						data-testid="display-name-input"
+					/>
+					<p class="form-hint">A friendly name for this instance. Shown in the dashboard nav bar.</p>
+				</label>
+
 				<label class="form-group">
 					<span class="form-label">Hostname</span>
 					<input

@@ -61,6 +61,7 @@ describe('settings load', () => {
 
 	it('returns user data and settings when authenticated', async () => {
 		(getSetting as ReturnType<typeof vi.fn>)
+			.mockResolvedValueOnce(null) // display_name
 			.mockResolvedValueOnce('risved.example.com') // hostname
 			.mockResolvedValueOnce('America/New_York') // timezone
 			.mockResolvedValueOnce(null) // api_token
@@ -83,9 +84,10 @@ describe('settings load', () => {
 
 	it('masks API token in load', async () => {
 		(getSetting as ReturnType<typeof vi.fn>)
-			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce('rsv_abcdef1234567890abcdef1234567890')
+			.mockResolvedValueOnce(null) // display_name
+			.mockResolvedValueOnce(null) // hostname
+			.mockResolvedValueOnce(null) // timezone
+			.mockResolvedValueOnce('rsv_abcdef1234567890abcdef1234567890') // api_token
 			.mockResolvedValueOnce(null); // log_retention_days
 
 		const result = (await load({

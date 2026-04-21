@@ -7,6 +7,7 @@
 
 <header class="dashboard-bar">
 	<div class="bar-inner">
+		<span class="instance-name">{data.displayName || data.hostname}</span>
 		<nav>
 			<a href={resolve('/projects')} class:active={page.url.pathname === '/projects'}>Projects</a>
 			<a href={resolve('/metrics')} class:active={page.url.pathname === '/metrics'}>Metrics</a>
@@ -52,6 +53,16 @@
 		max-width: 64rem;
 		margin: 0 auto;
 		width: 100%;
+	}
+
+	.instance-name {
+		font-size: .8125rem;
+		color: var(--color-text-1);
+		font-weight: 500;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 12rem;
 	}
 
 	nav {
