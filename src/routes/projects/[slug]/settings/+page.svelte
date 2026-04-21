@@ -330,16 +330,6 @@
 		margin-top: var(--space-3);
 	}
 
-	.btn-primary {
-		border: 1px solid var(--color-accent);
-		color: var(--color-bg-0);
-		font-weight: 500;
-	}
-	.btn-primary:hover:not(:disabled) {
-		opacity: 0.9;
-		background: var(--color-accent);
-	}
-
 	.redeploy-banner {
 		display: flex;
 		align-items: center;
