@@ -6,16 +6,12 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props()
 
+	// svelte-ignore state_referenced_locally
 	let envRows = $state(
 		data.envVars.map((e) => ({ key: e.key, value: e.value, isSecret: e.isSecret }))
 	)
 	let saving = $state(false)
 	let deploying = $state(false)
-
-	/* Re-sync envRows when data updates after save */
-	$effect(() => {
-		envRows = data.envVars.map((e) => ({ key: e.key, value: e.value, isSecret: e.isSecret }))
-	})
 
 	async function triggerDeploy() {
 		deploying = true
@@ -89,8 +85,8 @@
 			use:enhance={() => {
 				saving = true
 				return async ({ update }) => {
+					await update({ reset: false })
 					saving = false
-					await update()
 				}
 			}}
 		>

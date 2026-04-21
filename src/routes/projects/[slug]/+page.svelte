@@ -51,8 +51,11 @@
 	let triggeringCron = $state<string | null>(null);
 	let expandedCron = $state<string | null>(null);
 
+	// svelte-ignore state_referenced_locally
 	let buildCommand = $state(data.project.buildCommand)
+	// svelte-ignore state_referenced_locally
 	let startCommand = $state(data.project.startCommand)
+	// svelte-ignore state_referenced_locally
 	let releaseCommand = $state(data.project.releaseCommand)
 	let savingScripts = $state(false)
 
