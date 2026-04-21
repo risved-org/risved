@@ -35,12 +35,9 @@
 </svelte:head>
 
 <div class="deliveries-page">
-	<header class="page-header">
-		<a href={resolve(`/projects/${data.project.slug}/webhooks`)} class="back-link"
-			>← Webhook Configuration</a
-		>
-		<h1>Webhook Deliveries</h1>
-	</header>
+	<nav class="sub-breadcrumb">
+		<a href={resolve(`/projects/${data.project.slug}/webhooks`)} class="breadcrumb-link">← Webhooks</a>
+	</nav>
 
 	<section class="section" data-testid="deliveries-list">
 		{#if data.deliveries.length === 0}
@@ -86,27 +83,19 @@
 	.deliveries-page {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-6);
-		max-width: 800px;
-		margin: 0 auto;
-		width: 100%;
 		gap: var(--space-5);
 	}
 
-	.back-link {
+	.sub-breadcrumb {
+		margin-bottom: calc(-1 * var(--space-3));
+	}
+	.breadcrumb-link {
 		font-size: .875rem;
 		color: var(--color-text-2);
-		display: inline-block;
-		margin-bottom: var(--space-2);
 	}
-	.back-link:hover {
+	.breadcrumb-link:hover {
 		color: var(--color-text-0);
 		text-decoration: none;
-	}
-
-	h1 {
-		font-size: 1.5rem;
-		font-weight: 600;
 	}
 
 	/* Empty state */

@@ -98,10 +98,9 @@
 </svelte:head>
 
 <div class="webhook-config">
-	<header class="page-header">
-		<a href={resolve(`/projects/${data.project.slug}`)} class="back-link">← {data.project.name}</a>
-		<h1>Webhook Configuration</h1>
-	</header>
+	<nav class="sub-breadcrumb">
+		<a href={resolve(`/projects/${data.project.slug}/settings`)} class="breadcrumb-link">← Settings</a>
+	</nav>
 
 	<!-- Payload URL -->
 	<section class="section" data-testid="payload-url-section">
@@ -230,27 +229,19 @@
 	.webhook-config {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-4) var(--space-4) var(--space-6);
-		max-width: 800px;
-		margin: 0 auto;
-		width: 100%;
 		gap: var(--space-5);
 	}
 
-	.back-link {
+	.sub-breadcrumb {
+		margin-bottom: calc(-1 * var(--space-3));
+	}
+	.breadcrumb-link {
 		font-size: .875rem;
 		color: var(--color-text-2);
-		display: inline-block;
-		margin-bottom: var(--space-2);
 	}
-	.back-link:hover {
+	.breadcrumb-link:hover {
 		color: var(--color-text-0);
 		text-decoration: none;
-	}
-
-	h1 {
-		font-size: 1.5rem;
-		font-weight: 600;
 	}
 
 	/* Copy field */
