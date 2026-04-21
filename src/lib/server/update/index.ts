@@ -57,23 +57,26 @@ export class UpdateChecker {
 		return this.timer !== null
 	}
 
-	/** Get the current version from package.json / settings. */
+	/** Get the current version from package.json. */
 	async getCurrentVersion(): Promise<string> {
-		const stored = await getSetting('risved_version')
-		if (stored) return stored
+		/* Always read from package.json — try install dir first, then cwd */
+		const { readFileSync } = await import('node:fs')
+		const { resolve } = await import('node:path')
+		const candidates = [
+			resolve(this.config.installDir, 'package.json'),
+			resolve(process.cwd(), 'package.json')
+		]
 
-		/* Read from package.json as fallback */
-		try {
-			const { readFileSync } = await import('node:fs')
-			const { resolve } = await import('node:path')
-			const pkgPath = resolve(this.config.installDir, 'package.json')
-			const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
-			const version = pkg.version || '0.0.1'
-			await setSetting('risved_version', version)
-			return version
-		} catch {
-			return '0.0.1'
+		for (const pkgPath of candidates) {
+			try {
+				const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+				if (pkg.version) return pkg.version
+			} catch {
+				/* try next candidate */
+			}
 		}
+
+		return '0.0.1'
 	}
 
 	/** Fetch the latest version manifest from the remote URL. */

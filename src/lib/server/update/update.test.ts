@@ -2,6 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
+let mockPackageVersion = '0.2.0'
+
+vi.mock('node:fs', () => ({
+	readFileSync: vi.fn((_path: string) => JSON.stringify({ version: mockPackageVersion }))
+}))
+
+vi.mock('node:path', () => ({
+	resolve: (...args: string[]) => args.join('/')
+}))
+
 vi.mock('$lib/server/db', () => ({
 	db: { select: vi.fn(), delete: vi.fn() }
 }))
@@ -23,6 +33,7 @@ vi.mock('$lib/server/settings', () => ({
 	})
 }))
 
+import { readFileSync } from 'node:fs'
 import { db } from '$lib/server/db'
 import { UpdateChecker, compareSemver } from './index'
 
@@ -62,6 +73,8 @@ describe('UpdateChecker', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		mockSettings.clear()
+		mockPackageVersion = '0.2.0'
+		vi.mocked(readFileSync).mockImplementation(() => JSON.stringify({ version: mockPackageVersion }))
 		checker = new UpdateChecker({
 			versionUrl: 'https://example.com/version.json',
 			installDir: '/tmp/test-risved'
@@ -87,20 +100,19 @@ describe('UpdateChecker', () => {
 		checker.stop()
 	})
 
-	it('returns stored version from settings', async () => {
-		mockSettings.set('risved_version', '1.2.3')
+	it('returns version from package.json', async () => {
+		mockPackageVersion = '1.2.3'
 		const version = await checker.getCurrentVersion()
 		expect(version).toBe('1.2.3')
 	})
 
-	it('returns default version when no setting exists', async () => {
+	it('returns default version when package.json read fails', async () => {
+		vi.mocked(readFileSync).mockImplementation(() => { throw new Error('ENOENT') })
 		const version = await checker.getCurrentVersion()
-		/* Falls back to 0.0.1 since package.json won't exist at /tmp */
 		expect(version).toBe('0.0.1')
 	})
 
 	it('getCachedUpdateInfo returns no update when no data stored', async () => {
-		mockSettings.set('risved_version', '0.2.0')
 		const info = await checker.getCachedUpdateInfo()
 		expect(info.currentVersion).toBe('0.2.0')
 		expect(info.updateAvailable).toBe(false)
@@ -108,7 +120,6 @@ describe('UpdateChecker', () => {
 	})
 
 	it('getCachedUpdateInfo returns update available', async () => {
-		mockSettings.set('risved_version', '0.2.0')
 		mockSettings.set('update_available_version', '0.3.0')
 		mockSettings.set('update_release_notes', 'Bug fixes')
 
@@ -120,7 +131,7 @@ describe('UpdateChecker', () => {
 	})
 
 	it('getCachedUpdateInfo returns no update when versions match', async () => {
-		mockSettings.set('risved_version', '0.3.0')
+		mockPackageVersion = '0.3.0'
 		mockSettings.set('update_available_version', '0.3.0')
 
 		const info = await checker.getCachedUpdateInfo()
@@ -151,7 +162,7 @@ describe('UpdateChecker', () => {
 	})
 
 	it('preflightCheck fails when version is too old', async () => {
-		mockSettings.set('risved_version', '0.0.1')
+		mockPackageVersion = '0.0.1'
 		mockSettings.set('update_min_version', '0.1.0')
 
 		mockDb.select.mockReturnValue({
@@ -177,7 +188,6 @@ describe('UpdateChecker', () => {
 	})
 
 	it('checkForUpdates stores result in settings', async () => {
-		mockSettings.set('risved_version', '0.2.0')
 		vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
 			new Response(JSON.stringify({
 				version: '0.3.0',
@@ -196,7 +206,7 @@ describe('UpdateChecker', () => {
 	})
 
 	it('checkForUpdates handles no update', async () => {
-		mockSettings.set('risved_version', '0.3.0')
+		mockPackageVersion = '0.3.0'
 		vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
 			new Response(JSON.stringify({
 				version: '0.3.0',
@@ -213,7 +223,6 @@ describe('UpdateChecker', () => {
 	})
 
 	it('checkForUpdates handles fetch failure', async () => {
-		mockSettings.set('risved_version', '0.2.0')
 		vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('timeout'))
 
 		const info = await checker.checkForUpdates()
