@@ -32,7 +32,7 @@
 				aria-current={i === current ? 'step' : undefined}
 			>
 				{#if isClickable(i)}
-					<a href={resolve(step.href)} class="step-link">
+					<a href={resolve(step.href as any)} class="step-link">
 						<span class="step-number">{i + 1}</span>
 						<span class="step-label">{step.label}</span>
 					</a>
