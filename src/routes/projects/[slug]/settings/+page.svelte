@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
-	import ProjectScriptsForm from '$lib/components/ProjectScriptsForm.svelte'
+	import { goto } from '$app/navigation'
 	import type { ActionData, PageData } from './$types'
 
 	let { data, form }: { data: PageData; form: ActionData } = $props()
@@ -9,11 +9,26 @@
 	let envRows = $state(
 		data.envVars.map((e) => ({ key: e.key, value: e.value, isSecret: e.isSecret }))
 	)
-	/* Scripts state (build + start are future-wired here; only release is persisted today). */
-	let buildCommand = $state('')
-	let startCommand = $state('')
-	let releaseCommand = $state(data.project.releaseCommand)
 	let saving = $state(false)
+	let deploying = $state(false)
+
+	/* Re-sync envRows when data updates after save */
+	$effect(() => {
+		envRows = data.envVars.map((e) => ({ key: e.key, value: e.value, isSecret: e.isSecret }))
+	})
+
+	async function triggerDeploy() {
+		deploying = true
+		const res = await fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' })
+		if (res.ok) {
+			const { deploymentId } = await res.json()
+			if (deploymentId) {
+				await goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
+				return
+			}
+		}
+		deploying = false
+	}
 
 	function addEnvRow() {
 		envRows = [...envRows, { key: '', value: '', isSecret: false }]
@@ -79,13 +94,6 @@
 				}
 			}}
 		>
-			<ProjectScriptsForm
-				bind:buildCommand
-				bind:startCommand
-				bind:releaseCommand
-				settingsContext={true}
-				lastRelease={data.lastRelease}
-			/>
 			<div class="env-editor">
 				{#each envRows as row, i (i)}
 					<div class="env-row" data-testid="env-row">
@@ -123,7 +131,7 @@
 							onclick={() => (row.isSecret = !row.isSecret)}
 							data-testid="env-secret-toggle"
 						>
-							{row.isSecret ? '🔒' : '🔓'}
+							{row.isSecret ? 'Secret' : 'Visible'}
 						</button>
 						<button
 							type="button"
@@ -152,14 +160,25 @@
 				<button type="submit" class="btn-primary" disabled={saving} data-testid="save-env-btn">
 					{saving ? 'Saving…' : 'Save'}
 				</button>
-				{#if form?.success}
-					<span class="save-success" data-testid="save-success">Saved</span>
-				{/if}
 				{#if form?.error}
 					<span class="save-error" data-testid="save-error">{form.error}</span>
 				{/if}
 			</div>
 		</form>
+
+		{#if form?.success}
+			<div class="redeploy-banner" data-testid="redeploy-banner">
+				<span>Saved. Redeploy to apply the new values.</span>
+				<button
+					class="btn-redeploy"
+					disabled={deploying}
+					onclick={triggerDeploy}
+					data-testid="redeploy-btn"
+				>
+					{deploying ? 'Deploying…' : 'Redeploy now'}
+				</button>
+			</div>
+		{/if}
 	</section>
 </div>
 
@@ -247,7 +266,21 @@
 		color: var(--color-text-2);
 	}
 
-	.env-secret-toggle,
+	.env-secret-toggle {
+		flex-shrink: 0;
+		padding: 0 var(--space-2);
+		height: 32px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: transparent;
+		border: none;
+		border-left: 1px solid var(--color-border);
+		color: var(--color-text-2);
+		cursor: pointer;
+		font-size: .75rem;
+		transition: color 0.1s;
+	}
 	.env-remove {
 		flex-shrink: 0;
 		width: 32px;
@@ -311,9 +344,38 @@
 		background: var(--color-accent);
 	}
 
-	.save-success {
-		font-weight: 500;
+	.redeploy-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: var(--space-3) var(--space-4);
+		margin-top: var(--space-3);
+		background: color-mix(in srgb, var(--color-building) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-building) 25%, transparent);
+		border-radius: var(--radius-md);
+		font-size: .875rem;
+		color: var(--color-text-0);
 	}
+	.btn-redeploy {
+		padding: var(--space-1) var(--space-3);
+		background: transparent;
+		border: 1px solid var(--color-building);
+		border-radius: var(--radius-md);
+		color: var(--color-building);
+		font-size: .875rem;
+		font-weight: 500;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.btn-redeploy:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--color-building) 10%, transparent);
+	}
+	.btn-redeploy:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+
 	.save-error {
 		font-size: .875rem;
 		color: var(--color-failed);
