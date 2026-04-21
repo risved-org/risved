@@ -36,7 +36,8 @@ vi.mock('$lib/server/db/schema', () => ({
 }));
 
 import { db } from '$lib/server/db';
-import { load, _getSystemHealth as getSystemHealth, _FRAMEWORK_NAMES as FRAMEWORK_NAMES } from './+page.server';
+import { _getSystemHealth as getSystemHealth } from './(dashboard)/+layout.server';
+import { load, _FRAMEWORK_NAMES as FRAMEWORK_NAMES } from './(dashboard)/projects/+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
 
@@ -49,8 +50,6 @@ function setupDbMocks(
 	const orderByDeployments = vi.fn().mockResolvedValue(deploymentRows);
 	const whereDomains = vi.fn().mockResolvedValue(domainRows);
 
-	const orderByMetrics = vi.fn().mockResolvedValue([]);
-
 	dbAny.__selectMock
 		.mockReturnValueOnce({
 			from: vi.fn().mockReturnValue({ orderBy: orderByProjects })
@@ -60,11 +59,6 @@ function setupDbMocks(
 		})
 		.mockReturnValueOnce({
 			from: vi.fn().mockReturnValue({ where: whereDomains })
-		})
-		.mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({ orderBy: orderByMetrics })
-			})
 		});
 }
 
@@ -97,10 +91,9 @@ async function callLoad(): Promise<any> {
 describe('dashboard load', () => {
 	beforeEach(() => vi.clearAllMocks());
 
-	it('returns health and empty projects list', async () => {
+	it('returns empty projects list', async () => {
 		setupDbMocks();
 		const result = await callLoad();
-		expect(result.health).toBeDefined();
 		expect(result.projects).toEqual([]);
 	});
 
@@ -175,47 +168,47 @@ describe('dashboard load', () => {
 });
 
 describe('dashboard page source', () => {
-	it('has health bar with CPU, MEM, DISK, UPTIME, CONTAINERS', async () => {
-		const mod = await import('./+page.svelte?raw');
+	it('has health bar with CPU, MEM, DISK, UP, CTR', async () => {
+		const mod = await import('./(dashboard)/+layout.svelte?raw');
 		expect(mod.default).toContain('health-bar');
-		for (const label of ['CPU', 'MEM', 'DISK', 'UPTIME', 'CONTAINERS']) {
+		for (const label of ['CPU', 'MEM', 'DISK', 'UP', 'CTR']) {
 			expect(mod.default).toContain(label);
 		}
 	});
 
 	it('has project table with dense rows', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
 		expect(mod.default).toContain('project-table');
 		expect(mod.default).toContain('table-row');
 	});
 
 	it('has status dots for project states', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
 		for (const cls of ['status-live', 'status-failed', 'status-stopped', 'status-building']) {
 			expect(mod.default).toContain(cls);
 		}
 	});
 
 	it('has empty state with CTA', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
 		expect(mod.default).toContain('empty-state');
-		expect(mod.default).toContain('No projects yet');
+		expect(mod.default).toContain('Nothing deployed yet');
 	});
 
 	it('has framework badge and action buttons', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
 		expect(mod.default).toContain('framework-badge');
 		expect(mod.default).toContain('Redeploy');
 	});
 
 	it('uses client-side navigation via goto', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
 		expect(mod.default).toContain("from '$app/navigation'");
 		expect(mod.default).toContain('goto(');
 	});
 
-	it('uses JetBrains Mono and CSS custom properties', async () => {
-		const mod = await import('./+page.svelte?raw');
+	it('uses mono font and CSS custom properties', async () => {
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
 		expect(mod.default).toContain('font-mono');
 		expect(mod.default).toContain('--color-bg-1');
 	});

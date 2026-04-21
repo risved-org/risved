@@ -1,28 +1,15 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import LineChart from '$lib/components/LineChart.svelte';
-	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import { goto, invalidateAll } from '$app/navigation'
+	import { resolve } from '$app/paths'
+	import TimeAgo from '$lib/components/TimeAgo.svelte'
 
-	let { data } = $props();
-
-	function formatHour(iso: string): string {
-		const d = new Date(iso);
-		return `${d.getHours().toString().padStart(2, '0')}:00`;
-	}
-
-	let serverCpuPoints = $derived(
-		data.serverMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.cpuPercent }))
-	);
-	let serverMemPoints = $derived(
-		data.serverMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.memoryMb }))
-	);
+	let { data } = $props()
 
 	function statusClass(status: string): string {
-		if (status === 'live') return 'status-live';
-		if (status === 'failed') return 'status-failed';
-		if (status === 'building') return 'status-building';
-		return 'status-stopped';
+		if (status === 'live') return 'status-live'
+		if (status === 'failed') return 'status-failed'
+		if (status === 'building') return 'status-building'
+		return 'status-stopped'
 	}
 
 	async function handleRedeploy(e: MouseEvent, project: { id: string; slug: string }) {
@@ -40,68 +27,23 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard – Risved</title>
+	<title>Projects – Risved</title>
 </svelte:head>
 
-<div class="dashboard">
-	<!-- Health bar -->
-	<header class="dashboard-header">
-		<div class="health-bar" data-testid="health-bar">
-		<div class="health-item">
-			<span class="health-label">CPU</span>
-			<span class="health-value" data-testid="cpu-value">{data.health.cpuPercent}%</span>
-		</div>
-		<div class="health-item">
-			<span class="health-label">MEMORY</span>
-			<span class="health-value" data-testid="mem-value">{data.health.memoryPercent}%</span>
-		</div>
-		<div class="health-item">
-			<span class="health-label">DISK</span>
-			<span class="health-value" data-testid="disk-value">{data.health.diskPercent}%</span>
-		</div>
-		<div class="health-item">
-			<span class="health-label">UPTIME</span>
-			<span class="health-value" data-testid="uptime-value">{data.health.uptime}</span>
-		</div>
-		<div class="health-item">
-			<span class="health-label">CONTAINERS</span>
-			<span class="health-value" data-testid="container-value">{data.health.containerCount}</span>
-		</div>
-	</div>
-		<nav class="header-nav">
-			<a href={resolve('/new')} class="btn-secondary btn-sm">New project</a>
-			<a href={resolve('/settings')} class="btn-secondary btn-sm">Settings</a>
-		</nav>
+<article class="projects-page">
+	<header class="page-header">
+		<h1>Projects</h1>
+		<a href={resolve('/new')} class="btn-secondary btn-sm">New project</a>
 	</header>
 
-	<!-- Resource overview -->
-	<div class="resource-overview" data-testid="resource-overview">
-		<h2 class="resource-title">Resource history</h2>
-		<div class="resource-charts">
-			<LineChart
-				points={serverCpuPoints}
-				label="CPU"
-				color="var(--color-accent)"
-				height={100}
-			/>
-			<LineChart
-				points={serverMemPoints}
-				label="Memory"
-				color="var(--color-live)"
-				height={100}
-			/>
-		</div>
-	</div>
-
-	<!-- Project list -->
 	{#if data.projects.length === 0}
-		<div class="empty-state" data-testid="empty-state">
+		<section class="empty-state" data-testid="empty-state">
 			<p class="empty-message">Nothing deployed yet. Connect a repo to get started.</p>
 			<a href={resolve('/new')} class="btn-primary">New Project</a>
-		</div>
+		</section>
 	{:else}
-		<div class="project-table" data-testid="project-table">
-			<div class="table-header">
+		<section class="project-table" data-testid="project-table">
+			<header class="table-header">
 				<span class="col-status"></span>
 				<span class="col-name">Project</span>
 				<span class="col-framework">Framework</span>
@@ -110,10 +52,10 @@
 				<span class="col-time">Deployed</span>
 				<span class="col-health">Health</span>
 				<span class="col-actions"></span>
-			</div>
+			</header>
 
 			{#each data.projects as project (project.id)}
-				<div
+				<article
 					class="table-row"
 					data-testid="project-row"
 					role="button"
@@ -187,14 +129,14 @@
 							</a>
 						{/if}
 					</span>
-				</div>
+				</article>
 			{/each}
-		</div>
+		</section>
 	{/if}
-</div>
+</article>
 
 <style>
-	.dashboard {
+	.projects-page {
 		display: flex;
 		flex-direction: column;
 		flex: 1;
@@ -205,91 +147,25 @@
 		width: 100%;
 	}
 
-	/* Health bar – single horizontal strip */
-	.health-bar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--space-3) var(--space-5);
-		padding: var(--space-3) var(--space-4);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-family: var(--font-mono);
-		font-size: .875rem;
-	}
-
-	.health-item {
+	.page-header {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
+		justify-content: space-between;
 	}
 
-	.health-label {
-		color: var(--color-text-2);
-		font-weight: 500;
-		letter-spacing: 0.05em;
+	h1 {
+		font-size: 2rem;
 	}
 
-	.health-value {
-		color: var(--color-text-0);
-	}
-
-	.dashboard-header {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--space-3);
-	}
-
-	.header-nav {
-		margin-left: auto;
-		display: flex;
-		gap: var(--space-2);
-	}
-
-	@media (max-width: 600px) {
-		.dashboard-header {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.header-nav {
-			margin-left: 0;
+	@media (min-width: 768px) {
+		h1 {
+			font-size: 3rem;
 		}
 	}
 
 	.btn-sm {
 		font-size: .875rem;
 		padding: var(--space-1) var(--space-2);
-	}
-
-	/* Resource overview */
-	.resource-overview {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-	}
-
-	.resource-title {
-		font-family: var(--font-sans);
-		font-size: .875rem;
-		font-weight: 600;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-	}
-
-	.resource-charts {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-3);
-	}
-
-	@media (max-width: 600px) {
-		.resource-charts {
-			grid-template-columns: 1fr;
-		}
 	}
 
 	/* Empty state */

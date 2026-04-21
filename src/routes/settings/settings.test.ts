@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('$lib/server/db', () => {
 	const setMock = vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) }));
 	const updateMock = vi.fn(() => ({ set: setMock }));
-	return { db: { update: updateMock, __setMock: setMock } };
+	const selectMock = vi.fn(() => ({ from: vi.fn().mockResolvedValue([]) }));
+	return { db: { update: updateMock, select: selectMock, __setMock: setMock } };
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -11,7 +12,20 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 vi.mock('$lib/server/db/schema', () => ({
-	user: 'user_table'
+	user: 'user_table',
+	gitConnections: 'git_connections_table'
+}));
+
+vi.mock('$lib/server/update', () => ({
+	getUpdateChecker: () => ({ getCachedUpdateInfo: vi.fn().mockResolvedValue({}) })
+}));
+
+vi.mock('$lib/server/census', () => ({
+	getCensusReporter: () => ({ getInfo: vi.fn().mockResolvedValue(null) })
+}));
+
+vi.mock('$lib/server/heartbeat', () => ({
+	getHeartbeatReporter: () => ({ getInfo: vi.fn().mockResolvedValue(null), setEnabled: vi.fn() })
 }));
 
 vi.mock('$lib/server/settings', () => ({
@@ -28,7 +42,7 @@ vi.mock('$lib/server/auth', () => ({
 }));
 
 import { getSetting, setSetting } from '$lib/server/settings';
-import { load, actions } from './+page.server';
+import { load, actions } from '../(dashboard)/settings/+page.server';
 
 describe('settings load', () => {
 	beforeEach(() => {
@@ -49,7 +63,8 @@ describe('settings load', () => {
 		(getSetting as ReturnType<typeof vi.fn>)
 			.mockResolvedValueOnce('risved.example.com') // hostname
 			.mockResolvedValueOnce('America/New_York') // timezone
-			.mockResolvedValueOnce(null); // api_token
+			.mockResolvedValueOnce(null) // api_token
+			.mockResolvedValueOnce(null); // log_retention_days
 
 		const result = (await load({
 			locals: { user: { id: 'u-1', email: 'admin@test.com', name: 'Admin' } }
@@ -70,7 +85,8 @@ describe('settings load', () => {
 		(getSetting as ReturnType<typeof vi.fn>)
 			.mockResolvedValueOnce(null)
 			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce('rsv_abcdef1234567890abcdef1234567890');
+			.mockResolvedValueOnce('rsv_abcdef1234567890abcdef1234567890')
+			.mockResolvedValueOnce(null); // log_retention_days
 
 		const result = (await load({
 			locals: { user: { id: 'u-1', email: 'admin@test.com', name: 'Admin' } }
@@ -163,32 +179,32 @@ describe('settings actions', () => {
 
 describe('settings page source', () => {
 	it('has general section', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
 		expect(mod.default).toContain('general-section');
 	});
 
 	it('has email section', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
 		expect(mod.default).toContain('email-section');
 	});
 
 	it('has password section', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
 		expect(mod.default).toContain('password-section');
 	});
 
 	it('has token section', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
 		expect(mod.default).toContain('token-section');
 	});
 
 	it('has hostname input', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
 		expect(mod.default).toContain('hostname-input');
 	});
 
 	it('has timezone select', async () => {
-		const mod = await import('./+page.svelte?raw');
+		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
 		expect(mod.default).toContain('timezone-select');
 	});
 });
