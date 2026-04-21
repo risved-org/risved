@@ -292,11 +292,6 @@
 		text-decoration: none;
 	}
 
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
 	.subsection-title {
 		font-family: var(--font-sans);
 		font-size: .875rem;
@@ -304,20 +299,6 @@
 		color: var(--color-text-1);
 		margin-bottom: var(--space-2);
 	}
-	.btn-sm {
-		padding: var(--space-1) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-	}
-	.btn-sm:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-	}
-
 	/* Domain table */
 	.domain-table {
 		border: 1px solid var(--color-border);

@@ -178,103 +178,11 @@
 </section>
 
 <style>
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
 	.section-actions {
 		display: flex;
 		gap: var(--space-2);
 	}
-	.muted {
-		color: var(--color-text-2);
-		font-size: .875rem;
-	}
 
-	.btn-sm {
-		padding: var(--space-1) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-		text-decoration: none;
-	}
-	.btn-sm:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-		text-decoration: none;
-	}
-
-	.status-dot {
-		display: inline-block;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		flex-shrink: 0;
-	}
-	.dot-live {
-		background: var(--color-live);
-		box-shadow: 0 0 6px var(--color-live);
-	}
-	.dot-failed {
-		background: var(--color-failed);
-	}
-	.dot-building {
-		background: var(--color-building);
-	}
-	.dot-stopped {
-		background: var(--color-stopped);
-	}
-
-	/* Deployments */
-	.deploy-list {
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-	}
-	.deploy-row {
-		display: grid;
-		grid-template-columns: 20px 80px 1fr auto 80px;
-		align-items: center;
-		padding: var(--space-2) var(--space-3);
-		gap: var(--space-2);
-		border-bottom: 1px solid var(--color-border);
-		font-size: .875rem;
-		color: var(--color-text-0);
-		text-decoration: none;
-		transition: background 0.1s;
-	}
-	.deploy-row:last-child {
-		border-bottom: none;
-	}
-	.deploy-row:hover {
-		background: var(--color-bg-2);
-		text-decoration: none;
-	}
-	.deploy-status {
-		color: var(--color-text-1);
-		display: flex;
-		align-items: center;
-		gap: var(--space-1);
-	}
-	.deploy-time,
-	.deploy-duration {
-		color: var(--color-text-2);
-	}
-	.deploy-actions {
-		text-align: right;
-	}
-	.trigger-badge {
-		padding: 1px 6px;
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		color: var(--color-accent);
-		border-radius: var(--radius-sm);
-		font-size: .875rem;
-		font-weight: 500;
-	}
 	.current-badge {
 		padding: 1px 6px;
 		background: color-mix(in srgb, var(--color-live) 15%, transparent);
@@ -284,25 +192,6 @@
 		font-weight: 600;
 		letter-spacing: 0.03em;
 	}
-	.btn-rollback {
-		padding: 2px 8px;
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-		white-space: nowrap;
-	}
-	.btn-rollback:hover {
-		border-color: var(--color-accent);
-		color: var(--color-accent);
-	}
-	.btn-rollback:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
 	/* Health */
 	.health-card {
 		display: flex;
@@ -380,15 +269,4 @@
 		white-space: nowrap;
 	}
 
-	/* Charts */
-	.charts-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-3);
-	}
-	@media (max-width: 600px) {
-		.charts-grid {
-			grid-template-columns: 1fr;
-		}
-	}
 </style>

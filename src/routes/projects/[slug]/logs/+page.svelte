@@ -80,14 +80,6 @@
 </section>
 
 <style>
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		flex-wrap: wrap;
-		gap: var(--space-2);
-	}
-
 	.log-controls {
 		display: flex;
 		align-items: center;
@@ -111,23 +103,6 @@
 		font-size: .875rem;
 	}
 
-	.btn-sm {
-		padding: var(--space-1) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-	}
-	.btn-sm:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-	}
-	.btn-sm:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
 	.btn-active {
 		background: var(--color-bg-2);
 		border-color: var(--color-accent);

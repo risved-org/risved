@@ -183,16 +183,6 @@
 </section>
 
 <style>
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.muted {
-		color: var(--color-text-2);
-		font-size: .875rem;
-	}
-
 	/* Filter bar */
 	.filter-bar {
 		display: flex;
@@ -217,55 +207,7 @@
 		border-color: var(--color-text-2);
 	}
 
-	.status-dot {
-		display: inline-block;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		flex-shrink: 0;
-	}
-	.dot-live {
-		background: var(--color-live);
-		box-shadow: 0 0 6px var(--color-live);
-	}
-	.dot-failed {
-		background: var(--color-failed);
-	}
-	.dot-building {
-		background: var(--color-building);
-	}
-	.dot-stopped {
-		background: var(--color-stopped);
-	}
-
-	/* Deploy list */
-	.deploy-list {
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-	}
-	.deploy-row {
-		display: grid;
-		grid-template-columns: 20px 80px 1fr auto 80px;
-		align-items: center;
-		padding: var(--space-2) var(--space-3);
-		gap: var(--space-2);
-		border-bottom: 1px solid var(--color-border);
-		font-size: .875rem;
-		color: var(--color-text-0);
-		text-decoration: none;
-		transition: background 0.1s;
-		width: 100%;
-		text-align: left;
-		background: transparent;
-	}
-	.deploy-row:last-child {
-		border-bottom: none;
-	}
-	.deploy-row:hover {
-		background: var(--color-bg-2);
-		text-decoration: none;
-	}
+	/* Deploy groups */
 	.deploy-group-header {
 		cursor: pointer;
 		border: none;
@@ -273,27 +215,6 @@
 	.deploy-nested {
 		padding-left: var(--space-5);
 		background: var(--color-bg-1);
-	}
-	.deploy-status {
-		color: var(--color-text-1);
-		display: flex;
-		align-items: center;
-		gap: var(--space-1);
-	}
-	.deploy-time,
-	.deploy-duration {
-		color: var(--color-text-2);
-	}
-	.deploy-actions {
-		text-align: right;
-	}
-	.trigger-badge {
-		padding: 1px 6px;
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		color: var(--color-accent);
-		border-radius: var(--radius-sm);
-		font-size: .875rem;
-		font-weight: 500;
 	}
 	.group-count {
 		padding: 1px 6px;
@@ -312,23 +233,5 @@
 	.expand-icon {
 		color: var(--color-text-2);
 		font-size: .875rem;
-	}
-	.btn-rollback {
-		padding: 2px 8px;
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-		white-space: nowrap;
-	}
-	.btn-rollback:hover {
-		border-color: var(--color-accent);
-		color: var(--color-accent);
-	}
-	.btn-rollback:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 </style>

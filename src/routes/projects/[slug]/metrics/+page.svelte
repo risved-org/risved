@@ -67,12 +67,6 @@
 </section>
 
 <style>
-	.section-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
 	.range-bar {
 		display: flex;
 		gap: var(--space-1);
@@ -96,14 +90,4 @@
 		border-color: var(--color-text-2);
 	}
 
-	.charts-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-3);
-	}
-	@media (max-width: 600px) {
-		.charts-grid {
-			grid-template-columns: 1fr;
-		}
-	}
 </style>
