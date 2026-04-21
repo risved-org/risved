@@ -66,13 +66,16 @@
 	}
 
 	nav {
-		display: flex;
-		gap: 0;
+		display: inline-flex;
+		align-items: center;
+		border: 1.5px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
 	}
 
 	nav a {
-		padding: var(--space-1) var(--space-2);
-		border-radius: var(--radius-md);
+		padding: var(--space-2) var(--space-3);
+		border-right: 1.5px solid var(--color-border);
 		color: var(--color-text-2);
 		font-size: .875rem;
 		font-weight: 500;
@@ -80,8 +83,13 @@
 		transition: color 0.15s, background 0.15s;
 	}
 
+	nav a:last-child {
+		border-right: none;
+	}
+
 	nav a:hover {
 		color: var(--color-text-0);
+		background: var(--color-bg-2);
 		text-decoration: none;
 	}
 

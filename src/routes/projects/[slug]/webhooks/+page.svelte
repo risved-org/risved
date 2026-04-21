@@ -286,27 +286,33 @@
 
 	/* Tabs */
 	.tab-bar {
-		display: flex;
-		gap: var(--space-1);
-		border-bottom: 1px solid var(--color-border);
-		overflow-x: auto;
+		display: inline-flex;
+		align-items: center;
+		border: 1.5px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
 	}
 	.tab {
 		padding: var(--space-2) var(--space-3);
 		background: transparent;
 		border: none;
-		border-bottom: 2px solid transparent;
+		border-right: 1.5px solid var(--color-border);
 		color: var(--color-text-2);
 		font-size: .875rem;
 		cursor: pointer;
 		white-space: nowrap;
+		transition: color 0.15s, background 0.15s;
+	}
+	.tab:last-child {
+		border-right: none;
 	}
 	.tab:hover {
-		color: var(--color-text-1);
+		color: var(--color-text-0);
+		background: var(--color-bg-2);
 	}
 	.tab-active {
 		color: var(--color-text-0);
-		border-bottom-color: var(--color-accent);
+		background: var(--color-bg-2);
 	}
 
 	/* Guide */

@@ -185,26 +185,32 @@
 <style>
 	/* Filter bar */
 	.filter-bar {
-		display: flex;
-		gap: var(--space-1);
+		display: inline-flex;
+		align-items: center;
+		border: 1.5px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
 	}
 	.filter-btn {
 		padding: var(--space-1) var(--space-3);
 		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		border: none;
+		border-right: 1.5px solid var(--color-border);
 		color: var(--color-text-2);
 		font-size: .875rem;
 		cursor: pointer;
+		transition: color 0.15s, background 0.15s;
+	}
+	.filter-btn:last-child {
+		border-right: none;
 	}
 	.filter-btn:hover {
-		color: var(--color-text-1);
-		border-color: var(--color-text-2);
+		color: var(--color-text-0);
+		background: var(--color-bg-2);
 	}
 	.filter-active {
 		color: var(--color-text-0);
 		background: var(--color-bg-2);
-		border-color: var(--color-text-2);
 	}
 
 	/* Deploy groups */
