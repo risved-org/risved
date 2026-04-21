@@ -7,6 +7,7 @@
 
 	type DomainMode = 'subdomain' | 'dedicated' | 'ip';
 
+	let displayName = $state(form?.displayName ?? data.displayName ?? '');
 	let mode = $state<DomainMode>(
 		form?.mode ?? (data.domainConfig?.mode as DomainMode) ?? 'subdomain'
 	);
@@ -67,6 +68,18 @@
 			}}
 		>
 			<input type="hidden" name="mode" value={mode} />
+
+			<div class="field">
+				<label for="displayName">Instance name</label>
+				<input
+					id="displayName"
+					name="displayName"
+					type="text"
+					bind:value={displayName}
+					placeholder="e.g. Production EU, Staging"
+				/>
+				<p class="form-hint">A friendly name to identify this instance in the dashboard.</p>
+			</div>
 
 			<div class="radio-cards">
 				<button

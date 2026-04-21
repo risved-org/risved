@@ -18,45 +18,48 @@ export const load: PageServerLoad = async () => {
 		redirect(303, '/onboarding');
 	}
 
+	const displayName = await getSetting('display_name') ?? '';
 	const existing = await getSetting('domain_config');
 	if (existing) {
 		try {
-			return { domainConfig: JSON.parse(existing) as DomainConfig };
+			return { displayName, domainConfig: JSON.parse(existing) as DomainConfig };
 		} catch {
 			/* ignore corrupt data */
 		}
 	}
-	return {};
+	return { displayName };
 };
 
 export const actions: Actions = {
 	default: async (event) => {
 		const formData = await event.request.formData();
+		const displayName = formData.get('displayName')?.toString()?.trim() ?? '';
 		const mode = formData.get('mode')?.toString() as DomainMode | undefined;
 		const baseDomain = formData.get('baseDomain')?.toString()?.trim() ?? '';
 		const prefix = formData.get('prefix')?.toString()?.trim() ?? '';
 
 		if (!mode || !['subdomain', 'dedicated', 'ip'].includes(mode)) {
-			return fail(400, { error: 'Please select a domain configuration mode.' });
+			return fail(400, { displayName, mode: mode ?? 'subdomain', baseDomain, prefix, error: 'Please select a domain configuration mode.' });
 		}
 
 		if (mode === 'subdomain') {
 			if (!baseDomain) {
-				return fail(400, { mode, baseDomain, prefix, error: 'Base domain is required.' });
+				return fail(400, { displayName, mode, baseDomain, prefix, error: 'Base domain is required.' });
 			}
 			if (!prefix) {
-				return fail(400, { mode, baseDomain, prefix, error: 'Subdomain prefix is required.' });
+				return fail(400, { displayName, mode, baseDomain, prefix, error: 'Subdomain prefix is required.' });
 			}
 		}
 
 		if (mode === 'dedicated') {
 			if (!baseDomain) {
-				return fail(400, { mode, baseDomain, prefix, error: 'Domain is required.' });
+				return fail(400, { displayName, mode, baseDomain, prefix, error: 'Domain is required.' });
 			}
 		}
 
 		const config: DomainConfig = { mode, baseDomain, prefix };
 		await setSetting('domain_config', JSON.stringify(config));
+		await setSetting('display_name', displayName);
 
 		const hostname = mode === 'subdomain' ? `${prefix}.${baseDomain}` : baseDomain
 		if (hostname) {

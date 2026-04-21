@@ -44,30 +44,37 @@ describe('domain load', () => {
 
 	it('returns empty data when no config saved', async () => {
 		vi.mocked(isFirstRun).mockResolvedValue(false);
-		vi.mocked(getSetting).mockResolvedValue(null);
+		vi.mocked(getSetting)
+			.mockResolvedValueOnce(null) // display_name
+			.mockResolvedValueOnce(null); // domain_config
 
 		const result = await load({} as Parameters<typeof load>[0]);
-		expect(result).toEqual({});
+		expect(result).toEqual({ displayName: '' });
 	});
 
 	it('returns existing domain config', async () => {
 		vi.mocked(isFirstRun).mockResolvedValue(false);
-		vi.mocked(getSetting).mockResolvedValue(
-			JSON.stringify({ mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' })
-		);
+		vi.mocked(getSetting)
+			.mockResolvedValueOnce('Production EU') // display_name
+			.mockResolvedValueOnce(
+				JSON.stringify({ mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' })
+			); // domain_config
 
 		const result = await load({} as Parameters<typeof load>[0]);
 		expect(result).toEqual({
+			displayName: 'Production EU',
 			domainConfig: { mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' }
 		});
 	});
 
 	it('ignores corrupt JSON', async () => {
 		vi.mocked(isFirstRun).mockResolvedValue(false);
-		vi.mocked(getSetting).mockResolvedValue('{broken');
+		vi.mocked(getSetting)
+			.mockResolvedValueOnce(null) // display_name
+			.mockResolvedValueOnce('{broken'); // domain_config
 
 		const result = await load({} as Parameters<typeof load>[0]);
-		expect(result).toEqual({});
+		expect(result).toEqual({ displayName: '' });
 	});
 });
 
