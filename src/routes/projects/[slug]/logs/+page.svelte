@@ -45,7 +45,7 @@
 	})
 </script>
 
-<section class="section" data-testid="logs-section">
+<section data-testid="logs-section">
 	<div class="section-header">
 		<h2 class="section-title">Container Logs</h2>
 		<div class="log-controls">

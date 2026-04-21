@@ -43,7 +43,7 @@
 	</nav>
 
 	<!-- Domain list -->
-	<section class="section" data-testid="domains-list">
+	<section data-testid="domains-list">
 		<div class="section-header">
 			<h2 class="section-title">Domains</h2>
 			{#if !showAddForm}
@@ -140,7 +140,7 @@
 
 	<!-- Add domain form -->
 	{#if showAddForm}
-		<section class="section" data-testid="add-domain-section">
+		<section data-testid="add-domain-section">
 			<h2 class="section-title">Add Domain</h2>
 
 			<form

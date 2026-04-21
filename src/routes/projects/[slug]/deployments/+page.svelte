@@ -78,7 +78,7 @@
 	}
 </script>
 
-<section class="section" data-testid="deployments-full">
+<section data-testid="deployments-full">
 	<div class="section-header">
 		<h2 class="section-title">All Deployments</h2>
 		<div class="filter-bar" data-testid="status-filter">

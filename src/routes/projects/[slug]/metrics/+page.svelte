@@ -44,7 +44,7 @@
 	}
 </script>
 
-<section class="section" data-testid="metrics-section">
+<section data-testid="metrics-section">
 	<div class="section-header">
 		<h2 class="section-title">Resource History</h2>
 		<div class="range-bar" data-testid="range-bar">

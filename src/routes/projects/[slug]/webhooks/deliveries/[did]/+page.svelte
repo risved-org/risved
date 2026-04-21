@@ -58,7 +58,7 @@
 	</header>
 
 	<!-- Metadata grid -->
-	<section class="section" data-testid="metadata-section">
+	<section data-testid="metadata-section">
 		<h2 class="section-title">Metadata</h2>
 		<div class="meta-grid" data-testid="meta-grid">
 			<div class="meta-item">
@@ -92,7 +92,7 @@
 	</section>
 
 	<!-- Request Headers -->
-	<section class="section" data-testid="headers-section">
+	<section data-testid="headers-section">
 		<h2 class="section-title">Request Headers</h2>
 		<div class="terminal-block" data-testid="headers-block">
 			{#if headerEntries.length === 0}
@@ -109,13 +109,13 @@
 	</section>
 
 	<!-- Payload -->
-	<section class="section" data-testid="payload-section">
+	<section data-testid="payload-section">
 		<h2 class="section-title">Payload</h2>
 		<pre class="terminal-block payload-block" data-testid="payload-block">{@html payloadHtml}</pre>
 	</section>
 
 	<!-- Actions -->
-	<section class="section" data-testid="actions-section">
+	<section data-testid="actions-section">
 		<form
 			method="post"
 			action="?/redeliver"

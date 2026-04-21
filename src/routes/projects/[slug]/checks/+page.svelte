@@ -17,7 +17,7 @@
 	</nav>
 
 	<!-- GitHub PR Mock -->
-	<section class="section" data-testid="status-check-mock">
+	<section data-testid="status-check-mock">
 		<h2 class="section-title">Commit Status Preview</h2>
 		<div class="pr-mock">
 			<div class="pr-mock-header">
@@ -48,7 +48,7 @@
 	</section>
 
 	<!-- Deploy Preview URL Format -->
-	<section class="section" data-testid="url-format-section">
+	<section data-testid="url-format-section">
 		<h2 class="section-title">Deploy Preview URL</h2>
 		<div class="info-card">
 			<code class="url-format mono" data-testid="preview-url-format">{data.previewUrlFormat}</code>
@@ -60,7 +60,7 @@
 	</section>
 
 	<!-- Toggles -->
-	<section class="section" data-testid="checks-settings">
+	<section data-testid="checks-settings">
 		<h2 class="section-title">Settings</h2>
 		<form
 			method="post"

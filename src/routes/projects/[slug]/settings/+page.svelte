@@ -141,7 +141,7 @@
 </script>
 
 <!-- Build & Runtime -->
-<section class="section" data-testid="scripts-section">
+<section data-testid="scripts-section">
 	<h2 class="section-title">Build & Runtime</h2>
 	<form
 		method="post"
@@ -201,7 +201,7 @@
 </section>
 
 <!-- Environment Variables -->
-<section class="section" data-testid="env-section">
+<section data-testid="env-section">
 	<h2 class="section-title">Environment Variables</h2>
 	<form
 		method="post"
@@ -302,7 +302,7 @@
 </section>
 
 <!-- Domains -->
-<section class="section" data-testid="domains-section">
+<section data-testid="domains-section">
 	<div class="section-header">
 		<h2 class="section-title">Domains</h2>
 		<a
@@ -331,7 +331,7 @@
 </section>
 
 <!-- Scheduled Tasks -->
-<section class="section" data-testid="crons-section">
+<section data-testid="crons-section">
 	<div class="section-header">
 		<h2 class="section-title">Scheduled Tasks</h2>
 		<a
@@ -397,7 +397,7 @@
 </section>
 
 <!-- Integrations -->
-<section class="section" data-testid="integrations-section">
+<section data-testid="integrations-section">
 	<h2 class="section-title">Integrations</h2>
 	<div class="integration-list">
 		<div class="integration-row">

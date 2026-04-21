@@ -73,7 +73,9 @@
 		{/each}
 	</nav>
 
-	{@render children()}
+	<div class="tab-content">
+		{@render children()}
+	</div>
 </article>
 
 <style>
@@ -84,6 +86,18 @@
 		margin: 0 auto;
 		width: 100%;
 		padding: var(--space-4) var(--space-4) var(--space-6);
+	}
+
+	.tab-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-5);
+	}
+
+	.tab-content :global(section) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
 	}
 
 	.project-header {

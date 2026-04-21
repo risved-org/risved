@@ -103,7 +103,7 @@
 	</nav>
 
 	<!-- Payload URL -->
-	<section class="section" data-testid="payload-url-section">
+	<section data-testid="payload-url-section">
 		<h2 class="section-title">Payload URL</h2>
 		<div class="copy-field">
 			<code class="field-value mono" data-testid="payload-url">{data.payloadUrl}</code>
@@ -118,7 +118,7 @@
 	</section>
 
 	<!-- Webhook Secret -->
-	<section class="section" data-testid="secret-section">
+	<section data-testid="secret-section">
 		<h2 class="section-title">Webhook Secret</h2>
 		<div class="copy-field">
 			<code class="field-value mono" data-testid="webhook-secret">
@@ -142,7 +142,7 @@
 	</section>
 
 	<!-- Provider Setup Guides -->
-	<section class="section" data-testid="provider-guides">
+	<section data-testid="provider-guides">
 		<h2 class="section-title">Setup Guide</h2>
 		<div class="tab-bar" data-testid="provider-tabs">
 			{#each providers as p (p.id)}
@@ -166,7 +166,7 @@
 	</section>
 
 	<!-- Delivery Log Link -->
-	<section class="section" data-testid="deliveries-link-section">
+	<section data-testid="deliveries-link-section">
 		<div class="delivery-link-row">
 			<span class="section-title">Recent Deliveries</span>
 			<a
@@ -180,7 +180,7 @@
 	</section>
 
 	<!-- Branch Filter & Event Toggles -->
-	<section class="section" data-testid="config-section">
+	<section data-testid="config-section">
 		<h2 class="section-title">Webhook Settings</h2>
 		<form method="post" action="?/update" use:enhance class="config-form">
 			<div class="form-group">

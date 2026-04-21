@@ -74,7 +74,7 @@
 </script>
 
 <!-- Deployments (last 10) -->
-<section class="section" data-testid="deployments-section">
+<section data-testid="deployments-section">
 	<div class="section-header">
 		<h2 class="section-title">Deployments</h2>
 		<div class="section-actions">
@@ -125,7 +125,7 @@
 </section>
 
 <!-- Container Health -->
-<section class="section" data-testid="health-section">
+<section data-testid="health-section">
 	<h2 class="section-title">Container Health</h2>
 	{#if data.containerHealth}
 		<div class="health-card">
@@ -169,7 +169,7 @@
 </section>
 
 <!-- Resource Sparkline (24h) -->
-<section class="section" data-testid="resource-section">
+<section data-testid="resource-section">
 	<h2 class="section-title">Resource history (24h)</h2>
 	<div class="charts-grid">
 		<LineChart points={cpuPoints} label="CPU %" color="var(--color-accent)" unit="%" />

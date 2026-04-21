@@ -39,7 +39,7 @@
 		<a href={resolve(`/projects/${data.project.slug}/webhooks`)} class="breadcrumb-link">← Webhooks</a>
 	</nav>
 
-	<section class="section" data-testid="deliveries-list">
+	<section data-testid="deliveries-list">
 		{#if data.deliveries.length === 0}
 			<div class="empty-state" data-testid="empty-state">
 				<p class="empty-text">No webhook deliveries yet.</p>
