@@ -30,6 +30,7 @@ export const load: PageServerLoad = async () => {
 		.where(eq(domains.isPrimary, true))
 
 	/* Build lookup maps */
+	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
 	const latestDeployMap = new Map<
 		string,
 		{ status: string; commitSha: string | null; createdAt: string }
@@ -41,6 +42,12 @@ export const load: PageServerLoad = async () => {
 				commitSha: dep.commitSha,
 				createdAt: dep.createdAt
 			})
+		}
+		/* If latest deployment is in-progress but there's a previous live deployment,
+		   show the project as live — the old container is still serving traffic */
+		const existing = latestDeployMap.get(dep.projectId)!
+		if (IN_PROGRESS.has(existing.status) && dep.status === 'live') {
+			existing.status = 'live'
 		}
 	}
 

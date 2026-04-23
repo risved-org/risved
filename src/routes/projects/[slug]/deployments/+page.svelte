@@ -26,10 +26,12 @@
 		return mins > 0 ? `${mins}m ${secs % 60}s` : `${secs}s`
 	}
 
+	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
+
 	function statusClass(status: string): string {
 		if (status === 'live') return 'dot-live'
 		if (status === 'failed') return 'dot-failed'
-		if (status === 'building') return 'dot-building'
+		if (IN_PROGRESS.has(status)) return 'dot-building'
 		return 'dot-stopped'
 	}
 

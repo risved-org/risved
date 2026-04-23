@@ -30,14 +30,22 @@ export const load: LayoutServerLoad = async ({ params }) => {
 	const doms = await db.select().from(domains).where(eq(domains.projectId, project.id))
 	const primaryDomain = doms.find((d) => d.isPrimary)?.hostname ?? project.domain ?? null
 
-	const latestDep = await db
-		.select()
+	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
+
+	const recentDeps = await db
+		.select({ status: deployments.status })
 		.from(deployments)
 		.where(eq(deployments.projectId, project.id))
 		.orderBy(desc(deployments.createdAt))
-		.limit(1)
+		.limit(5)
 
-	const status = latestDep[0]?.status ?? 'stopped'
+	let status = recentDeps[0]?.status ?? 'stopped'
+
+	/* If latest deployment is in-progress but a previous one is live,
+	   show as live — the old container is still serving traffic */
+	if (IN_PROGRESS.has(status) && recentDeps.some((d) => d.status === 'live')) {
+		status = 'live'
+	}
 
 	return {
 		project: {

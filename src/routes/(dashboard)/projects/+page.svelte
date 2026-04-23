@@ -5,17 +5,19 @@
 
 	let { data } = $props()
 
+	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
+
 	function statusClass(status: string): string {
 		if (status === 'live') return 'status-live'
 		if (status === 'failed') return 'status-failed'
-		if (status === 'building') return 'status-building'
+		if (IN_PROGRESS.has(status)) return 'status-building'
 		return 'status-stopped'
 	}
 
 	function statusLabel(status: string): string {
 		if (status === 'live') return 'Live'
 		if (status === 'failed') return 'Failed'
-		if (status === 'building') return 'Building'
+		if (status === 'building' || status === 'running') return 'Building'
 		if (status === 'cloning') return 'Cloning'
 		if (status === 'detecting') return 'Detecting'
 		if (status === 'starting') return 'Starting'
