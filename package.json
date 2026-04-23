@@ -22,7 +22,8 @@
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"release": "VERSION=$(node -p \"require('./package.json').version\") && git tag -a \"v$VERSION\" -m \"Release v$VERSION\" && git push --follow-tags"
 	},
 	"dependencies": {
 		"@better-auth/core": "^1.5.5",

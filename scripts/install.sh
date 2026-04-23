@@ -246,7 +246,7 @@ start_risved() {
     -e "DATABASE_URL=file:data/risved.db" \
     -v "$RISVED_DATA_DIR/data:/app/data" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    "ghcr.io/ralf/risved:${RISVED_VERSION}" >/dev/null 2>&1 || true
+    "ghcr.io/risved-org/risved:${RISVED_VERSION}" >/dev/null 2>&1 || true
 
   ok "Risved control plane started"
 }

@@ -70,7 +70,7 @@ Risved auto-detects the framework used in your project and generates the appropr
 For local development, you'll need [Node.js 22+](https://nodejs.org/) (or [Bun](https://bun.sh/)) and [Docker](https://www.docker.com/).
 
 ```sh
-git clone https://github.com/ralf/risved.git
+git clone https://github.com/risved-org/risved.git
 cd risved
 bun install
 ```
