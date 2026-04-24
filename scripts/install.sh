@@ -8,6 +8,12 @@
 set -euo pipefail
 
 RISVED_VERSION="${RISVED_VERSION:-latest}"
+RISVED_DISPLAY_VERSION="$RISVED_VERSION"
+if [ "$RISVED_DISPLAY_VERSION" = "latest" ]; then
+  RISVED_DISPLAY_VERSION=$(curl -fsSL --max-time 5 "https://api.github.com/repos/risved-org/risved/tags?per_page=1" 2>/dev/null \
+    | grep '"name"' | head -1 | cut -d'"' -f4 | sed 's/^v//') || true
+  RISVED_DISPLAY_VERSION="${RISVED_DISPLAY_VERSION:-latest}"
+fi
 RISVED_PORT="${RISVED_PORT:-3000}"
 RISVED_DOCKER_NETWORK="risved"
 CADDY_IMAGE="caddy:2-alpine"
@@ -33,17 +39,12 @@ err()   { printf "${RED}✗${RESET} %s\n" "$*" >&2; }
 fatal() { err "$@"; exit 1; }
 
 banner() {
-  printf "\n${BOLD}"
-  cat <<'LOGO'
-       _                  _
-  _ __(_)_____   _____  _| |
- | '__| / __\ \ / / _ \/ _` |
- | |  | \__ \\ V /  __/ (_| |
- |_|  |_|___/ \_/ \___|\__,_|
-
-LOGO
-  printf "${RESET}"
-  printf "  ${DIM}Deploy to Risved${RESET}\n\n"
+  printf "\n"
+  printf "  ${GREEN}    ▲${RESET}       ${BOLD}Risved${RESET} v${RISVED_DISPLAY_VERSION}\n"
+  printf "  ${GREEN}   ▲█▲${RESET}      ${DIM}Deploy from here.${RESET}\n"
+  printf "  ${GREEN}  ▲███▲${RESET}\n"
+  printf "  ${GREEN} ▲█████▲${RESET}\n"
+  printf "  ${GREEN}    █${RESET}\n\n"
 }
 
 # ── Checks ──────────────────────────────────────────────────────
