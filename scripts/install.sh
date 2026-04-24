@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Risved Installation Script
-# Usage: curl -fsSL https://risved.org/install | sh
+# Usage: curl -fsSL https://risved.org/install | bash
 #
 # Installs Docker, Bun, and Risved on Ubuntu/Debian.
 # Idempotent — safe to re-run.
@@ -50,7 +50,7 @@ LOGO
 
 check_root() {
   if [ "$(id -u)" -ne 0 ]; then
-    fatal "This script must be run as root. Try: sudo sh -c 'curl -fsSL https://risved.org/install | sh'"
+    fatal "This script must be run as root. Try: sudo bash -c 'curl -fsSL https://risved.org/install | bash'"
   fi
   ok "Running as root"
 }
@@ -120,7 +120,7 @@ check_ports() {
 # ── Installers ──────────────────────────────────────────────────
 
 install_docker() {
-  if command -v docker &>/dev/null; then
+  if command -v docker >/dev/null 2>&1; then
     ok "Docker already installed: $(docker --version)"
     return
   fi
@@ -154,7 +154,7 @@ install_docker() {
 }
 
 install_bun() {
-  if command -v bun &>/dev/null; then
+  if command -v bun >/dev/null 2>&1; then
     ok "Bun already installed: $(bun --version)"
     return
   fi
@@ -164,7 +164,7 @@ install_bun() {
   export BUN_INSTALL="$HOME/.bun"
   export PATH="$BUN_INSTALL/bin:$PATH"
 
-  if ! command -v bun &>/dev/null; then
+  if ! command -v bun >/dev/null 2>&1; then
     fatal "Bun installation failed"
   fi
 
@@ -174,7 +174,7 @@ install_bun() {
 # ── Setup ───────────────────────────────────────────────────────
 
 setup_network() {
-  if docker network inspect "$RISVED_DOCKER_NETWORK" &>/dev/null; then
+  if docker network inspect "$RISVED_DOCKER_NETWORK" >/dev/null 2>&1; then
     ok "Docker network '$RISVED_DOCKER_NETWORK' already exists"
     return
   fi
@@ -214,7 +214,7 @@ start_caddy() {
   # Wait for Caddy to be ready
   local retries=0
   while [ $retries -lt 15 ]; do
-    if docker exec "$container_name" wget -qO- http://localhost:2019/config/ &>/dev/null; then
+    if docker exec "$container_name" wget -qO- http://localhost:2019/config/ >/dev/null 2>&1; then
       ok "Caddy started and accepting connections"
       return
     fi

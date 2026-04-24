@@ -7,7 +7,7 @@ Risved is an open-source deployment tool for running web apps on your own server
 Run the install script on an Ubuntu/Debian server (requires root):
 
 ```sh
-curl -fsSL https://risved.org/install | sh
+curl -fsSL https://risved.org/install | bash
 ```
 
 This installs Docker, Deno, and Risved, then starts the control plane. Once complete, open the printed URL in your browser to create your admin account, configure your domain, and deploy your first app.
@@ -15,7 +15,7 @@ This installs Docker, Deno, and Risved, then starts the control plane. Once comp
 You can customise the install with environment variables:
 
 ```sh
-RISVED_PORT=8080 curl -fsSL https://risved.org/install | sh
+RISVED_PORT=8080 curl -fsSL https://risved.org/install | bash
 ```
 
 ### Requirements
