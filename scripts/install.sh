@@ -160,7 +160,11 @@ install_bun() {
   fi
 
   info "Installing Bun..."
-  curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1
+  local tmp_installer
+  tmp_installer=$(mktemp)
+  curl -fsSL https://bun.sh/install -o "$tmp_installer"
+  BUN_INSTALL="$HOME/.bun" bash "$tmp_installer" >/dev/null 2>&1
+  rm -f "$tmp_installer"
   export BUN_INSTALL="$HOME/.bun"
   export PATH="$BUN_INSTALL/bin:$PATH"
 
