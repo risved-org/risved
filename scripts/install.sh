@@ -161,6 +161,9 @@ install_bun() {
   fi
 
   info "Installing Bun..."
+  if ! command -v unzip >/dev/null 2>&1; then
+    apt-get install -y -qq unzip >/dev/null
+  fi
   local tmp_installer bun_log
   tmp_installer=$(mktemp)
   bun_log=$(mktemp)
