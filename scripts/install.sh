@@ -345,11 +345,8 @@ main() {
   info "Setting up Risved..."
   setup_directories
   setup_network
-  fetch_builder_scripts
-  build_builder_images
   start_caddy
   start_risved
-  setup_builder_cron
 
   local server_ip
   server_ip=$(detect_server_ip)
@@ -361,6 +358,10 @@ main() {
   printf "  ${DIM}This will guide you through creating your admin\n"
   printf "  account, configuring your domain, and deploying\n"
   printf "  your first app.${RESET}\n\n"
+
+  # Build pre-warmed builder images in the background
+  info "Building builder images in the background..."
+  (fetch_builder_scripts && build_builder_images && setup_builder_cron) >/dev/null 2>&1 &
 }
 
 # Allow sourcing without executing (for testing)
