@@ -44,7 +44,14 @@ project.inlang/cache/
 # Ralph loop
 ralph.sh
 /Dockerfile
-scripts/
+!Dockerfile.production
+!.github/
+
+# Scripts — ignore all except what we need
+scripts/*
+!scripts/install.sh
+!scripts/risved.mjs
+!scripts/builders/
 .agent/
 .agents/
 PRD.md
