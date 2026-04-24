@@ -274,6 +274,31 @@ detect_server_ip() {
   echo "$ip"
 }
 
+fetch_builder_scripts() {
+  local builder_dir="$RISVED_DATA_DIR/scripts/builders"
+  local tag="v${RISVED_DISPLAY_VERSION}"
+  local base_url="https://raw.githubusercontent.com/risved-org/risved/${tag}/scripts/builders"
+
+  if [ "$RISVED_DISPLAY_VERSION" = "latest" ]; then
+    warn "Could not resolve version, skipping builder scripts download"
+    return
+  fi
+
+  if [ -f "$builder_dir/build.sh" ]; then
+    ok "Builder scripts already present"
+    return
+  fi
+
+  info "Downloading builder scripts..."
+  mkdir -p "$builder_dir"
+  local files="build.sh node.Dockerfile bun.Dockerfile node-build.Dockerfile"
+  for f in $files; do
+    curl -fsSL "$base_url/$f" -o "$builder_dir/$f" || true
+  done
+  chmod +x "$builder_dir/build.sh"
+  ok "Builder scripts downloaded"
+}
+
 build_builder_images() {
   info "Building pre-warmed builder images..."
   local builder_dir="$RISVED_DATA_DIR/scripts/builders"
@@ -320,6 +345,7 @@ main() {
   info "Setting up Risved..."
   setup_directories
   setup_network
+  fetch_builder_scripts
   build_builder_images
   start_caddy
   start_risved
