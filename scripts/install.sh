@@ -41,7 +41,7 @@ fatal() { err "$@"; exit 1; }
 banner() {
   printf "\n"
   printf "  ${GREEN}    ▲${RESET}       ${BOLD}Risved${RESET} v${RISVED_DISPLAY_VERSION}\n"
-  printf "  ${GREEN}   ▲█▲${RESET}      ${DIM}Deploy from here.${RESET}\n"
+  printf "  ${GREEN}   ▲█▲${RESET}      ${DIM}Deploy from here${RESET}\n"
   printf "  ${GREEN}  ▲███▲${RESET}\n"
   printf "  ${GREEN} ▲█████▲${RESET}\n"
   printf "  ${GREEN}    █${RESET}\n\n"
@@ -161,17 +161,22 @@ install_bun() {
   fi
 
   info "Installing Bun..."
-  local tmp_installer
+  local tmp_installer bun_log
   tmp_installer=$(mktemp)
+  bun_log=$(mktemp)
   curl -fsSL https://bun.sh/install -o "$tmp_installer"
-  BUN_INSTALL="$HOME/.bun" bash "$tmp_installer" </dev/null >/dev/null 2>&1 || true
+  BUN_INSTALL="$HOME/.bun" bash "$tmp_installer" </dev/null >"$bun_log" 2>&1 || true
   rm -f "$tmp_installer"
   export BUN_INSTALL="$HOME/.bun"
   export PATH="$BUN_INSTALL/bin:$PATH"
 
   if ! command -v bun >/dev/null 2>&1; then
+    err "Bun installer output:"
+    cat "$bun_log" >&2
+    rm -f "$bun_log"
     fatal "Bun installation failed"
   fi
+  rm -f "$bun_log"
 
   ok "Bun installed: $(bun --version)"
 }
