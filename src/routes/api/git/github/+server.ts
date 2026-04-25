@@ -1,4 +1,5 @@
 import { json, redirect } from '@sveltejs/kit'
+import { env } from '$env/dynamic/private'
 import { db } from '$lib/server/db'
 import { gitConnections } from '$lib/server/db/schema'
 import { eq } from 'drizzle-orm'
@@ -63,8 +64,12 @@ export const GET: RequestHandler = async (event) => {
 		}
 
 		/* Proxy mode: redirect to risved.com which handles the GitHub OAuth */
+		const callbackSecret = env.CALLBACK_SECRET
+		if (!callbackSecret) {
+			return jsonError(500, 'CALLBACK_SECRET not configured')
+		}
 		const instanceUrl = event.url.origin
-		const proxyUrl = `${RISVED_PROXY}?instance=${encodeURIComponent(instanceUrl)}`
+		const proxyUrl = `${RISVED_PROXY}?instance=${encodeURIComponent(instanceUrl)}&secret=${encodeURIComponent(callbackSecret)}`
 		redirect(302, proxyUrl)
 	}
 
