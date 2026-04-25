@@ -8,7 +8,11 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 COPY . .
-RUN DATABASE_URL=file:build.db bun run build
+RUN DATABASE_URL=file:build.db \
+    BETTER_AUTH_SECRET=build-placeholder \
+    BETTER_AUTH_URL=http://localhost:3000 \
+    ORIGIN=http://localhost:3000 \
+    bun run build
 
 FROM node:22-slim
 
