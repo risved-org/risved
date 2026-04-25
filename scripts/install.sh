@@ -259,12 +259,26 @@ start_risved() {
 
   info "Starting Risved control plane..."
 
+  # Generate a secret if one doesn't exist yet
+  local secret_file="$RISVED_DATA_DIR/data/.auth-secret"
+  if [ ! -f "$secret_file" ]; then
+    openssl rand -hex 32 > "$secret_file"
+    chmod 600 "$secret_file"
+  fi
+  local auth_secret
+  auth_secret=$(cat "$secret_file")
+
+  local server_ip
+  server_ip=$(detect_server_ip)
+
   docker run -d \
     --name "$container_name" \
     --network "$RISVED_DOCKER_NETWORK" \
     --restart unless-stopped \
     -p "${RISVED_PORT}:3000" \
     -e "DATABASE_URL=file:data/risved.db" \
+    -e "BETTER_AUTH_SECRET=${auth_secret}" \
+    -e "ORIGIN=http://${server_ip}:${RISVED_PORT}" \
     -v "$RISVED_DATA_DIR/data:/app/data" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     "ghcr.io/risved-org/risved:${RISVED_VERSION}" >/dev/null 2>&1 || true
@@ -274,10 +288,10 @@ start_risved() {
 
 detect_server_ip() {
   local ip
-  # Try multiple methods to detect the public IP
-  ip=$(curl -fsSL --max-time 5 https://ifconfig.me 2>/dev/null) \
-    || ip=$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null) \
-    || ip=$(hostname -I | awk '{print $1}') \
+  # Prefer IPv4 for browser-friendly URLs
+  ip=$(curl -4 -fsSL --max-time 5 https://ifconfig.me 2>/dev/null) \
+    || ip=$(curl -4 -fsSL --max-time 5 https://api.ipify.org 2>/dev/null) \
+    || ip=$(hostname -I | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1) \
     || ip="<server-ip>"
   echo "$ip"
 }
