@@ -15,6 +15,13 @@
       "when": 1776508800000,
       "tag": "0001_add_release_command",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777124105285,
+      "tag": "0002_modern_the_renegades",
+      "breakpoints": true
     }
   ]
 }
