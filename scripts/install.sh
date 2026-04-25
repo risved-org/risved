@@ -108,6 +108,10 @@ check_disk() {
 check_port() {
   local port="$1"
   if ss -tlnp | grep -q ":${port} "; then
+    # Allow if the port is held by an existing Risved container
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^risved-"; then
+      return 0
+    fi
     fatal "Port $port is already in use. Risved needs ports 80 and 443 for HTTPS."
   fi
 }
@@ -115,7 +119,11 @@ check_port() {
 check_ports() {
   check_port 80
   check_port 443
-  ok "Ports 80 and 443 are available"
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^risved-"; then
+    ok "Ports 80 and 443 in use by existing Risved install"
+  else
+    ok "Ports 80 and 443 are available"
+  fi
 }
 
 # ── Installers ──────────────────────────────────────────────────
