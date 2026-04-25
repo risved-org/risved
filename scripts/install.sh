@@ -268,9 +268,6 @@ start_risved() {
   local auth_secret
   auth_secret=$(cat "$secret_file")
 
-  local server_ip
-  server_ip=$(detect_server_ip)
-
   docker run -d \
     --name "$container_name" \
     --network "$RISVED_DOCKER_NETWORK" \
@@ -278,7 +275,7 @@ start_risved() {
     -p "${RISVED_PORT}:3000" \
     -e "DATABASE_URL=file:data/risved.db" \
     -e "BETTER_AUTH_SECRET=${auth_secret}" \
-    -e "ORIGIN=http://${server_ip}:${RISVED_PORT}" \
+    -e "ORIGIN=http://$(format_ip_url "$(detect_server_ip)"):${RISVED_PORT}" \
     -v "$RISVED_DATA_DIR/data:/app/data" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     "ghcr.io/risved-org/risved:${RISVED_VERSION}" >/dev/null 2>&1 || true
@@ -288,12 +285,23 @@ start_risved() {
 
 detect_server_ip() {
   local ip
-  # Prefer IPv4 for browser-friendly URLs
+  # Try IPv4 first, then fall back to any public IP
   ip=$(curl -4 -fsSL --max-time 5 https://ifconfig.me 2>/dev/null) \
-    || ip=$(curl -4 -fsSL --max-time 5 https://api.ipify.org 2>/dev/null) \
-    || ip=$(hostname -I | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1) \
+    || ip=$(curl -fsSL --max-time 5 https://ifconfig.me 2>/dev/null) \
+    || ip=$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null) \
+    || ip=$(hostname -I | awk '{print $1}') \
     || ip="<server-ip>"
   echo "$ip"
+}
+
+# Format IP for use in URLs (wrap IPv6 in brackets)
+format_ip_url() {
+  local ip="$1"
+  if echo "$ip" | grep -q ':'; then
+    echo "[${ip}]"
+  else
+    echo "$ip"
+  fi
 }
 
 fetch_builder_scripts() {
@@ -376,7 +384,7 @@ main() {
   printf "\n"
   printf "${GREEN}${BOLD}  ✓ Risved installed successfully!${RESET}\n\n"
   printf "  Open your browser to complete setup:\n\n"
-  printf "    ${BOLD}http://${server_ip}:${RISVED_PORT}${RESET}\n\n"
+  printf "    ${BOLD}http://$(format_ip_url "$server_ip"):${RISVED_PORT}${RESET}\n\n"
   printf "  ${DIM}This will guide you through creating your admin\n"
   printf "  account, configuring your domain, and deploying\n"
   printf "  your first app.${RESET}\n\n"
