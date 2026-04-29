@@ -275,7 +275,7 @@
 				if (attempts >= maxAttempts) {
 					clearInterval(poll)
 					updateStep = null
-					updateError = 'Update timed out. Check the server manually.'
+					updateError = 'Update timed out. Try refreshing the page — the update may still be in progress.'
 				}
 			}, 3000)
 		} catch {
