@@ -44,6 +44,11 @@ export async function dockerRun(
 	const { imageTag, containerName, port, network = DOCKER_NETWORK, env = {}, volumes = [] } = options;
 	const args = ['run', '-d', '--network', network, '--name', containerName, '-p', `${port}:3000`];
 
+	/* Ensure the app binds to all interfaces so the health check and
+	   reverse proxy can reach it over the Docker network. */
+	args.push('-e', 'HOST=0.0.0.0');
+	args.push('-e', 'HOSTNAME=0.0.0.0');
+
 	for (const [key, val] of Object.entries(env)) {
 		args.push('-e', `${key}=${val}`);
 	}
