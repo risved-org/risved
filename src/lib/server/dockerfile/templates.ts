@@ -66,7 +66,7 @@ function pmFromLockfile(
 		default:
 			return {
 				copyLine: 'COPY package.json package-lock.json* ./',
-				install: 'npm ci',
+				install: 'npm ci || npm install',
 				run: 'npm run',
 				prune: 'npm prune --omit=dev'
 			}
