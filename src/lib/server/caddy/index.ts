@@ -9,8 +9,8 @@ import type {
 
 export type { CaddyClientConfig, CaddyHealthStatus, CaddyResult, CaddyRoute } from './types';
 
-const DEFAULT_ADMIN_URL = 'http://localhost:2019';
-const CADDY_CONTAINER = process.env.CADDY_CONTAINER || '';
+const DEFAULT_ADMIN_URL = process.env.CADDY_ADMIN_URL || 'http://localhost:2019';
+const UPSTREAM_HOST = process.env.CADDY_ADMIN_URL ? 'host.docker.internal' : 'localhost';
 
 /**
  * Build a Caddy route ID from a hostname.
@@ -35,7 +35,7 @@ export function buildRouteConfig(route: CaddyRoute): CaddyRouteConfig {
 			},
 			{
 				handler: 'reverse_proxy',
-				upstreams: [{ dial: `localhost:${route.port}` }]
+				upstreams: [{ dial: `${UPSTREAM_HOST}:${route.port}` }]
 			}
 		]
 	};
@@ -58,7 +58,7 @@ export class CaddyClient {
 	}
 
 	private headers(): Record<string, string> {
-		return { 'Content-Type': 'application/json', Origin: this.adminUrl }
+		return { 'Content-Type': 'application/json', Origin: 'http://localhost:2019' }
 	}
 
 	/**
@@ -234,63 +234,8 @@ export class CaddyClient {
 }
 
 /**
- * Build a fetch function that proxies requests through `docker exec`
- * into the Caddy container, hitting localhost:2019 from inside.
- * This avoids Caddy's admin origin/listen restrictions entirely.
- */
-function dockerExecFetch(container: string): FetchFn {
-	return async (input: string, init?: RequestInit): Promise<Response> => {
-		const { execFile } = await import('node:child_process')
-		const { promisify } = await import('node:util')
-		const execFileAsync = promisify(execFile)
-
-		const url = input.toString()
-		const method = init?.method || 'GET'
-
-		const args = [
-			'exec', container, 'wget', '-q', '-O-',
-			'--method', method,
-			'--header', 'Content-Type: application/json',
-			'--header', 'Origin: http://localhost:2019'
-		]
-
-		if (init?.body) {
-			args.push('--body-data', String(init.body))
-		}
-
-		args.push(url)
-
-		try {
-			const { stdout } = await execFileAsync('docker', args, { timeout: 10_000 })
-			return new Response(stdout || null, { status: 200 })
-		} catch (err: unknown) {
-			const execErr = err as { stdout?: string, stderr?: string, code?: number }
-			/* wget returns exit code 8 for 4xx/5xx responses but still writes the body to stdout */
-			if (execErr.stdout !== undefined) {
-				/* Try to detect HTTP errors from wget's stderr */
-				const stderr = execErr.stderr || ''
-				if (stderr.includes('404')) {
-					return new Response(execErr.stdout || null, { status: 404 })
-				}
-				if (stderr.includes('400')) {
-					return new Response(execErr.stdout || null, { status: 400 })
-				}
-				/* Other server error — return the body with a generic error status */
-				return new Response(execErr.stdout || null, { status: 500 })
-			}
-			throw err
-		}
-	}
-}
-
-/**
  * Create a CaddyClient with default configuration.
- * When CADDY_CONTAINER is set, routes requests through docker exec
- * to avoid Caddy admin API origin/listen restrictions.
  */
 export function createCaddyClient(config?: CaddyClientConfig): CaddyClient {
-	if (CADDY_CONTAINER) {
-		return new CaddyClient(config, dockerExecFetch(CADDY_CONTAINER))
-	}
 	return new CaddyClient(config);
 }
