@@ -228,7 +228,7 @@ start_caddy() {
   cat > "$RISVED_DATA_DIR/caddy/Caddyfile" <<'CADDYEOF'
 {
 	admin 0.0.0.0:2019 {
-		origins localhost
+		origins http://localhost:2019
 	}
 }
 CADDYEOF
