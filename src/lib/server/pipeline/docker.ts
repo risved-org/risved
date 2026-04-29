@@ -145,15 +145,10 @@ export async function gitClone(
 	let cloneUrl = repoUrl
 
 	if (sshPrivateKeyB64) {
-		/* Write PKCS8 private key to temp file in PEM format */
+		/* Decode full OpenSSH private key from base64 and write to temp file */
 		keyFile = join(tmpdir(), `risved-ssh-${Date.now()}`)
-		const pemContent = [
-			'-----BEGIN PRIVATE KEY-----',
-			...sshPrivateKeyB64.match(/.{1,64}/g)!,
-			'-----END PRIVATE KEY-----',
-			''
-		].join('\n')
-		await writeFile(keyFile, pemContent, { mode: 0o600 })
+		const keyContent = atob(sshPrivateKeyB64)
+		await writeFile(keyFile, keyContent, { mode: 0o600 })
 		await chmod(keyFile, 0o600)
 
 		cloneUrl = toSshUrl(repoUrl)

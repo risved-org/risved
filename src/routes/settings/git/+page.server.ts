@@ -104,35 +104,25 @@ export const actions: Actions = {
 
 	/** Generate an SSH deploy key pair for read-only repository access. */
 	generateSshKey: async () => {
-		const keyPair = await crypto.subtle.generateKey({ name: 'Ed25519' } as EcKeyGenParams, true, [
-			'sign',
-			'verify'
-		])
+		const { execSync } = await import('node:child_process')
+		const { readFile, rm } = await import('node:fs/promises')
+		const { join } = await import('node:path')
+		const { tmpdir } = await import('node:os')
 
-		const publicRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey)
-		const publicBytes = new Uint8Array(publicRaw)
+		const keyFile = join(tmpdir(), `risved-keygen-${Date.now()}`)
+		execSync(`ssh-keygen -t ed25519 -f ${keyFile} -N "" -C "risved-deploy-key" -q`)
 
-		/* OpenSSH wire format: each field is a uint32 length prefix + data */
-		const keyType = new TextEncoder().encode('ssh-ed25519')
-		const buf = new Uint8Array(4 + keyType.length + 4 + publicBytes.length)
-		const view = new DataView(buf.buffer)
-		let offset = 0
-		view.setUint32(offset, keyType.length)
-		offset += 4
-		buf.set(keyType, offset)
-		offset += keyType.length
-		view.setUint32(offset, publicBytes.length)
-		offset += 4
-		buf.set(publicBytes, offset)
+		const privateKey = await readFile(keyFile, 'utf8')
+		const publicKey = await readFile(`${keyFile}.pub`, 'utf8')
 
-		const publicB64 = btoa(String.fromCharCode(...buf))
-		const publicKeyStr = `ssh-ed25519 ${publicB64} risved-deploy-key`
+		/* Store full private key as base64 (includes OpenSSH headers) */
+		const privateB64 = btoa(privateKey)
 
-		const privatePkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
-		const privateB64 = btoa(String.fromCharCode(...new Uint8Array(privatePkcs8)))
-
-		await setSetting('ssh_deploy_public_key', publicKeyStr)
+		await setSetting('ssh_deploy_public_key', publicKey.trim())
 		await setSetting('ssh_deploy_private_key', privateB64)
+
+		await rm(keyFile, { force: true }).catch(() => {})
+		await rm(`${keyFile}.pub`, { force: true }).catch(() => {})
 
 		return { keyGenerated: true }
 	},
