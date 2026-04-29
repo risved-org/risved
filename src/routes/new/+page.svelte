@@ -353,6 +353,7 @@
 				<input type="hidden" name="repoUrl" value={repoUrl} />
 				<input type="hidden" name="branch" value={branch} />
 				<input type="hidden" name="rootDir" value={rootDir} />
+				<input type="hidden" name="connectionId" value={selectedConnectionId} />
 			{/if}
 		</section>
 

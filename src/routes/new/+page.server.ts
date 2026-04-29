@@ -44,6 +44,7 @@ export const actions: Actions = {
 		const buildCommand = (formData.get('buildCommand') as string | null)?.trim() || ''
 		const startCommand = (formData.get('startCommand') as string | null)?.trim() || ''
 		const releaseCommand = (formData.get('releaseCommand') as string | null)?.trim() || ''
+		const connectionId = (formData.get('connectionId') as string | null)?.trim() || null
 		const envKeysRaw = formData.get('envKeys') as string | null;
 		const envValsRaw = formData.get('envValues') as string | null;
 		const envSecretsRaw = formData.get('envSecrets') as string | null;
@@ -111,6 +112,7 @@ export const actions: Actions = {
 				slug,
 				repoUrl: repoUrl.trim(),
 				branch,
+				gitConnectionId: connectionId,
 				frameworkId: frameworkId || undefined,
 				tier: matchedFramework?.tier ?? undefined,
 				port,
