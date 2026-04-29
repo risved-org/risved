@@ -223,6 +223,7 @@ start_caddy() {
   # Write a Caddyfile that exposes the admin API on all interfaces
   # so the control plane container can reach it over the Docker network
   mkdir -p "$RISVED_DATA_DIR/caddy"
+  rm -rf "$RISVED_DATA_DIR/caddy/Caddyfile"
   cat > "$RISVED_DATA_DIR/caddy/Caddyfile" <<'CADDYEOF'
 {
 	admin 0.0.0.0:2019
