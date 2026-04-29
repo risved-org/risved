@@ -220,6 +220,15 @@ start_caddy() {
   # Stop existing stopped container if present
   docker rm -f "$container_name" 2>/dev/null || true
 
+  # Write a Caddyfile that exposes the admin API on all interfaces
+  # so the control plane container can reach it over the Docker network
+  mkdir -p "$RISVED_DATA_DIR/caddy"
+  cat > "$RISVED_DATA_DIR/caddy/Caddyfile" <<'CADDYEOF'
+{
+	admin 0.0.0.0:2019
+}
+CADDYEOF
+
   docker run -d \
     --name "$container_name" \
     --network "$RISVED_DOCKER_NETWORK" \
@@ -229,6 +238,7 @@ start_caddy() {
     -p 2019:2019 \
     -v "$RISVED_DATA_DIR/caddy/data:/data" \
     -v "$RISVED_DATA_DIR/caddy/config:/config" \
+    -v "$RISVED_DATA_DIR/caddy/Caddyfile:/etc/caddy/Caddyfile" \
     "$CADDY_IMAGE" \
     caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --resume >/dev/null
 
