@@ -6,6 +6,7 @@ import { deployments, projects, domains, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import { safeDecrypt } from '$lib/server/crypto';
+import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
 import { detectPackageManager } from '../detect-package-manager';
@@ -82,8 +83,16 @@ export async function runPipeline(
 			.from(envVars)
 			.where(eq(envVars.projectId, config.projectId))
 
+		/* Resolve HTTPS clone token from the git connection (if any) */
+		const cloneToken = config.gitConnectionId
+			? await resolveCloneToken(config.gitConnectionId)
+			: null
+
 		const sshKey = await sshKeyPromise
-		const cloneResult = await gitClone(runner, config.repoUrl, config.branch, cloneDir, sshKey ?? undefined);
+		const cloneUrl = cloneToken
+			? injectTokenIntoUrl(config.repoUrl, cloneToken)
+			: config.repoUrl
+		const cloneResult = await gitClone(runner, cloneUrl, config.branch, cloneDir, sshKey ?? undefined);
 		if (!cloneResult.success) {
 			throw new PipelineError('clone', `Git clone failed: ${cloneResult.error}`);
 		}
@@ -378,6 +387,21 @@ export async function runPipeline(
 	} finally {
 		/* Cleanup work directory */
 		await rm(workDir, { recursive: true, force: true }).catch(() => {});
+	}
+}
+
+/**
+ * Embed an access token into an HTTPS clone URL.
+ * e.g. https://github.com/user/repo.git → https://x-access-token:TOKEN@github.com/user/repo.git
+ */
+function injectTokenIntoUrl(repoUrl: string, token: string): string {
+	try {
+		const url = new URL(repoUrl)
+		url.username = 'x-access-token'
+		url.password = token
+		return url.toString()
+	} catch {
+		return repoUrl
 	}
 }
 

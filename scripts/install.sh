@@ -274,7 +274,7 @@ start_risved() {
 
   info "Starting Risved control plane..."
 
-  # Generate a secret if one doesn't exist yet
+  # Generate secrets if they don't exist yet
   local secret_file="$RISVED_DATA_DIR/data/.auth-secret"
   if [ ! -f "$secret_file" ]; then
     openssl rand -hex 32 > "$secret_file"
@@ -282,6 +282,14 @@ start_risved() {
   fi
   local auth_secret
   auth_secret=$(cat "$secret_file")
+
+  local callback_secret_file="$RISVED_DATA_DIR/data/.callback-secret"
+  if [ ! -f "$callback_secret_file" ]; then
+    openssl rand -hex 32 > "$callback_secret_file"
+    chmod 600 "$callback_secret_file"
+  fi
+  local callback_secret
+  callback_secret=$(cat "$callback_secret_file")
 
   docker run -d \
     --name "$container_name" \
@@ -291,6 +299,7 @@ start_risved() {
     -e "DATABASE_URL=file:data/risved.db" \
     -e "BETTER_AUTH_SECRET=${auth_secret}" \
     -e "ORIGIN=http://$(format_ip_url "$(detect_server_ip)"):${RISVED_PORT}" \
+    -e "CALLBACK_SECRET=${callback_secret}" \
     -e "CADDY_ADMIN_URL=http://risved-caddy:2019" \
     -v "$RISVED_DATA_DIR/data:/app/data" \
     -v /var/run/docker.sock:/var/run/docker.sock \

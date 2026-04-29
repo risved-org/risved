@@ -109,6 +109,7 @@ export function decryptCallbackToken(encoded: string, secret: string): string {
 		throw new Error('Invalid callback token: too short')
 	}
 
+	/* Web Crypto AES-GCM format: iv[12] + ciphertext_with_authtag */
 	const iv = combined.subarray(0, IV_LENGTH)
 	const ciphertextWithTag = combined.subarray(IV_LENGTH)
 	const authTag = ciphertextWithTag.subarray(ciphertextWithTag.length - AUTH_TAG_LENGTH)

@@ -124,6 +124,7 @@ export async function createPreview(
 			projectSlug: containerName,
 			repoUrl: project.repoUrl,
 			branch,
+			gitConnectionId: project.gitConnectionId,
 			port,
 			domain,
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,

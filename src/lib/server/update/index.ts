@@ -99,6 +99,7 @@ export class UpdateChecker {
 		const now = new Date().toISOString()
 
 		await setSetting('last_update_check', now)
+		await setSetting('last_update_error', '')
 
 		if (!manifest) {
 			return {

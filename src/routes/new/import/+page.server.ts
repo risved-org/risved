@@ -36,6 +36,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const repoUrl = (formData.get('repoUrl') as string)?.trim();
 		const cloneUrl = (formData.get('cloneUrl') as string)?.trim();
+		const connectionId = (formData.get('connectionId') as string)?.trim() || null;
 		const branch = (formData.get('branch') as string)?.trim() || 'main';
 		const projectName = (formData.get('projectName') as string)?.trim();
 		const frameworkId = (formData.get('frameworkId') as string)?.trim() || '';
@@ -74,6 +75,7 @@ export const actions: Actions = {
 				slug,
 				repoUrl: repoUrl || cloneUrl,
 				branch,
+				gitConnectionId: connectionId,
 				frameworkId: frameworkId || undefined,
 				tier: matchedFramework?.tier ?? undefined,
 				port,
@@ -108,6 +110,7 @@ export const actions: Actions = {
 				projectSlug: project.slug,
 				repoUrl: project.repoUrl,
 				branch: project.branch,
+				gitConnectionId: project.gitConnectionId,
 				port: project.port!,
 				domain: project.domain ?? undefined,
 				frameworkId: (project.frameworkId as FrameworkId) ?? undefined,

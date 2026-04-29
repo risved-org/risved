@@ -29,6 +29,8 @@ export interface PipelineConfig {
 	projectSlug: string;
 	repoUrl: string;
 	branch: string;
+	/** Git connection ID for HTTPS token auth (private repos) */
+	gitConnectionId?: string | null;
 	port: number;
 	domain?: string;
 	/** Override the detected framework */

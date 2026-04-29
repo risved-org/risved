@@ -147,6 +147,7 @@ export const actions: Actions = {
 				projectSlug: project.slug,
 				repoUrl: project.repoUrl,
 				branch: project.branch,
+				gitConnectionId: project.gitConnectionId,
 				port: project.port!,
 				domain: project.domain ?? undefined,
 				frameworkId: (project.frameworkId as FrameworkId) ?? undefined,

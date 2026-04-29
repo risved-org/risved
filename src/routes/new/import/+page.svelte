@@ -205,6 +205,7 @@
 				>
 					<input type="hidden" name="repoUrl" value={selectedRepo.htmlUrl} />
 					<input type="hidden" name="cloneUrl" value={selectedRepo.cloneUrl} />
+					<input type="hidden" name="connectionId" value={selectedConnectionId} />
 
 					<div class="form-card">
 						<div class="form-group">
