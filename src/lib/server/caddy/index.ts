@@ -9,7 +9,7 @@ import type {
 
 export type { CaddyClientConfig, CaddyHealthStatus, CaddyResult, CaddyRoute } from './types';
 
-const DEFAULT_ADMIN_URL = 'http://localhost:2019';
+const DEFAULT_ADMIN_URL = process.env.CADDY_ADMIN_URL || 'http://localhost:2019';
 
 /**
  * Build a Caddy route ID from a hostname.
