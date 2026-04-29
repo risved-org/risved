@@ -79,7 +79,7 @@ export async function runRollback(
 		/* ── Health ─────────────────────────────── */
 		emit('health', 'Waiting for health check…');
 		const healthy = await waitForHealthy(
-			config.port,
+			containerName,
 			options?.healthTimeoutMs ?? 30000,
 			options?.healthIntervalMs ?? 2000,
 			options?.fetchFn ?? globalThis.fetch

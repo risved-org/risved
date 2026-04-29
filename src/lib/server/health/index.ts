@@ -98,7 +98,7 @@ export class HealthMonitor {
 		entry.lastCheckAt = now;
 		entry.port = port;
 
-		const healthy = await this.httpCheck(port);
+		const healthy = await this.httpCheck(slug);
 
 		if (healthy) {
 			if (!entry.healthy && entry.consecutiveFailures > 0) {
@@ -129,10 +129,10 @@ export class HealthMonitor {
 		return false;
 	}
 
-	/** HTTP GET health check against a container port */
-	private async httpCheck(port: number): Promise<boolean> {
+	/** HTTP GET health check against a container on the Docker network */
+	private async httpCheck(containerName: string): Promise<boolean> {
 		try {
-			const res = await this.fetchFn(`http://localhost:${port}/`, {
+			const res = await this.fetchFn(`http://${containerName}:3000/`, {
 				signal: AbortSignal.timeout(this.checkTimeoutMs)
 			});
 			return res.ok || res.status < 500;

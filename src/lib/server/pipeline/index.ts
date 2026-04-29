@@ -295,7 +295,7 @@ export async function runPipeline(
 		emit('health', 'Waiting for health check…');
 		const healthTimeout = options?.healthTimeoutMs ?? 60000
 		const healthy = await waitForHealthy(
-			config.port,
+			containerName,
 			healthTimeout,
 			options?.healthIntervalMs ?? 2000,
 			options?.fetchFn ?? globalThis.fetch

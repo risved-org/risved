@@ -181,16 +181,23 @@ export async function gitClone(
  * Polls the container's HTTP endpoint every intervalMs until timeoutMs.
  */
 export async function waitForHealthy(
-	port: number,
+	containerNameOrPort: string | number,
 	timeoutMs = 60000,
 	intervalMs = 2000,
 	fetchFn: typeof fetch = globalThis.fetch
 ): Promise<boolean> {
 	const deadline = Date.now() + timeoutMs;
+	/* When a container name is provided, health-check over the Docker network
+	   on port 3000 (the internal port all apps listen on). Falls back to
+	   localhost:{port} for backwards compatibility. */
+	const url =
+		typeof containerNameOrPort === 'string'
+			? `http://${containerNameOrPort}:3000/`
+			: `http://localhost:${containerNameOrPort}/`
 
 	while (Date.now() < deadline) {
 		try {
-			const res = await fetchFn(`http://localhost:${port}/`, {
+			const res = await fetchFn(url, {
 				signal: AbortSignal.timeout(2000)
 			});
 			if (res.ok || res.status < 500) {
