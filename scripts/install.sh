@@ -224,6 +224,7 @@ start_caddy() {
   # so the control plane container can reach it over the Docker network
   mkdir -p "$RISVED_DATA_DIR/caddy"
   rm -rf "$RISVED_DATA_DIR/caddy/Caddyfile"
+  rm -f "$RISVED_DATA_DIR/caddy/config/caddy/autosave.json"
   cat > "$RISVED_DATA_DIR/caddy/Caddyfile" <<'CADDYEOF'
 {
 	admin 0.0.0.0:2019
