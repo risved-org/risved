@@ -97,9 +97,11 @@ export class CaddyClient {
 				return { success: true };
 			}
 
-			/* Config may be null after DELETE — use /load to set entire config */
-			const createRes = await this.fetchFn(`${this.adminUrl}/load`, {
-				method: 'POST',
+			/* Config may be empty — use PATCH /config/ to merge in the HTTP
+			   server structure. Unlike /load, PATCH preserves the admin block
+			   so Caddy keeps listening on the same address. */
+			const createRes = await this.fetchFn(`${this.adminUrl}/config/`, {
+				method: 'PATCH',
 				headers: this.headers(),
 				body: JSON.stringify({
 					apps: {
@@ -119,10 +121,6 @@ export class CaddyClient {
 				const text = await createRes.text();
 				return { success: false, error: `Failed to create server: ${text}` };
 			}
-			/* /load replaces the entire config, which restarts Caddy's
-			   HTTP listeners. Wait briefly so the admin API is ready
-			   for follow-up requests. */
-			await new Promise(r => setTimeout(r, 1000));
 			return { success: true };
 		} catch (err) {
 			return {
