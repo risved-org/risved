@@ -227,7 +227,9 @@ start_caddy() {
   rm -f "$RISVED_DATA_DIR/caddy/config/caddy/autosave.json"
   cat > "$RISVED_DATA_DIR/caddy/Caddyfile" <<'CADDYEOF'
 {
-	admin 0.0.0.0:2019
+	admin 0.0.0.0:2019 {
+		origins localhost
+	}
 }
 CADDYEOF
 
