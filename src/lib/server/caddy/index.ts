@@ -98,23 +98,16 @@ export class CaddyClient {
 				return { success: true };
 			}
 
-			/* Config may be empty — use PATCH /config/ to merge in the HTTP
-			   server structure. Unlike /load, PATCH preserves the admin block
-			   so Caddy keeps listening on the same address. */
-			const createRes = await this.fetchFn(`${this.adminUrl}/config/`, {
-				method: 'PATCH',
+			/* PUT directly to the srv0 path instead of PATCHing /config/.
+			   PATCH /config/ triggers a full internal reload that resets the
+			   admin listener from 0.0.0.0 back to localhost, breaking
+			   cross-container access. PUT to a specific path avoids this. */
+			const createRes = await this.fetchFn(`${this.adminUrl}/config/apps/http/servers/srv0`, {
+				method: 'PUT',
 				headers: this.headers(),
 				body: JSON.stringify({
-					apps: {
-						http: {
-							servers: {
-								srv0: {
-									listen: [':443'],
-									routes: []
-								}
-							}
-						}
-					}
+					listen: [':443'],
+					routes: []
 				})
 			});
 
