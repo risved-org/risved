@@ -11,7 +11,7 @@ RUN apt-get update \
 RUN corepack enable \
     && corepack prepare pnpm@latest --activate \
     && corepack prepare yarn@stable --activate \
-    && corepack prepare yarn@classic --activate
+    && corepack prepare yarn@1 --activate
 
 # Bun is not managed by Corepack, install directly.
 RUN npm install -g bun

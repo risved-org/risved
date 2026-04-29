@@ -7,6 +7,7 @@ import { allocatePort } from '$lib/server/pipeline/port';
 import { runPipeline } from '$lib/server/pipeline';
 import { createCommandRunner } from '$lib/server/pipeline/docker';
 import { detectors } from '$lib/server/detection/detectors';
+import { registerWebhook } from '$lib/server/auto-webhook';
 import { eq } from 'drizzle-orm';
 import type { FrameworkId, Tier } from '$lib/server/detection/types';
 import type { PageServerLoad, Actions } from './$types';
@@ -32,7 +33,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
 	/** Import a repo from a connected provider and deploy. */
-	default: async ({ request }) => {
+	default: async ({ request, url }) => {
 		const formData = await request.formData();
 		const repoUrl = (formData.get('repoUrl') as string)?.trim();
 		const cloneUrl = (formData.get('cloneUrl') as string)?.trim();
@@ -102,6 +103,17 @@ export const actions: Actions = {
 					.insert(envVars)
 					.values({ projectId: project.id, key, value: encrypt(value), isSecret });
 			}
+		}
+
+		/* Register webhook on provider (fire-and-forget) */
+		if (connectionId) {
+			registerWebhook({
+				connectionId,
+				repoUrl: project.repoUrl,
+				projectId: project.id,
+				webhookSecret,
+				origin: url.origin
+			})
 		}
 
 		runPipeline(

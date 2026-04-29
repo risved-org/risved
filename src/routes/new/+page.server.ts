@@ -10,6 +10,7 @@ import { createCommandRunner } from '$lib/server/pipeline/docker';
 import { detectors } from '$lib/server/detection/detectors';
 import { gitConnections } from '$lib/server/db/schema';
 import { getSetting } from '$lib/server/settings';
+import { registerWebhook } from '$lib/server/auto-webhook';
 import type { FrameworkId, Tier } from '$lib/server/detection/types';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -34,7 +35,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, url }) => {
 		const formData = await request.formData();
 		const repoUrl = formData.get('repoUrl') as string | null;
 		const branch = (formData.get('branch') as string | null)?.trim() || 'main';
@@ -140,6 +141,17 @@ export const actions: Actions = {
 					isSecret
 				});
 			}
+		}
+
+		/* Register webhook on provider (fire-and-forget) */
+		if (connectionId) {
+			registerWebhook({
+				connectionId,
+				repoUrl: project.repoUrl,
+				projectId: project.id,
+				webhookSecret,
+				origin: url.origin
+			})
 		}
 
 		/* Trigger deployment */
