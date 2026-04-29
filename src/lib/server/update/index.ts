@@ -194,7 +194,8 @@ export class UpdateChecker {
 		const { promisify } = await import('node:util')
 		const execFileAsync = promisify(execFile)
 
-		const image = `ghcr.io/risved-org/risved:${version}`
+		const tag = version.replace(/^v/, '')
+		const image = `ghcr.io/risved-org/risved:${tag}`
 		await execFileAsync('docker', ['pull', image], { timeout: 300_000 })
 	}
 
@@ -209,7 +210,8 @@ export class UpdateChecker {
 		await setSetting('last_update_error', '')
 
 		const containerName = 'risved-control'
-		const image = `ghcr.io/risved-org/risved:${targetVersion}`
+		const tag = targetVersion.replace(/^v/, '')
+		const image = `ghcr.io/risved-org/risved:${tag}`
 
 		/* Read the current container's config so we can recreate it */
 		const { stdout } = await execFileAsync('docker', ['inspect', containerName])
