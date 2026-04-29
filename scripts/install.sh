@@ -229,6 +229,7 @@ start_caddy() {
 {
 	admin 0.0.0.0:2019 {
 		origins risved-caddy:2019
+		persist_config off
 	}
 }
 CADDYEOF
@@ -244,7 +245,7 @@ CADDYEOF
     -v "$RISVED_DATA_DIR/caddy/config:/config" \
     -v "$RISVED_DATA_DIR/caddy/Caddyfile:/etc/caddy/Caddyfile" \
     "$CADDY_IMAGE" \
-    caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --resume >/dev/null
+    caddy run --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
 
   # Wait for Caddy to be ready
   local retries=0
