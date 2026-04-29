@@ -188,20 +188,17 @@ export class UpdateChecker {
 		return { ok: true }
 	}
 
-	/** Pull the new version, build, and prepare for restart. */
+	/** Pull the new Docker image. */
 	async pullUpdate(version: string): Promise<void> {
 		const { execFile } = await import('node:child_process')
 		const { promisify } = await import('node:util')
 		const execFileAsync = promisify(execFile)
-		const dir = this.config.installDir
 
-		await execFileAsync('git', ['fetch', 'origin', '--tags'], { cwd: dir, timeout: 60_000 })
-		await execFileAsync('git', ['checkout', `v${version}`], { cwd: dir, timeout: 30_000 })
-		await execFileAsync('bun', ['install', '--frozen-lockfile'], { cwd: dir, timeout: 120_000 })
-		await execFileAsync('bun', ['run', 'build'], { cwd: dir, timeout: 300_000 })
+		const image = `ghcr.io/risved-org/risved:${version}`
+		await execFileAsync('docker', ['pull', image], { timeout: 300_000 })
 	}
 
-	/** Restart the control plane via systemd. */
+	/** Replace the running container with the new image. */
 	async restartControlPlane(targetVersion: string): Promise<void> {
 		const { execFile } = await import('node:child_process')
 		const { promisify } = await import('node:util')
@@ -211,7 +208,68 @@ export class UpdateChecker {
 		await setSetting('update_available_version', '')
 		await setSetting('last_update_error', '')
 
-		await execFileAsync('systemctl', ['restart', 'risved'], { timeout: 10_000 })
+		const containerName = 'risved-control'
+		const image = `ghcr.io/risved-org/risved:${targetVersion}`
+
+		/* Read the current container's config so we can recreate it */
+		const { stdout } = await execFileAsync('docker', ['inspect', containerName])
+		const info = JSON.parse(stdout)[0]
+		const config = info.Config
+		const hostConfig = info.HostConfig
+
+		/* Extract env vars, port bindings, volumes, and network */
+		const env = config.Env || []
+		const portBindings = hostConfig.PortBindings || {}
+		const binds = hostConfig.Binds || []
+		const networkName = Object.keys(info.NetworkSettings?.Networks || {})[0] || 'risved'
+
+		/* Build docker run args for the new container */
+		const runArgs: string[] = ['run', '-d', '--name', containerName, '--network', networkName, '--restart', 'unless-stopped']
+
+		for (const e of env) {
+			runArgs.push('-e', e)
+		}
+
+		for (const bind of binds) {
+			runArgs.push('-v', bind)
+		}
+
+		for (const [containerPort, hostBindings] of Object.entries(portBindings)) {
+			const port = containerPort.replace('/tcp', '').replace('/udp', '')
+			for (const binding of hostBindings as Array<{ HostPort: string }>) {
+				runArgs.push('-p', `${binding.HostPort}:${port}`)
+			}
+		}
+
+		runArgs.push(image)
+
+		/* Write the docker run command to a script file inside the shared
+		   data volume, so we avoid shell escaping issues with env vars.
+		   The helper container mounts the same volume to read the script. */
+		const { writeFile } = await import('node:fs/promises')
+		const scriptPath = '/app/data/.risved-update.sh'
+		const shellLines = [
+			'#!/bin/sh',
+			'set -e',
+			'sleep 1',
+			`docker stop ${containerName} || true`,
+			`docker rm ${containerName} || true`,
+			`docker ${runArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`,
+			`rm -f /data/.risved-update.sh`
+		]
+		await writeFile(scriptPath, shellLines.join('\n'), { mode: 0o755 })
+
+		/* Find the host path for /app/data from our own bind mounts */
+		const dataBind = binds.find((b: string) => b.endsWith(':/app/data'))
+		const dataHostPath = dataBind ? dataBind.split(':')[0] : '/opt/risved/data'
+
+		/* Spawn a helper container that runs the script */
+		await execFileAsync('docker', [
+			'run', '-d', '--rm',
+			'-v', '/var/run/docker.sock:/var/run/docker.sock',
+			'-v', `${dataHostPath}:/data`,
+			'docker:cli', 'sh', '/data/.risved-update.sh'
+		], { timeout: 10_000 })
 	}
 
 	/** Run the full update process in the background. */
