@@ -738,7 +738,7 @@
 				{/if}
 			</div>
 
-			{#if updateInfo?.checkedAt}
+			{#if updateInfo?.checkedAt && !updateInfo?.updateAvailable}
 				<p class="form-hint">
 					Last checked: <TimeAgo value={updateInfo.checkedAt} includeTime />
 				</p>

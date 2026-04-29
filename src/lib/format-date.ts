@@ -14,7 +14,7 @@ export function formatDate(
 
 	const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
 
-	if (seconds < 60) return seconds === 1 ? '1 second ago' : `${seconds} seconds ago`
+	if (seconds < 60) return 'Just now'
 
 	const minutes = Math.floor(seconds / 60)
 	if (minutes < 60) return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`
@@ -46,7 +46,7 @@ export function tickInterval(value: string | number | Date | null | undefined): 
 
 	const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
 
-	if (seconds < 60) return 1000         // tick every second
+	if (seconds < 60) return 60_000       // tick every minute (stays "Just now")
 	if (seconds < 3600) return 60_000      // tick every minute
 	if (seconds < 86400) return 60_000     // tick every minute (for hour transitions)
 	if (seconds < 259200) return 3_600_000 // tick every hour (for day transitions)
