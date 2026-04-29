@@ -2,7 +2,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { db } from '$lib/server/db';
-import { deployments, projects, envVars } from '$lib/server/db/schema';
+import { deployments, projects, domains, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import { safeDecrypt } from '$lib/server/crypto';
@@ -314,6 +314,21 @@ export async function runPipeline(
 			}
 		} else {
 			emit('route', 'No domain configured, skipping route setup');
+		}
+
+		/* Also configure routes for custom domains */
+		const customDomains = await db
+			.select({ hostname: domains.hostname })
+			.from(domains)
+			.where(eq(domains.projectId, config.projectId))
+
+		for (const d of customDomains) {
+			const r = await caddy.addRoute({ hostname: d.hostname, port: config.port })
+			if (!r.success) {
+				emit('route', `Warning: custom domain route failed (${d.hostname}): ${r.error}`, 'warn')
+			} else {
+				emit('route', `Custom domain route configured: ${d.hostname}`)
+			}
 		}
 
 		/* ── Phase 7: Live ──────────────────────────────── */
