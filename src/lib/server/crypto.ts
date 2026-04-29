@@ -1,5 +1,5 @@
 import { randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const ALGORITHM = 'aes-256-gcm';
@@ -7,8 +7,13 @@ const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
 
-/** Default path for the encryption key file, next to the DB */
-const DEFAULT_KEY_PATH = resolve(process.cwd(), '.risved-encryption.key');
+/**
+ * Default path for the encryption key file.
+ * Prefer the persistent data dir (survives container updates),
+ * fall back to cwd for local dev.
+ */
+const DATA_KEY_PATH = resolve(process.cwd(), 'data', '.risved-encryption.key');
+const LEGACY_KEY_PATH = resolve(process.cwd(), '.risved-encryption.key');
 
 let cachedKey: Buffer | null = null;
 let cachedKeyPath: string | null = null;
@@ -18,10 +23,38 @@ let cachedKeyPath: string | null = null;
  * Key is stored as a raw 32-byte file outside the database.
  */
 export function getEncryptionKey(keyPath?: string): Buffer {
-	const path = keyPath ?? DEFAULT_KEY_PATH;
+	if (keyPath) {
+		if (cachedKey && cachedKeyPath === keyPath) return cachedKey;
+		return loadOrGenerateKey(keyPath);
+	}
 
-	if (cachedKey && cachedKeyPath === path) return cachedKey;
+	if (cachedKey) return cachedKey;
 
+	/* Try persistent data dir first, then legacy path */
+	for (const candidate of [DATA_KEY_PATH, LEGACY_KEY_PATH]) {
+		try {
+			const key = readFileSync(candidate);
+			if (key.length === KEY_LENGTH) {
+				/* If found at legacy path, copy to data dir for future use */
+				if (candidate === LEGACY_KEY_PATH) {
+					try {
+						mkdirSync(dirname(DATA_KEY_PATH), { recursive: true });
+						writeFileSync(DATA_KEY_PATH, key, { mode: 0o600 });
+					} catch { /* best effort */ }
+				}
+				cachedKey = key;
+				cachedKeyPath = candidate;
+				return key;
+			}
+		} catch { /* try next */ }
+	}
+
+	/* No key found anywhere — generate in data dir (or cwd if data dir doesn't exist) */
+	const targetPath = existsSync(dirname(DATA_KEY_PATH)) ? DATA_KEY_PATH : LEGACY_KEY_PATH;
+	return loadOrGenerateKey(targetPath);
+}
+
+function loadOrGenerateKey(path: string): Buffer {
 	try {
 		const key = readFileSync(path);
 		if (key.length !== KEY_LENGTH) {
