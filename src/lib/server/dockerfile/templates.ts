@@ -156,7 +156,11 @@ export function hybridTemplate(
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./${copyPath}`)
+		if (copyPath.includes('*')) {
+			lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./`)
+		} else {
+			lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./${copyPath}`)
+		}
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
@@ -221,7 +225,11 @@ export function nodeTemplate(
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
-		lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./${copyPath}`)
+		if (copyPath.includes('*')) {
+			lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./`)
+		} else {
+			lines.push(`COPY --from=${copyFrom} /app/${copyPath} ./${copyPath}`)
+		}
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')

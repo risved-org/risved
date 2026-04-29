@@ -111,21 +111,24 @@ export async function runPipeline(
 		let frameworkId = config.frameworkId;
 		let tier = config.tier;
 
-		if (!frameworkId || !tier) {
+		{
 			emit('detect', 'Detecting framework…');
 			const ctx = createFsContext(cloneDir);
 			const detection = await detectFramework(ctx);
 			if (!detection.detected || !detection.framework) {
-				throw new PipelineError('detect', 'Could not detect framework');
+				if (frameworkId && tier) {
+					emit('detect', `Using saved: ${frameworkId} (${tier} tier)`)
+				} else {
+					throw new PipelineError('detect', 'Could not detect framework');
+				}
+			} else {
+				frameworkId = detection.framework.id;
+				tier = detection.framework.tier;
+				emit(
+					'detect',
+					`Detected ${detection.framework.name} (${tier} tier, ${detection.framework.confidence} confidence)`
+				);
 			}
-			frameworkId = frameworkId ?? detection.framework.id;
-			tier = tier ?? detection.framework.tier;
-			emit(
-				'detect',
-				`Detected ${detection.framework.name} (${tier} tier, ${detection.framework.confidence} confidence)`
-			);
-		} else {
-			emit('detect', `Using saved: ${frameworkId} (${tier} tier)`);
 		}
 
 		/* Update project with detected framework info */

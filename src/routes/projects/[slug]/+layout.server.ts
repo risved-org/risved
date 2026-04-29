@@ -10,6 +10,7 @@ const FRAMEWORK_NAMES: Record<string, string> = {
 	astro: 'Astro',
 	hono: 'Hono',
 	nextjs: 'Next.js',
+	nuxt2: 'Nuxt 2',
 	nuxt: 'Nuxt',
 	lume: 'Lume',
 	solidstart: 'SolidStart',

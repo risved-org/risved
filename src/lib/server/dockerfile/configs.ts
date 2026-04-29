@@ -56,6 +56,14 @@ export const frameworkConfigs: FrameworkConfigs = {
 		copyPaths: ['.next/standalone', '.next/static', 'public']
 	},
 
+	nuxt2: {
+		outputDir: '.nuxt',
+		buildCommand: 'npm run build',
+		installCommand: 'npm ci',
+		serveCommand: 'node_modules/.bin/nuxt start',
+		copyPaths: ['.nuxt', 'package.json', 'node_modules', 'nuxt.config.*']
+	},
+
 	nuxt: {
 		outputDir: '.output',
 		buildCommand: 'npm run build',

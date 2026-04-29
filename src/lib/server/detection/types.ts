@@ -6,6 +6,7 @@ export type FrameworkId =
 	| 'hono'
 	| 'nextjs'
 	| 'nuxt'
+	| 'nuxt2'
 	| 'lume'
 	| 'solidstart'
 	| 'tanstack-start'

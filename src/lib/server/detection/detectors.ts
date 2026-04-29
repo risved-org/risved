@@ -160,8 +160,46 @@ const nextjs: FrameworkDetector = {
 };
 
 /**
- * Nuxt: nuxt.config.ts + nuxt in deps
- * Tier 3 — Node build (Nitro), Node serve (Phase 2)
+ * Read the Nuxt major version from package.json.
+ * Returns 2 or 3+ based on the version range string.
+ */
+async function getNuxtMajorVersion(ctx: DetectionContext): Promise<number | null> {
+	const content = await ctx.readFile('package.json')
+	if (!content) return null
+	try {
+		const json = JSON.parse(content)
+		const version = json.dependencies?.nuxt ?? json.devDependencies?.nuxt ?? ''
+		const match = version.match(/(\d+)/)
+		if (!match) return null
+		return parseInt(match[1], 10)
+	} catch {
+		return null
+	}
+}
+
+/**
+ * Nuxt 2: nuxt.config.js/ts + nuxt ^2.x in deps
+ * Tier 3 — Node build (webpack), Node serve (nuxt start)
+ */
+const nuxt2: FrameworkDetector = {
+	id: 'nuxt2',
+	name: 'Nuxt 2',
+	tier: 'node',
+	async detect(ctx: DetectionContext): Promise<Confidence | null> {
+		const hasConfig =
+			(await ctx.fileExists('nuxt.config.ts')) || (await ctx.fileExists('nuxt.config.js'));
+		const hasDep = await hasDependency(ctx, 'nuxt');
+		if (!hasConfig && !hasDep) return null
+
+		const major = await getNuxtMajorVersion(ctx)
+		if (major === 2) return hasConfig && hasDep ? 'high' : 'medium'
+		return null
+	}
+};
+
+/**
+ * Nuxt 3+: nuxt.config.ts + nuxt ^3.x in deps
+ * Tier 3 — Node build (Nitro), Node serve
  */
 const nuxt: FrameworkDetector = {
 	id: 'nuxt',
@@ -171,6 +209,12 @@ const nuxt: FrameworkDetector = {
 		const hasConfig =
 			(await ctx.fileExists('nuxt.config.ts')) || (await ctx.fileExists('nuxt.config.js'));
 		const hasDep = await hasDependency(ctx, 'nuxt');
+
+		if (!hasConfig && !hasDep) return null
+
+		const major = await getNuxtMajorVersion(ctx)
+		/* If we can read the version and it's 2, skip — nuxt2 detector handles it */
+		if (major === 2) return null
 
 		if (hasConfig && hasDep) return 'high';
 		if (hasConfig) return 'medium';
@@ -248,6 +292,7 @@ export const detectors: FrameworkDetector[] = [
 	fresh,
 	astro,
 	nextjs,
+	nuxt2,
 	nuxt,
 	tanstackStart,
 	solidstart,
