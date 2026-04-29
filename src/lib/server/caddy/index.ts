@@ -119,6 +119,10 @@ export class CaddyClient {
 				const text = await createRes.text();
 				return { success: false, error: `Failed to create server: ${text}` };
 			}
+			/* /load replaces the entire config, which restarts Caddy's
+			   HTTP listeners. Wait briefly so the admin API is ready
+			   for follow-up requests. */
+			await new Promise(r => setTimeout(r, 1000));
 			return { success: true };
 		} catch (err) {
 			return {
