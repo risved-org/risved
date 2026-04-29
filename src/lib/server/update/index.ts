@@ -106,7 +106,6 @@ export class UpdateChecker {
 				latestVersion: null,
 				updateAvailable: false,
 				releaseNotes: null,
-				releaseUrl: null,
 				checkedAt: now,
 				error: 'Could not reach update server'
 			}
@@ -127,7 +126,6 @@ export class UpdateChecker {
 			latestVersion: manifest.version,
 			updateAvailable,
 			releaseNotes: manifest.releaseNotes,
-			releaseUrl: manifest.releaseNotes,
 			checkedAt: now,
 			error: null
 		}
@@ -146,7 +144,6 @@ export class UpdateChecker {
 			latestVersion: latestVersion || null,
 			updateAvailable: !!latestVersion && compareSemver(latestVersion, currentVersion) > 0,
 			releaseNotes: releaseNotes || null,
-			releaseUrl: releaseNotes || null,
 			checkedAt: checkedAt || null,
 			error: lastError || null
 		}

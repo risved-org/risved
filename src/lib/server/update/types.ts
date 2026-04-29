@@ -3,7 +3,6 @@ export interface UpdateInfo {
 	latestVersion: string | null
 	updateAvailable: boolean
 	releaseNotes: string | null
-	releaseUrl: string | null
 	checkedAt: string | null
 	error: string | null
 }
