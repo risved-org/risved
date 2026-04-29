@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { deployments } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { CaddyClient } from '../caddy';
+import { CaddyClient, createCaddyClient } from '../caddy';
 import { dockerRun, dockerStop, waitForHealthy, freePort, projectVolumeName } from './docker';
 import { createLogCollector } from './log';
 import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
@@ -35,7 +35,7 @@ export async function runRollback(
 ): Promise<PipelineResult> {
 	const deploymentId = crypto.randomUUID();
 	const { emit, entries } = createLogCollector(deploymentId, options?.onLog);
-	const caddy = options?.caddy ?? new CaddyClient();
+	const caddy = options?.caddy ?? createCaddyClient();
 
 	/* Create deployment record with rollback trigger type */
 	await db.insert(deployments).values({

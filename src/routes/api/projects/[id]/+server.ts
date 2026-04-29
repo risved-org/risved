@@ -4,7 +4,7 @@ import { projects, deployments, envVars, domains } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
-import { CaddyClient } from '$lib/server/caddy';
+import { createCaddyClient } from '$lib/server/caddy';
 import type { RequestHandler } from './$types';
 
 /**
@@ -112,7 +112,7 @@ export const DELETE: RequestHandler = async (event) => {
 	/* Remove Caddy route (best-effort) */
 	if (project.domain) {
 		try {
-			const caddy = new CaddyClient();
+			const caddy = createCaddyClient();
 			await caddy.removeRoute(project.domain);
 		} catch {
 			/* Caddy may not be running — ignore */

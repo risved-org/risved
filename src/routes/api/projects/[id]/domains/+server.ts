@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { projects, domains } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
-import { CaddyClient } from '$lib/server/caddy';
+import { createCaddyClient } from '$lib/server/caddy';
 import type { RequestHandler } from './$types';
 
 /**
@@ -72,7 +72,7 @@ export const POST: RequestHandler = async (event) => {
 	/* Create Caddy route if project has a port */
 	if (project.port) {
 		try {
-			const caddy = new CaddyClient();
+			const caddy = createCaddyClient();
 			await caddy.addRoute({ hostname: trimmed, port: project.port });
 		} catch {
 			/* Caddy may not be running — continue, route will be added on next deploy */

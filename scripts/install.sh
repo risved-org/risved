@@ -227,10 +227,6 @@ start_caddy() {
   rm -f "$RISVED_DATA_DIR/caddy/config/caddy/autosave.json"
   cat > "$RISVED_DATA_DIR/caddy/Caddyfile" <<'CADDYEOF'
 {
-	admin 0.0.0.0:2019 {
-		origins risved-caddy:2019
-		persist_config off
-	}
 }
 CADDYEOF
 
@@ -291,7 +287,7 @@ start_risved() {
     -e "DATABASE_URL=file:data/risved.db" \
     -e "BETTER_AUTH_SECRET=${auth_secret}" \
     -e "ORIGIN=http://$(format_ip_url "$(detect_server_ip)"):${RISVED_PORT}" \
-    -e "CADDY_ADMIN_URL=http://risved-caddy:2019" \
+    -e "CADDY_CONTAINER=risved-caddy" \
     -v "$RISVED_DATA_DIR/data:/app/data" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     "ghcr.io/risved-org/risved:${RISVED_VERSION#v}" >/dev/null 2>&1 || true

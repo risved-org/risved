@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { previewDeployments, deployments } from '$lib/server/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
-import { CaddyClient } from '$lib/server/caddy';
+import { CaddyClient, createCaddyClient } from '$lib/server/caddy';
 import { runPipeline } from '$lib/server/pipeline';
 import { createCommandRunner, dockerStop } from '$lib/server/pipeline/docker';
 import { getSetting } from '$lib/server/settings';
@@ -169,7 +169,7 @@ export async function cleanupPreview(previewId: string, caddy?: CaddyClient): Pr
 
 	const preview = rows[0];
 	const runner = createCommandRunner();
-	const caddyClient = caddy ?? new CaddyClient();
+	const caddyClient = caddy ?? createCaddyClient();
 
 	/* Stop the container */
 	if (preview.containerName) {

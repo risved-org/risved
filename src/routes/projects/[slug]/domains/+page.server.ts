@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { projects, domains } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getServerIps, checkDnsRecord } from '$lib/server/dns';
-import { CaddyClient } from '$lib/server/caddy';
+import { createCaddyClient } from '$lib/server/caddy';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -66,7 +66,7 @@ export const actions: Actions = {
 
 		if (project.port) {
 			try {
-				const caddy = new CaddyClient();
+				const caddy = createCaddyClient();
 				await caddy.addRoute({ hostname, port: project.port });
 			} catch {
 				/* Caddy may not be running */
@@ -181,7 +181,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const caddy = new CaddyClient();
+			const caddy = createCaddyClient();
 			await caddy.removeRoute(rows[0].hostname);
 		} catch {
 			/* Caddy may not be running */

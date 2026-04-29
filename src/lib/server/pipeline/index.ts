@@ -9,7 +9,7 @@ import { safeDecrypt } from '$lib/server/crypto';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
 import { detectPackageManager } from '../detect-package-manager';
-import { CaddyClient } from '../caddy';
+import { CaddyClient, createCaddyClient } from '../caddy';
 import {
 	gitClone,
 	getCommitSha,
@@ -53,7 +53,7 @@ export async function runPipeline(
 ): Promise<PipelineResult> {
 	const deploymentId = options?.deploymentId ?? crypto.randomUUID();
 	const { emit, entries } = createLogCollector(deploymentId, options?.onLog);
-	const caddy = options?.caddy ?? new CaddyClient();
+	const caddy = options?.caddy ?? createCaddyClient();
 
 	/* Create deployment record (skip if pre-created by the API handler) */
 	if (!options?.deploymentId) {

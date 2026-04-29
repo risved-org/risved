@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { domains } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
-import { CaddyClient } from '$lib/server/caddy';
+import { createCaddyClient } from '$lib/server/caddy';
 import type { RequestHandler } from './$types';
 
 /**
@@ -28,7 +28,7 @@ export const DELETE: RequestHandler = async (event) => {
 
 	/* Remove Caddy route (best-effort) */
 	try {
-		const caddy = new CaddyClient();
+		const caddy = createCaddyClient();
 		await caddy.removeRoute(domain.hostname);
 	} catch {
 		/* Caddy may not be running — ignore */

@@ -1,4 +1,4 @@
-import { CaddyClient, routeId } from './index'
+import { CaddyClient, createCaddyClient, routeId } from './index'
 import { getSetting } from '$lib/server/settings'
 import { db } from '$lib/server/db'
 import { projects, deployments, domains } from '$lib/server/db/schema'
@@ -31,7 +31,7 @@ export async function ensureControlPlaneRoutes(caddy?: CaddyClient): Promise<voi
 
 	if (config.mode === 'ip' || !config.baseDomain) return
 
-	const client = caddy ?? new CaddyClient()
+	const client = caddy ?? createCaddyClient()
 
 	const ensured = await client.ensureServer()
 	if (!ensured.success) {
@@ -60,7 +60,7 @@ export async function ensureControlPlaneRoutes(caddy?: CaddyClient): Promise<voi
  * Called on startup so a Caddy restart never leaves apps unreachable.
  */
 export async function restoreAllRoutes(caddy?: CaddyClient): Promise<void> {
-	const client = caddy ?? new CaddyClient()
+	const client = caddy ?? createCaddyClient()
 
 	/* Ensure the base server structure exists */
 	const ensured = await client.ensureServer()
