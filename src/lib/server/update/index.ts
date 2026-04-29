@@ -200,8 +200,8 @@ export class UpdateChecker {
 
 		await execFileAsync('git', ['fetch', 'origin', '--tags'], { cwd: dir, timeout: 60_000 })
 		await execFileAsync('git', ['checkout', `v${version}`], { cwd: dir, timeout: 30_000 })
-		await execFileAsync('deno', ['install'], { cwd: dir, timeout: 120_000 })
-		await execFileAsync('deno', ['task', 'build'], { cwd: dir, timeout: 300_000 })
+		await execFileAsync('bun', ['install', '--frozen-lockfile'], { cwd: dir, timeout: 120_000 })
+		await execFileAsync('bun', ['run', 'build'], { cwd: dir, timeout: 300_000 })
 	}
 
 	/** Restart the control plane via systemd. */
