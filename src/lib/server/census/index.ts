@@ -1,5 +1,6 @@
 import { getSetting, setSetting } from '$lib/server/settings'
-import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const CENSUS_URL = 'https://risved.com/api/census'
 const INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
@@ -47,13 +48,19 @@ export class CensusReporter {
 
 	/** Read the current version from package.json. */
 	getVersion(): string {
-		try {
-			const require = createRequire(import.meta.url)
-			const pkg = require('../../../../package.json')
-			return pkg.version || '0.0.1'
-		} catch {
-			return '0.0.1'
+		const candidates = [
+			resolve('/opt/risved', 'package.json'),
+			resolve(process.cwd(), 'package.json')
+		]
+		for (const pkgPath of candidates) {
+			try {
+				const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+				if (pkg.version) return pkg.version
+			} catch {
+				/* try next candidate */
+			}
 		}
+		return '0.0.1'
 	}
 
 	/** Build the census payload. */
