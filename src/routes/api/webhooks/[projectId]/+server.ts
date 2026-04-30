@@ -97,6 +97,23 @@ export const POST: RequestHandler = async (event) => {
 		return handlePrClose(project, webhookEvent, headers, rawPayload);
 	}
 
+	/*
+	 * Skip events the project hasn't opted into. A merge to the deploy branch
+	 * fires both a `push` (for the merge commit) and a `pr_merge` event — if
+	 * both are enabled we'd build the same commit twice.
+	 */
+	if (webhookEvent.type === 'push' && !project.webhookPushEnabled) {
+		actionTaken = 'skipped: push events disabled';
+		await logDelivery(projectId, webhookEvent.type, headers, rawPayload, true, actionTaken);
+		return json({ received: true, action: actionTaken });
+	}
+
+	if (webhookEvent.type === 'pr_merge' && !project.webhookPrMergedEnabled) {
+		actionTaken = 'skipped: pr_merged events disabled';
+		await logDelivery(projectId, webhookEvent.type, headers, rawPayload, true, actionTaken);
+		return json({ received: true, action: actionTaken });
+	}
+
 	/* Branch filter: skip if push branch doesn't match project's deploy branch */
 	if (webhookEvent.branch && webhookEvent.branch !== project.branch) {
 		actionTaken = `skipped: branch ${webhookEvent.branch} != ${project.branch}`;

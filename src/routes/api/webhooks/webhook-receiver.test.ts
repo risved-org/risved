@@ -55,6 +55,8 @@ function makeProject(overrides?: Record<string, unknown>) {
 		port: 3001,
 		domain: 'my-app.example.com',
 		webhookSecret: SECRET,
+		webhookPushEnabled: true,
+		webhookPrMergedEnabled: false,
 		frameworkId: null,
 		tier: null,
 		previewsEnabled: false,
@@ -260,6 +262,90 @@ describe('POST /api/webhooks/:projectId', () => {
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(data.action).toContain('cleaning up preview');
+	});
+
+	it('skips push when webhookPushEnabled is false', async () => {
+		setupSelectChain([makeProject({ webhookPushEnabled: false })]);
+
+		const payload = JSON.stringify({
+			ref: 'refs/heads/main',
+			after: 'abc1234',
+			head_commit: { id: 'abc1234', message: 'no deploy' },
+			sender: { login: 'user' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'push',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('push events disabled');
+	});
+
+	it('skips pr_merge by default to avoid double builds with push', async () => {
+		setupSelectChain([makeProject()]);
+
+		const payload = JSON.stringify({
+			action: 'closed',
+			pull_request: {
+				number: 7,
+				merged: true,
+				base: { ref: 'main' },
+				head: { ref: 'feat', sha: 'xxx' },
+				merge_commit_sha: 'def5678',
+				title: 'Add feature'
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('pr_merged events disabled');
+	});
+
+	it('triggers deployment on pr_merge when explicitly enabled', async () => {
+		setupSelectChain([
+			makeProject({ webhookPushEnabled: false, webhookPrMergedEnabled: true })
+		]);
+
+		const payload = JSON.stringify({
+			action: 'closed',
+			pull_request: {
+				number: 7,
+				merged: true,
+				base: { ref: 'main' },
+				head: { ref: 'feat', sha: 'xxx' },
+				merge_commit_sha: 'def5678',
+				title: 'Add feature'
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toBe('triggered deployment');
+		expect(data.event).toBe('pr_merge');
 	});
 
 	it('accepts Gitea push with valid signature', async () => {

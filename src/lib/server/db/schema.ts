@@ -30,7 +30,7 @@ export const projects = sqliteTable('projects', {
 	webhookPushEnabled: integer('webhook_push_enabled', { mode: 'boolean' }).notNull().default(true),
 	webhookPrMergedEnabled: integer('webhook_pr_merged_enabled', { mode: 'boolean' })
 		.notNull()
-		.default(true),
+		.default(false),
 	previewsEnabled: integer('previews_enabled', { mode: 'boolean' }).notNull().default(false),
 	previewLimit: integer('preview_limit').notNull().default(3),
 	previewAutoDelete: integer('preview_auto_delete', { mode: 'boolean' }).notNull().default(true),
