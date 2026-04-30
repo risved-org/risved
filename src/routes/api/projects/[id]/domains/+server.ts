@@ -74,6 +74,10 @@ export const POST: RequestHandler = async (event) => {
 		try {
 			const caddy = createCaddyClient();
 			await caddy.addRoute({ hostname: trimmed, port: project.port });
+			/* Auto-add www → non-www redirect for non-www domains */
+			if (!trimmed.startsWith('www.')) {
+				await caddy.addRedirectRoute(`www.${trimmed}`, trimmed)
+			}
 		} catch {
 			/* Caddy may not be running — continue, route will be added on next deploy */
 		}

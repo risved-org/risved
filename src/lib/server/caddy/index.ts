@@ -21,6 +21,24 @@ export function routeId(hostname: string): string {
 }
 
 /**
+ * Build a Caddy JSON route that 301-redirects one hostname to another.
+ * Used for www → non-www redirects.
+ */
+export function buildRedirectRouteConfig(from: string, to: string): CaddyRouteConfig {
+	return {
+		'@id': routeId(from),
+		match: [{ host: [from] }],
+		handle: [
+			{
+				handler: 'static_response',
+				status_code: '301',
+				headers: { Location: [`https://${to}{http.request.uri}`] }
+			}
+		]
+	}
+}
+
+/**
  * Build a Caddy JSON route config for proxying a hostname to a container port.
  */
 export function buildRouteConfig(route: CaddyRoute): CaddyRouteConfig {
@@ -177,6 +195,33 @@ export class CaddyClient {
 				success: false,
 				error: err instanceof Error ? err.message : 'Unknown error'
 			};
+		}
+	}
+
+	/**
+	 * Add a 301 redirect route (e.g. www → non-www).
+	 */
+	async addRedirectRoute(from: string, to: string): Promise<CaddyResult> {
+		try {
+			const config = buildRedirectRouteConfig(from, to)
+			await this.removeRoute(from)
+
+			const res = await this.fetchFn(`${this.adminUrl}/config/apps/http/servers/srv0/routes`, {
+				method: 'POST',
+				headers: this.headers(),
+				body: JSON.stringify(config)
+			})
+
+			if (!res.ok) {
+				const text = await res.text()
+				return { success: false, error: `Failed to add redirect route: ${text}` }
+			}
+			return { success: true }
+		} catch (err) {
+			return {
+				success: false,
+				error: err instanceof Error ? err.message : 'Unknown error'
+			}
 		}
 	}
 

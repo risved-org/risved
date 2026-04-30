@@ -30,6 +30,10 @@ export const DELETE: RequestHandler = async (event) => {
 	try {
 		const caddy = createCaddyClient();
 		await caddy.removeRoute(domain.hostname);
+		/* Also remove www redirect route if this is a non-www domain */
+		if (!domain.hostname.startsWith('www.')) {
+			await caddy.removeRoute(`www.${domain.hostname}`)
+		}
 	} catch {
 		/* Caddy may not be running — ignore */
 	}

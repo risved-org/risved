@@ -359,6 +359,10 @@ export async function runPipeline(
 			} else {
 				emit('route', `Custom domain route configured: ${d.hostname}`)
 			}
+			/* Auto-add www → non-www redirect for non-www custom domains */
+			if (!d.hostname.startsWith('www.')) {
+				await caddy.addRedirectRoute(`www.${d.hostname}`, d.hostname)
+			}
 		}
 
 		/* ── Phase 7: Live ──────────────────────────────── */

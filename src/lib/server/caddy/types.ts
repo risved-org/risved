@@ -47,8 +47,15 @@ export interface CaddyReverseProxyHandlerConfig {
 	upstreams: CaddyUpstream[]
 }
 
+/** Caddy static response handler (used for redirects) */
+export interface CaddyStaticResponseHandlerConfig {
+	handler: 'static_response'
+	status_code: string
+	headers: Record<string, string[]>
+}
+
 /** Union of all Caddy handler types */
-export type CaddyHandlerConfig = CaddyEncodeHandlerConfig | CaddyReverseProxyHandlerConfig
+export type CaddyHandlerConfig = CaddyEncodeHandlerConfig | CaddyReverseProxyHandlerConfig | CaddyStaticResponseHandlerConfig
 
 /** Full Caddy route configuration for the JSON API */
 export interface CaddyRouteConfig {
