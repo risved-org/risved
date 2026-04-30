@@ -331,6 +331,21 @@ export async function runPipeline(
 			emit('route', 'No domain configured, skipping route setup');
 		}
 
+		/* Also add a route via the control plane hostname (e.g. slug.panel.example.com)
+		   so apps are reachable even without a wildcard DNS record on the base domain. */
+		if (config.domain) {
+			const hostname = await getSetting('hostname')
+			if (hostname && !config.domain.endsWith(hostname)) {
+				const altDomain = `${config.projectSlug}.${hostname}`
+				const altResult = await caddy.addRoute({ hostname: altDomain, port: config.port })
+				if (!altResult.success) {
+					emit('route', `Warning: alt route failed (${altDomain}): ${altResult.error}`, 'warn')
+				} else {
+					emit('route', `Alt route configured: ${altDomain}`)
+				}
+			}
+		}
+
 		/* Also configure routes for custom domains */
 		const customDomains = await db
 			.select({ hostname: domains.hostname })

@@ -5,6 +5,7 @@ import { eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
 import { createCaddyClient } from '$lib/server/caddy';
+import { getSetting } from '$lib/server/settings';
 import type { RequestHandler } from './$types';
 
 /**
@@ -109,11 +110,16 @@ export const DELETE: RequestHandler = async (event) => {
 		/* Container may not be running — ignore */
 	}
 
-	/* Remove Caddy route (best-effort) */
+	/* Remove Caddy routes (best-effort) */
 	if (project.domain) {
 		try {
 			const caddy = createCaddyClient();
 			await caddy.removeRoute(project.domain);
+			/* Also remove the alt route via the control plane hostname */
+			const hostname = await getSetting('hostname')
+			if (hostname && !project.domain.endsWith(hostname)) {
+				await caddy.removeRoute(`${project.slug}.${hostname}`)
+			}
 		} catch {
 			/* Caddy may not be running — ignore */
 		}
