@@ -54,13 +54,40 @@ export interface CaddyStaticResponseHandlerConfig {
 	headers: Record<string, string[]>
 }
 
+/** Caddy headers handler — sets, adds, or deletes request/response headers */
+export interface CaddyHeadersHandlerConfig {
+	handler: 'headers'
+	response?: {
+		set?: Record<string, string[]>
+		add?: Record<string, string[]>
+		delete?: string[]
+		deferred?: boolean
+	}
+}
+
+/** Caddy subroute handler — runs nested routes with their own match conditions */
+export interface CaddySubrouteHandlerConfig {
+	handler: 'subroute'
+	routes: CaddyRouteConfig[]
+}
+
 /** Union of all Caddy handler types */
-export type CaddyHandlerConfig = CaddyEncodeHandlerConfig | CaddyReverseProxyHandlerConfig | CaddyStaticResponseHandlerConfig
+export type CaddyHandlerConfig =
+	| CaddyEncodeHandlerConfig
+	| CaddyReverseProxyHandlerConfig
+	| CaddyStaticResponseHandlerConfig
+	| CaddyHeadersHandlerConfig
+	| CaddySubrouteHandlerConfig
+
+/** Caddy path-only matcher (used inside subroutes) */
+export interface CaddyPathMatchConfig {
+	path: string[]
+}
 
 /** Full Caddy route configuration for the JSON API */
 export interface CaddyRouteConfig {
 	'@id'?: string;
-	match: CaddyMatchConfig[];
+	match?: (CaddyMatchConfig | CaddyPathMatchConfig)[];
 	handle: CaddyHandlerConfig[];
 }
 

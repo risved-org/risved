@@ -1,6 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CaddyClient, buildRouteConfig, routeId } from './index';
-import type { FetchFn } from './types';
+import {
+	CaddyClient,
+	buildHashedAssetCacheHandler,
+	buildRedirectRouteConfig,
+	buildRouteConfig,
+	buildSecurityHeadersHandler,
+	HASHED_ASSET_PATHS,
+	routeId,
+	SECURITY_HEADERS
+} from './index';
+import type {
+	CaddyHeadersHandlerConfig,
+	CaddyReverseProxyHandlerConfig,
+	CaddyStaticResponseHandlerConfig,
+	CaddySubrouteHandlerConfig,
+	FetchFn
+} from './types';
 
 /** Create a mock fetch function with configurable responses */
 function createMockFetch(responses: Map<string, { status: number; body?: unknown }>): FetchFn {
@@ -41,28 +56,102 @@ describe('Caddy Route Management', () => {
 		it('builds correct Caddy route config', () => {
 			const config = buildRouteConfig({ hostname: 'myapp.risved.example.eu', port: 3001 });
 
-			expect(config).toEqual({
-				'@id': 'route-myapp-risved-example-eu',
-				match: [{ host: ['myapp.risved.example.eu'] }],
-				handle: [
-					{
-						handler: 'encode',
-						encodings: { gzip: {}, zstd: {} },
-						prefer: ['zstd', 'gzip']
-					},
-					{
-						handler: 'reverse_proxy',
-						upstreams: [{ dial: 'localhost:3001' }]
-					}
-				]
+			expect(config['@id']).toBe('route-myapp-risved-example-eu');
+			expect(config.match).toEqual([{ host: ['myapp.risved.example.eu'] }]);
+
+			/* The reverse_proxy and encode handlers must still be present and
+			   point at the right upstream. */
+			const proxy = config.handle.find(
+				(h): h is CaddyReverseProxyHandlerConfig => h.handler === 'reverse_proxy'
+			);
+			expect(proxy?.upstreams).toEqual([{ dial: 'localhost:3001' }]);
+			expect(config.handle.some((h) => h.handler === 'encode')).toBe(true);
+		});
+
+		it('attaches platform security headers and hashed-asset cache to every route', () => {
+			const config = buildRouteConfig({ hostname: 'myapp.example.eu', port: 3001 });
+
+			const headers = config.handle.find(
+				(h): h is CaddyHeadersHandlerConfig => h.handler === 'headers'
+			);
+			expect(headers?.response?.set).toMatchObject({
+				'Strict-Transport-Security': ['max-age=31536000; includeSubDomains'],
+				'Cross-Origin-Opener-Policy': ['same-origin'],
+				'X-Frame-Options': ['SAMEORIGIN'],
+				'Content-Security-Policy': ["frame-ancestors 'self'"]
 			});
+
+			const subroute = config.handle.find(
+				(h): h is CaddySubrouteHandlerConfig => h.handler === 'subroute'
+			);
+			expect(subroute?.routes[0].match).toEqual([{ path: HASHED_ASSET_PATHS }]);
+			const cacheHandler = subroute?.routes[0].handle[0] as CaddyHeadersHandlerConfig;
+			expect(cacheHandler.response?.set).toEqual({
+				'Cache-Control': ['public, max-age=31536000, immutable']
+			});
+		});
+
+		it('orders handlers so headers run before the proxy', () => {
+			const config = buildRouteConfig({ hostname: 'app.example.eu', port: 3001 });
+			const proxyIdx = config.handle.findIndex((h) => h.handler === 'reverse_proxy');
+			const headersIdx = config.handle.findIndex((h) => h.handler === 'headers');
+			const subrouteIdx = config.handle.findIndex((h) => h.handler === 'subroute');
+			expect(headersIdx).toBeGreaterThanOrEqual(0);
+			expect(subrouteIdx).toBeGreaterThanOrEqual(0);
+			expect(headersIdx).toBeLessThan(proxyIdx);
+			expect(subrouteIdx).toBeLessThan(proxyIdx);
 		});
 
 		it('builds config for wildcard hostname', () => {
 			const config = buildRouteConfig({ hostname: '*.risved.example.eu', port: 3001 });
 
-			expect(config.match[0].host).toEqual(['*.risved.example.eu']);
+			expect(config.match?.[0]).toEqual({ host: ['*.risved.example.eu'] });
 			expect(config['@id']).toBe('route---risved-example-eu');
+		});
+	});
+
+	describe('buildSecurityHeadersHandler', () => {
+		it('emits a deferred response.set with all four headers', () => {
+			const handler = buildSecurityHeadersHandler();
+			expect(handler.handler).toBe('headers');
+			expect(handler.response?.deferred).toBe(true);
+			const set = handler.response?.set ?? {};
+			for (const name of Object.keys(SECURITY_HEADERS)) {
+				expect(set[name]).toEqual([SECURITY_HEADERS[name]]);
+			}
+		});
+	});
+
+	describe('buildHashedAssetCacheHandler', () => {
+		it('only matches known framework hashed-asset paths', () => {
+			const subroute = buildHashedAssetCacheHandler();
+			expect(subroute.routes[0].match).toEqual([{ path: HASHED_ASSET_PATHS }]);
+			/* Sanity: SvelteKit's immutable path is in the list */
+			expect(HASHED_ASSET_PATHS).toContain('/_app/immutable/*');
+		});
+
+		it('sets the immutable Cache-Control as a deferred header', () => {
+			const subroute = buildHashedAssetCacheHandler();
+			const cache = subroute.routes[0].handle[0] as CaddyHeadersHandlerConfig;
+			expect(cache.response?.deferred).toBe(true);
+			expect(cache.response?.set).toEqual({
+				'Cache-Control': ['public, max-age=31536000, immutable']
+			});
+		});
+	});
+
+	describe('buildRedirectRouteConfig', () => {
+		it('emits a 301 with HSTS so the first hit upgrades future requests', () => {
+			const config = buildRedirectRouteConfig('www.example.com', 'example.com');
+			const handler = config.handle[0] as CaddyStaticResponseHandlerConfig;
+			expect(handler.handler).toBe('static_response');
+			expect(handler.status_code).toBe('301');
+			expect(handler.headers.Location).toEqual([
+				'https://example.com{http.request.uri}'
+			]);
+			expect(handler.headers['Strict-Transport-Security']).toEqual([
+				'max-age=31536000; includeSubDomains'
+			]);
 		});
 	});
 
@@ -287,8 +376,8 @@ describe('Caddy Route Management', () => {
 
 				const result = await client.listRoutes();
 				expect(result).toHaveLength(2);
-				expect(result[0].match[0].host).toEqual(['app1.example.eu']);
-				expect(result[1].match[0].host).toEqual(['app2.example.eu']);
+				expect(result[0].match?.[0]).toEqual({ host: ['app1.example.eu'] });
+				expect(result[1].match?.[0]).toEqual({ host: ['app2.example.eu'] });
 			});
 
 			it('returns empty array when no routes exist', async () => {

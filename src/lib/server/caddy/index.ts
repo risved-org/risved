@@ -1,13 +1,42 @@
 import type {
 	CaddyClientConfig,
+	CaddyHeadersHandlerConfig,
 	CaddyHealthStatus,
 	CaddyResult,
 	CaddyRoute,
 	CaddyRouteConfig,
+	CaddySubrouteHandlerConfig,
 	FetchFn
 } from './types';
 
 export type { CaddyClientConfig, CaddyHealthStatus, CaddyResult, CaddyRoute } from './types';
+
+/**
+ * Platform-wide security headers applied to every proxied response.
+ * Values are conservative defaults — apps that need a stricter CSP can
+ * still send their own (the deferred set will overwrite). The defaults
+ * here exist so a freshly deployed app is never missing the basics.
+ */
+export const SECURITY_HEADERS: Record<string, string> = {
+	'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+	'Cross-Origin-Opener-Policy': 'same-origin',
+	'X-Frame-Options': 'SAMEORIGIN',
+	'Content-Security-Policy': "frame-ancestors 'self'"
+}
+
+/**
+ * Path patterns for framework-emitted hashed (immutable) static assets.
+ * Files under these paths carry a content hash in their filename, so a
+ * year-long immutable cache is safe — a content change produces a new path.
+ */
+export const HASHED_ASSET_PATHS = [
+	'/_app/immutable/*',  /* SvelteKit */
+	'/_astro/*',          /* Astro */
+	'/_next/static/*',    /* Next.js */
+	'/_nuxt/*'            /* Nuxt */
+]
+
+const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 
 const DEFAULT_ADMIN_URL = process.env.CADDY_ADMIN_URL || 'http://localhost:2019';
 const UPSTREAM_HOST = process.env.CADDY_ADMIN_URL ? 'host.docker.internal' : 'localhost';
@@ -21,8 +50,50 @@ export function routeId(hostname: string): string {
 }
 
 /**
+ * Build the Caddy headers handler that sets the platform's default
+ * security headers. Deferred so the operations run after the upstream
+ * response is generated — apps still get the headers even on 5xx.
+ */
+export function buildSecurityHeadersHandler(): CaddyHeadersHandlerConfig {
+	const set: Record<string, string[]> = {}
+	for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+		set[name] = [value]
+	}
+	return {
+		handler: 'headers',
+		response: { set, deferred: true }
+	}
+}
+
+/**
+ * Build a subroute that tags responses for hashed static assets with a
+ * year-long immutable Cache-Control. The match is path-based so dynamic
+ * routes are unaffected — the upstream still controls their caching.
+ */
+export function buildHashedAssetCacheHandler(): CaddySubrouteHandlerConfig {
+	return {
+		handler: 'subroute',
+		routes: [
+			{
+				match: [{ path: HASHED_ASSET_PATHS }],
+				handle: [
+					{
+						handler: 'headers',
+						response: {
+							set: { 'Cache-Control': [IMMUTABLE_CACHE_CONTROL] },
+							deferred: true
+						}
+					}
+				]
+			}
+		]
+	}
+}
+
+/**
  * Build a Caddy JSON route that 301-redirects one hostname to another.
- * Used for www → non-www redirects.
+ * Used for www → non-www redirects. HSTS is set on the redirect so the
+ * very first hit teaches the browser to upgrade future requests.
  */
 export function buildRedirectRouteConfig(from: string, to: string): CaddyRouteConfig {
 	return {
@@ -32,7 +103,10 @@ export function buildRedirectRouteConfig(from: string, to: string): CaddyRouteCo
 			{
 				handler: 'static_response',
 				status_code: '301',
-				headers: { Location: [`https://${to}{http.request.uri}`] }
+				headers: {
+					Location: [`https://${to}{http.request.uri}`],
+					'Strict-Transport-Security': [SECURITY_HEADERS['Strict-Transport-Security']]
+				}
 			}
 		]
 	}
@@ -46,6 +120,8 @@ export function buildRouteConfig(route: CaddyRoute): CaddyRouteConfig {
 		'@id': routeId(route.hostname),
 		match: [{ host: [route.hostname] }],
 		handle: [
+			buildSecurityHeadersHandler(),
+			buildHashedAssetCacheHandler(),
 			{
 				handler: 'encode',
 				encodings: { gzip: {}, zstd: {} },
