@@ -100,6 +100,8 @@ export const actions: Actions = {
 
 		const port = await allocatePort();
 		const webhookSecret = generateWebhookSecret();
+		const hostname = await getSetting('hostname')
+		const projectDomain = hostname ? `${slug}.${hostname}` : undefined
 
 		/* Look up tier from framework list */
 		const matchedFramework = frameworkId
@@ -114,6 +116,7 @@ export const actions: Actions = {
 				repoUrl: repoUrl.trim(),
 				branch,
 				gitConnectionId: connectionId,
+				domain: projectDomain,
 				frameworkId: frameworkId || undefined,
 				tier: matchedFramework?.tier ?? undefined,
 				port,

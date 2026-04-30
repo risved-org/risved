@@ -8,6 +8,7 @@ import { runPipeline } from '$lib/server/pipeline';
 import { createCommandRunner } from '$lib/server/pipeline/docker';
 import { detectors } from '$lib/server/detection/detectors';
 import { registerWebhook } from '$lib/server/auto-webhook';
+import { getSetting } from '$lib/server/settings';
 import { eq } from 'drizzle-orm';
 import type { FrameworkId, Tier } from '$lib/server/detection/types';
 import type { PageServerLoad, Actions } from './$types';
@@ -64,6 +65,8 @@ export const actions: Actions = {
 
 		const port = await allocatePort();
 		const webhookSecret = generateWebhookSecret();
+		const hostname = await getSetting('hostname')
+		const projectDomain = hostname ? `${slug}.${hostname}` : undefined
 
 		const matchedFramework = frameworkId
 			? FRAMEWORK_OPTIONS.find((f) => f.id === frameworkId)
@@ -77,6 +80,7 @@ export const actions: Actions = {
 				repoUrl: repoUrl || cloneUrl,
 				branch,
 				gitConnectionId: connectionId,
+				domain: projectDomain,
 				frameworkId: frameworkId || undefined,
 				tier: matchedFramework?.tier ?? undefined,
 				port,
