@@ -5,6 +5,60 @@ import type { CommandRunner, DockerBuildOptions, DockerRunOptions } from './type
 
 const DOCKER_NETWORK = 'risved';
 
+const NODE_BUILD_IMAGE = 'risved-node-build:22';
+
+/**
+ * Path to the bundled builder Dockerfiles inside the control-plane container.
+ * Override with RISVED_BUILDERS_DIR for development/testing.
+ */
+function buildersDir(): string {
+	return process.env.RISVED_BUILDERS_DIR ?? '/app/scripts/builders';
+}
+
+/**
+ * Verify the warm Node builder image is present in the host's image store, and
+ * build it on demand if it is not. The host install script populates this image
+ * out-of-band, but it can be missing on first deploy after a fresh install
+ * (background job didn't finish, network blip skipped script download) or
+ * after Docker prunes unused images. Building here makes the pipeline
+ * self-healing instead of failing with an opaque "pull access denied" from
+ * Docker Hub.
+ */
+export async function ensureWarmImage(
+	runner: CommandRunner,
+	options: { onLine?: (line: string) => void } = {}
+): Promise<{ success: boolean; built: boolean; error?: string }> {
+	const inspect = await runner.exec(
+		'docker',
+		['image', 'inspect', '--format', '{{.Id}}', NODE_BUILD_IMAGE]
+	)
+	if (inspect.exitCode === 0) return { success: true, built: false }
+
+	const dir = buildersDir()
+	options.onLine?.(`Warm builder image ${NODE_BUILD_IMAGE} not found, building it now…`)
+	const result = await runner.exec(
+		'docker',
+		[
+			'build',
+			'--progress=plain',
+			'-t',
+			NODE_BUILD_IMAGE,
+			'-f',
+			`${dir}/node-build.Dockerfile`,
+			dir
+		],
+		{ onLine: options.onLine }
+	)
+	if (result.exitCode !== 0) {
+		return {
+			success: false,
+			built: false,
+			error: result.stderr || result.stdout || 'docker build failed'
+		}
+	}
+	return { success: true, built: true }
+}
+
 /**
  * Build a Docker image from a context directory.
  * Uses --network to allow package downloads during build.

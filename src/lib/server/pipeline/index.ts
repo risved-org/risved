@@ -17,6 +17,7 @@ import {
 	dockerBuild,
 	dockerRun,
 	dockerStop,
+	ensureWarmImage,
 	waitForHealthy,
 	freePort,
 	getContainerLogs,
@@ -195,6 +196,23 @@ export async function runPipeline(
 		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
 
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
+
+		/* The node and hybrid templates use a locally built warm builder image
+		   (risved-node-build:22). If it is missing we have to build it before
+		   the user's docker build, otherwise BuildKit tries to pull it from
+		   Docker Hub and fails with "pull access denied". */
+		if (tier === 'node' || tier === 'hybrid') {
+			const warm = await ensureWarmImage(runner, {
+				onLine: (line) => emit('build', line)
+			});
+			if (!warm.success) {
+				throw new PipelineError(
+					'build',
+					`Failed to prepare warm builder image: ${warm.error ?? 'unknown error'}`
+				);
+			}
+		}
+
 		emit('build', `Building image ${imageTag}…`);
 
 		const buildResult = await dockerBuild(runner, {
