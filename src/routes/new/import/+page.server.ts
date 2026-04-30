@@ -65,8 +65,14 @@ export const actions: Actions = {
 
 		const port = await allocatePort();
 		const webhookSecret = generateWebhookSecret();
-		const hostname = await getSetting('hostname')
-		const projectDomain = hostname ? `${slug}.${hostname}` : undefined
+		const domainConfig = await getSetting('domain_config')
+		let projectDomain: string | undefined
+		if (domainConfig) {
+			try {
+				const { baseDomain } = JSON.parse(domainConfig)
+				if (baseDomain) projectDomain = `${slug}.${baseDomain}`
+			} catch { /* ignore corrupt data */ }
+		}
 
 		const matchedFramework = frameworkId
 			? FRAMEWORK_OPTIONS.find((f) => f.id === frameworkId)
