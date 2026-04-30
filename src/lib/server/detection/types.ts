@@ -23,6 +23,8 @@ export interface FrameworkResult {
 	name: string;
 	tier: Tier;
 	confidence: Confidence;
+	/** Optional framework-specific metadata (e.g. nuxt2 srcDir) */
+	meta?: Record<string, string>;
 }
 
 export interface DetectionResult {
@@ -30,12 +32,18 @@ export interface DetectionResult {
 	framework: FrameworkResult | null;
 }
 
+/** Result returned by a detector's detect() method */
+export interface DetectorMatch {
+	confidence: Confidence;
+	meta?: Record<string, string>;
+}
+
 export interface FrameworkDetector {
 	id: FrameworkId;
 	name: string;
 	tier: Tier;
-	/** Run detection against a project directory. Returns confidence or null if not detected. */
-	detect(ctx: DetectionContext): Promise<Confidence | null>;
+	/** Run detection against a project directory. Returns confidence/meta or null if not detected. */
+	detect(ctx: DetectionContext): Promise<Confidence | DetectorMatch | null>;
 }
 
 export interface DetectionContext {

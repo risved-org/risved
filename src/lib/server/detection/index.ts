@@ -19,15 +19,17 @@ export type {
  */
 export async function detectFramework(ctx: DetectionContext): Promise<DetectionResult> {
 	for (const detector of detectors) {
-		const confidence = await detector.detect(ctx);
-		if (confidence) {
+		const result = await detector.detect(ctx);
+		if (result) {
+			const isMatch = typeof result === 'object'
 			return {
 				detected: true,
 				framework: {
 					id: detector.id,
 					name: detector.name,
 					tier: detector.tier,
-					confidence
+					confidence: isMatch ? result.confidence : result,
+					meta: isMatch ? result.meta : undefined
 				}
 			};
 		}

@@ -21,6 +21,8 @@ export interface DockerfileOptions {
 	lockfile?: Lockfile;
 	/** Yarn release line (only relevant when lockfile === 'yarn.lock') */
 	yarnVersion?: 'classic' | 'berry';
+	/** Framework-specific metadata from detection (e.g. nuxt2 srcDir) */
+	meta?: Record<string, string>;
 }
 
 /** Result of Dockerfile generation */

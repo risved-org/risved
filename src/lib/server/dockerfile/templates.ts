@@ -189,6 +189,15 @@ export function nodeTemplate(
 	const copyLine = installCommand ? ALL_LOCKFILES_COPY : pm.copyLine
 	const needsNodeModules = config.copyPaths.includes('node_modules')
 
+	/* Directories in copyPaths that may not exist in every project
+	   (e.g. static/ in Nuxt 2). Ensure they exist so COPY never fails. */
+	const ensureDirs = config.copyPaths.filter(
+		p => !p.includes('*') && !p.includes('.') && p !== 'node_modules'
+	)
+	const ensureCmd = ensureDirs.length > 0
+		? ` && mkdir -p ${ensureDirs.join(' ')}`
+		: ''
+
 	const lines: string[] = [
 		`# syntax=docker/dockerfile:1`,
 		`# Build stage (retains dev deps for release commands)`,
@@ -200,7 +209,7 @@ export function nodeTemplate(
 		`RUN ${install}`,
 		'',
 		'COPY . .',
-		`RUN ${build}`,
+		`RUN ${build}${ensureCmd}`,
 	]
 
 	/* Prune in a separate stage so --target build still has dev deps */

@@ -24,7 +24,8 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 		buildCommand,
 		startCommand,
 		lockfile,
-		yarnVersion
+		yarnVersion,
+		meta
 	} = options;
 	let config = getFrameworkConfig(frameworkId);
 
@@ -37,6 +38,17 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 			serveCommand: 'deno run --allow-all main.ts',
 			denoPermissions: '--allow-all'
 		};
+	}
+
+	/* Nuxt 2: replace 'static' in copyPaths with the actual srcDir-relative path */
+	if (frameworkId === 'nuxt2') {
+		const srcDir = meta?.srcDir
+		if (srcDir) {
+			config = {
+				...config,
+				copyPaths: config.copyPaths.map(p => p === 'static' ? `${srcDir}static` : p)
+			}
+		}
 	}
 
 	/* Apply startCommand override to the framework config's serveCommand */

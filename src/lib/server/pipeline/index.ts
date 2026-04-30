@@ -110,6 +110,7 @@ export async function runPipeline(
 		/* ── Phase 2: Detect ─────────────────────────────── */
 		let frameworkId = config.frameworkId;
 		let tier = config.tier;
+		let frameworkMeta: Record<string, string> | undefined
 
 		{
 			emit('detect', 'Detecting framework…');
@@ -124,6 +125,7 @@ export async function runPipeline(
 			} else {
 				frameworkId = detection.framework.id;
 				tier = detection.framework.tier;
+				frameworkMeta = detection.framework.meta;
 				emit(
 					'detect',
 					`Detected ${detection.framework.name} (${tier} tier, ${detection.framework.confidence} confidence)`
@@ -157,7 +159,8 @@ export async function runPipeline(
 			lockfile: pmResult.lockfile,
 			yarnVersion: pmResult.yarnVersion,
 			buildCommand: config.buildCommand || undefined,
-			startCommand: config.startCommand || undefined
+			startCommand: config.startCommand || undefined,
+			meta: frameworkMeta
 		});
 		const dockerfileContent = dockerfile.content
 

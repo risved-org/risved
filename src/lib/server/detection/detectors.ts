@@ -1,4 +1,4 @@
-import type { FrameworkDetector, DetectionContext, Confidence } from './types';
+import type { FrameworkDetector, DetectionContext, Confidence, DetectorMatch } from './types';
 
 /**
  * Check if a package.json contains a dependency (in deps or devDeps).
@@ -178,6 +178,23 @@ async function getNuxtMajorVersion(ctx: DetectionContext): Promise<number | null
 }
 
 /**
+ * Extract srcDir from a Nuxt config file via regex.
+ * Returns the directory path (e.g. 'src/') or null if not set / default.
+ */
+async function detectNuxtSrcDir(ctx: DetectionContext): Promise<string | null> {
+	const configContent =
+		(await ctx.readFile('nuxt.config.ts')) ?? (await ctx.readFile('nuxt.config.js'))
+	if (!configContent) return null
+
+	const match = configContent.match(/srcDir\s*:\s*['"`]([^'"`]+)['"`]/)
+	if (!match) return null
+
+	let srcDir = match[1]
+	if (srcDir && !srcDir.endsWith('/')) srcDir += '/'
+	return srcDir
+}
+
+/**
  * Nuxt 2: nuxt.config.js/ts + nuxt ^2.x in deps
  * Tier 3 — Node build (webpack), Node serve (nuxt start)
  */
@@ -185,15 +202,22 @@ const nuxt2: FrameworkDetector = {
 	id: 'nuxt2',
 	name: 'Nuxt 2',
 	tier: 'node',
-	async detect(ctx: DetectionContext): Promise<Confidence | null> {
+	async detect(ctx: DetectionContext): Promise<Confidence | DetectorMatch | null> {
 		const hasConfig =
 			(await ctx.fileExists('nuxt.config.ts')) || (await ctx.fileExists('nuxt.config.js'));
 		const hasDep = await hasDependency(ctx, 'nuxt');
 		if (!hasConfig && !hasDep) return null
 
 		const major = await getNuxtMajorVersion(ctx)
-		if (major === 2) return hasConfig && hasDep ? 'high' : 'medium'
-		return null
+		if (major !== 2) return null
+
+		const confidence: Confidence = hasConfig && hasDep ? 'high' : 'medium'
+		const srcDir = await detectNuxtSrcDir(ctx)
+
+		if (srcDir) {
+			return { confidence, meta: { srcDir } }
+		}
+		return confidence
 	}
 };
 
