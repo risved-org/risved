@@ -121,7 +121,6 @@ export function hybridTemplate(
 	const needsNodeModules = config.copyPaths.includes('node_modules')
 
 	const lines: string[] = [
-		`# syntax=docker/dockerfile:1`,
 		`# Build stage (retains dev deps for release commands)`,
 		`FROM ${NODE_BUILD_IMAGE} AS build`,
 		'',
@@ -199,7 +198,6 @@ export function nodeTemplate(
 		: ''
 
 	const lines: string[] = [
-		`# syntax=docker/dockerfile:1`,
 		`# Build stage (retains dev deps for release commands)`,
 		`FROM ${NODE_BUILD_IMAGE} AS build`,
 		'',
