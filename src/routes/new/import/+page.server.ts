@@ -117,12 +117,14 @@ export const actions: Actions = {
 
 		/* Register webhook on provider (fire-and-forget) */
 		if (connectionId) {
+			const hostname = await getSetting('hostname')
+			const webhookOrigin = hostname ? `https://${hostname}` : url.origin
 			registerWebhook({
 				connectionId,
 				repoUrl: project.repoUrl,
 				projectId: project.id,
 				webhookSecret,
-				origin: url.origin
+				origin: webhookOrigin
 			})
 		}
 

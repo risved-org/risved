@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	}
 
 	const project = rows[0];
-	const risvedDomain = (await getSetting('domain')) ?? 'localhost:5173';
+	const risvedDomain = (await getSetting('hostname')) ?? 'localhost:5173';
 
 	return {
 		project: {
