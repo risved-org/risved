@@ -1,7 +1,7 @@
 {
 	"name": "risved",
 	"private": true,
-	"version": "0.12.12",
+	"version": "0.13.0",
 	"type": "module",
 	"bin": {
 		"risved": "scripts/risved.mjs"
@@ -34,7 +34,8 @@
 		"@libsql/client": "^0.17.0",
 		"@sveltejs/adapter-node": "^5.5.4",
 		"croner": "^10.0.1",
-		"drizzle-orm": "^0.45.1"
+		"drizzle-orm": "^0.45.1",
+		"layerchart": "^1.0.13"
 	},
 	"devDependencies": {
 		"@better-auth/cli": "^1.4.21",
@@ -45,6 +46,8 @@
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@types/d3-scale": "^4.0.9",
+		"@types/d3-shape": "^3.1.8",
 		"@types/node": "^22",
 		"@vitest/browser-playwright": "^4.0.18",
 		"better-auth": "^1.5.5",
