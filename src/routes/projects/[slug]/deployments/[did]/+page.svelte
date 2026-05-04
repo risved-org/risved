@@ -264,7 +264,7 @@
 					href="https://{data.project.domain}"
 					target="_blank"
 					rel="noopener"
-					class="btn-primary"
+					class="btn-primary btn-md"
 					data-testid="live-link"
 				>
 					Open live site ↗
@@ -272,7 +272,7 @@
 			{/if}
 			<a
 				href={resolve(`/projects/${data.project.slug}`)}
-				class="btn-secondary"
+				class="btn-secondary btn-md"
 				data-testid="view-project-btn"
 			>
 				View project
@@ -569,14 +569,4 @@
 		justify-content: center;
 	}
 
-	.btn-primary {
-		color: var(--color-bg-0);
-		font-size: .875rem;
-		font-weight: 500;
-	}
-
-	.btn-secondary {
-		font-size: .875rem;
-		font-weight: 500;
-	}
 </style>

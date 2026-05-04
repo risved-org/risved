@@ -60,12 +60,12 @@
 
 		<div class="actions">
 			{#if hasConnections}
-				<a href={resolve('/onboarding/deploy')} class="btn-primary" data-testid="continue-btn">
+				<a href={resolve('/onboarding/deploy')} class="btn-primary btn-lg" data-testid="continue-btn">
 					Continue
 				</a>
 			{/if}
 			<form method="post" action="?/skip">
-				<button type="submit" class="btn-secondary" data-testid="skip-btn">
+				<button type="submit" class="btn-secondary btn-lg" data-testid="skip-btn">
 					Skip for now
 				</button>
 			</form>

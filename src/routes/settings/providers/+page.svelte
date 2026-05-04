@@ -188,13 +188,13 @@
 						<div class="form-actions">
 							<button
 								type="submit"
-								class="btn-primary"
+								class="btn-primary btn-lg"
 								disabled={connectingForgejo || !forgejoUrl || !forgejoToken}
 								data-testid="forgejo-submit-btn"
 							>
 								{connectingForgejo ? 'Connecting…' : 'Connect'}
 							</button>
-							<button type="button" class="btn-secondary" onclick={() => (showForgejoForm = false)}>
+							<button type="button" class="btn-secondary btn-lg" onclick={() => (showForgejoForm = false)}>
 								Cancel
 							</button>
 							{#if form?.forgejoConnected}
@@ -210,53 +210,55 @@
 		{/if}
 
 		{#if hasConnections}
-			<div class="accounts-list">
-				{#each data.connections as conn (conn.id)}
-					<div class="account-row" data-testid="account-row">
-						{#if conn.avatarUrl}
-							<img src={conn.avatarUrl} alt="" class="account-avatar" />
-						{:else}
-							<span class="provider-icon {conn.provider} sm"
-								>{providerIcon[conn.provider] ?? '?'}</span
+			<div class="form-card">
+				<ul class="accounts-list">
+					{#each data.connections as conn (conn.id)}
+						<li class="account-row" data-testid="account-row">
+							{#if conn.avatarUrl}
+								<img src={conn.avatarUrl} alt="" class="account-avatar" />
+							{:else}
+								<span class="provider-icon {conn.provider} sm"
+									>{providerIcon[conn.provider] ?? '?'}</span
+								>
+							{/if}
+							<div class="account-info">
+								<span class="account-name">{conn.accountName}</span>
+								<span class="account-provider">{providerLabel[conn.provider] ?? conn.provider}</span>
+							</div>
+							<form
+								method="post"
+								action="?/disconnect"
+								use:enhance={() => {
+									disconnecting = conn.id;
+									return async ({ update }) => {
+										disconnecting = null;
+										await update();
+									};
+								}}
 							>
-						{/if}
-						<div class="account-info">
-							<span class="account-name">{conn.accountName}</span>
-							<span class="account-provider">{providerLabel[conn.provider] ?? conn.provider}</span>
-						</div>
-						<form
-							method="post"
-							action="?/disconnect"
-							use:enhance={() => {
-								disconnecting = conn.id;
-								return async ({ update }) => {
-									disconnecting = null;
-									await update();
-								};
-							}}
-						>
-							<input type="hidden" name="connectionId" value={conn.id} />
-							<button
-								type="submit"
-								class="btn-danger-sm"
-								disabled={disconnecting === conn.id}
-								data-testid="disconnect-btn"
-							>
-								{disconnecting === conn.id ? 'Removing…' : 'Disconnect'}
-							</button>
-						</form>
-					</div>
-				{/each}
+								<input type="hidden" name="connectionId" value={conn.id} />
+								<button
+									type="submit"
+									class="btn-danger-sm"
+									disabled={disconnecting === conn.id}
+									data-testid="disconnect-btn"
+								>
+									{disconnecting === conn.id ? 'Removing…' : 'Disconnect'}
+								</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+				{#if !showCards}
+					<button
+						class="btn-secondary btn-md"
+						onclick={() => (showCards = true)}
+						data-testid="add-another-btn"
+					>
+						Add another
+					</button>
+				{/if}
 			</div>
-			{#if !showCards}
-				<button
-					class="btn-secondary"
-					onclick={() => (showCards = true)}
-					data-testid="add-another-btn"
-				>
-					Add another
-				</button>
-			{/if}
 		{/if}
 	</section>
 </article>
@@ -266,8 +268,7 @@
 		display: flex;
 		flex-direction: column;
 		margin: var(--space-4) auto var(--space-8);
-		max-width: 40rem;
-		width: 100%;
+		width: min(100% - 2rem, 40rem);
 		gap: var(--space-5);
 	}
 
@@ -381,16 +382,22 @@
 	.accounts-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 	.account-row {
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
-		padding: var(--space-3) var(--space-4);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.account-row:last-child {
+		border-bottom: none;
+	}
+	.form-card .btn-secondary {
+		align-self: flex-start;
 	}
 	.account-avatar {
 		width: 28px;

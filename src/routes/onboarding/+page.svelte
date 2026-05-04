@@ -94,7 +94,7 @@
 				<p class="form-error" role="alert">{form.error}</p>
 			{/if}
 
-			<button type="submit" class="btn-primary" disabled={submitting || passwordTooShort || !passwordsMatch}>
+			<button type="submit" class="btn-primary btn-lg" disabled={submitting || passwordTooShort || !passwordsMatch}>
 				{submitting ? 'Creating account…' : 'Create account'}
 			</button>
 		</form>

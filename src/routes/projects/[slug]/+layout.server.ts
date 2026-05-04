@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit'
 import { db } from '$lib/server/db'
 import { projects, domains, deployments } from '$lib/server/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { getHealthMonitor } from '$lib/server/health'
 import type { LayoutServerLoad } from './$types'
 
 const FRAMEWORK_NAMES: Record<string, string> = {
@@ -34,7 +35,11 @@ export const load: LayoutServerLoad = async ({ params }) => {
 	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
 
 	const recentDeps = await db
-		.select({ status: deployments.status })
+		.select({
+			status: deployments.status,
+			commitSha: deployments.commitSha,
+			createdAt: deployments.createdAt
+		})
 		.from(deployments)
 		.where(eq(deployments.projectId, project.id))
 		.orderBy(desc(deployments.createdAt))
@@ -47,6 +52,11 @@ export const load: LayoutServerLoad = async ({ params }) => {
 	if (IN_PROGRESS.has(status) && recentDeps.some((d) => d.status === 'live')) {
 		status = 'live'
 	}
+
+	const liveDep = recentDeps.find((d) => d.status === 'live') ?? recentDeps[0]
+
+	const monitor = getHealthMonitor()
+	const containerHealth = monitor.get(project.id)
 
 	return {
 		project: {
@@ -61,7 +71,18 @@ export const load: LayoutServerLoad = async ({ params }) => {
 			frameworkId: project.frameworkId,
 			domain: primaryDomain,
 			port: project.port,
-			status
-		}
+			status,
+			lastCommitSha: liveDep?.commitSha ?? null,
+			lastDeployedAt: liveDep?.createdAt ?? null
+		},
+		containerHealth: containerHealth
+			? {
+					healthy: containerHealth.healthy,
+					consecutiveFailures: containerHealth.consecutiveFailures,
+					lastCheckAt: containerHealth.lastCheckAt,
+					lastRestartAt: containerHealth.lastRestartAt,
+					totalRestarts: containerHealth.totalRestarts
+				}
+			: null
 	}
 }

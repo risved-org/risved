@@ -131,20 +131,35 @@ button:focus:not(:focus-visible) {
 /* --- Shared component styles --- */
 
 /* Buttons */
-.btn-primary {
+.btn-md,
+.btn-lg {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: var(--space-2) var(--space-4);
-	background: var(--color-accent);
-	color: white;
 	border: none;
 	border-radius: var(--radius-md);
-	font-weight: 600;
-	font-size: 1rem;
 	cursor: pointer;
 	text-decoration: none;
-	transition: background 0.15s, opacity 0.15s;
+	transition: background 0.15s, opacity 0.15s, color 0.15s;
+}
+
+.btn-md {
+	height: 1.75rem;
+	padding: 0.25rem 0.5rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+}
+
+.btn-lg {
+	height: 2.25rem;
+	padding: 0.5rem 0.75rem;
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+.btn-primary {
+	background: var(--color-accent);
+	color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -152,34 +167,18 @@ button:focus:not(:focus-visible) {
 	text-decoration: none;
 }
 
-.btn-primary:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
-
 .btn-secondary {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	padding: var(--space-2) var(--space-4);
 	background: transparent;
-	color: var(--color-text-1);
-	border: 1.5px solid var(--color-border);
-	border-radius: var(--radius-md);
-	font-weight: 600;
-	font-size: 1rem;
-	cursor: pointer;
-	text-decoration: none;
-	transition: border-color 0.15s, color 0.15s;
+	color: var(--color-text-0);
 }
 
 .btn-secondary:hover:not(:disabled) {
-	border-color: var(--color-text-2);
 	color: var(--color-text-0);
 	text-decoration: none;
 }
 
-.btn-secondary:disabled {
+.btn-md:disabled,
+.btn-lg:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
 }

@@ -196,7 +196,7 @@
 				<p class="form-error" role="alert">{form.error}</p>
 			{/if}
 
-			<button type="submit" class="btn-primary" disabled={submitting || !canSubmit}>
+			<button type="submit" class="btn-primary btn-lg" disabled={submitting || !canSubmit}>
 				{submitting ? 'Saving…' : 'Continue'}
 			</button>
 		</form>

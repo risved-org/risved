@@ -193,11 +193,11 @@
 
 		<div class="check-actions">
 			<form method="post" action="?/skip">
-				<button type="submit" class="btn-primary" disabled={!allResolved}>Continue</button>
+				<button type="submit" class="btn-primary btn-lg" disabled={!allResolved}>Continue</button>
 			</form>
 
 			<form method="post" action="?/skip">
-				<button type="submit" class="btn-secondary">Skip for now</button>
+				<button type="submit" class="btn-secondary btn-lg">Skip for now</button>
 			</form>
 		</div>
 

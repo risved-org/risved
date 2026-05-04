@@ -35,6 +35,17 @@
 		return 'dot-stopped'
 	}
 
+	function deployLabel(status: string): string {
+		if (status === 'live') return 'Success'
+		if (status === 'failed') return 'Failed'
+		if (status === 'stopped') return 'Stopped'
+		if (status === 'building' || status === 'running') return 'Building'
+		if (status === 'cloning') return 'Cloning'
+		if (status === 'detecting') return 'Detecting'
+		if (status === 'starting') return 'Starting'
+		return status.charAt(0).toUpperCase() + status.slice(1)
+	}
+
 	type Dep = (typeof data.deployments)[number]
 
 	/** Group consecutive deployments by commit SHA */
@@ -111,9 +122,9 @@
 						<span class="status-dot {statusClass(dep.status)}"></span>
 						<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
 						<span class="deploy-status">
-							{dep.status === 'live' ? 'success' : dep.status}
+							{deployLabel(dep.status)}
 							{#if dep.triggerType === 'rollback'}
-								<span class="trigger-badge">rollback</span>
+								<span class="trigger-badge">Rollback</span>
 							{/if}
 						</span>
 						<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>

@@ -115,7 +115,7 @@
 				};
 			}}
 		>
-			<button type="submit" class="btn-primary" disabled={submitting}>
+			<button type="submit" class="btn-primary btn-lg" disabled={submitting}>
 				{submitting ? 'Opening…' : 'Open dashboard'}
 			</button>
 		</form>

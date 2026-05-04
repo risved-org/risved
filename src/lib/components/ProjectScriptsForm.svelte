@@ -301,12 +301,12 @@
 		border: 1px solid color-mix(in srgb, var(--color-building) 25%, transparent);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: 0.8125rem;
+		font-size: 0.875rem;
 		font-weight: 400;
 	}
 
 	.detected-pm {
-		font-size: 0.8125rem;
+		font-size: 0.875rem;
 		font-weight: 400;
 		color: var(--color-text-1);
 	}
@@ -347,7 +347,7 @@
 	}
 
 	.last-release {
-		font-size: 0.8125rem;
+		font-size: 0.875rem;
 		font-weight: 400;
 		color: var(--color-text-1);
 	}

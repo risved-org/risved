@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation'
 	import { resolve } from '$app/paths'
-	import LineChart from '$lib/components/LineChart.svelte'
+	import TimeAgo from '$lib/components/TimeAgo.svelte'
 	import type { PageData } from './$types'
 
 	let { data }: { data: PageData } = $props()
@@ -34,17 +34,21 @@
 		return 'dot-stopped'
 	}
 
-	function formatHour(iso: string): string {
-		const d = new Date(iso)
-		return `${d.getHours().toString().padStart(2, '0')}:00`
+	function deployLabel(status: string): string {
+		if (status === 'live') return 'Success'
+		if (status === 'failed') return 'Failed'
+		if (status === 'stopped') return 'Stopped'
+		if (status === 'building' || status === 'running') return 'Building'
+		if (status === 'cloning') return 'Cloning'
+		if (status === 'detecting') return 'Detecting'
+		if (status === 'starting') return 'Starting'
+		return status.charAt(0).toUpperCase() + status.slice(1)
 	}
 
-	let cpuPoints = $derived(
-		data.resourceMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.cpuPercent }))
-	)
-	let memPoints = $derived(
-		data.resourceMetrics.map((m) => ({ label: formatHour(m.bucket), value: m.memoryMb }))
-	)
+	function projectStatusLabel(status: string): string {
+		if (status === 'live') return 'Live'
+		return deployLabel(status)
+	}
 
 	let rollingBack = $state<string | null>(null)
 
@@ -75,13 +79,77 @@
 	}
 </script>
 
-<!-- Deployments (last 10) -->
+<!-- Project info card -->
+<section class="project-info-card" data-testid="project-info">
+	<header class="card-header">
+		<span class="card-name">
+			<span class="status-dot {statusClass(data.project.status)}" title={data.project.status}></span>
+			{data.project.name}
+		</span>
+		<span class="card-actions">
+			<button
+				class="action-btn"
+				title="Redeploy"
+				onclick={handleRedeploy}
+				aria-label="Redeploy {data.project.name}"
+			>
+				↻
+			</button>
+			{#if data.project.domain}
+				<a
+					class="action-btn"
+					href="https://{data.project.domain}"
+					target="_blank"
+					rel="noopener"
+					aria-label="Open {data.project.domain}"
+				>
+					↗
+				</a>
+			{/if}
+		</span>
+	</header>
+
+	<div class="card-meta">
+		{#if data.project.framework}
+			<span class="framework-badge">{data.project.framework}</span>
+		{/if}
+		{#if data.project.status === 'live' && data.containerHealth?.healthy === true}
+			<span class="health-badge health-ok">Healthy</span>
+		{:else if data.project.status === 'live' && data.containerHealth?.healthy === false}
+			<span class="health-badge health-failing">Unhealthy</span>
+		{:else}
+			<span class="health-badge health-na">{projectStatusLabel(data.project.status)}</span>
+		{/if}
+		{#if data.containerHealth && data.containerHealth.totalRestarts > 0}
+			<span class="restart-count">{data.containerHealth.totalRestarts}x restarts</span>
+		{/if}
+	</div>
+
+	<footer class="card-footer">
+		{#if data.project.domain}
+			<span class="card-domain mono">{data.project.domain}</span>
+		{/if}
+		<span class="card-deploy mono">
+			{#if data.project.lastCommitSha}
+				{data.project.lastCommitSha.slice(0, 7)}
+				&middot;
+			{/if}
+			{#if data.project.lastDeployedAt}
+				<TimeAgo value={data.project.lastDeployedAt} />
+			{:else}
+				No deploys
+			{/if}
+		</span>
+	</footer>
+</section>
+
+<!-- Deployments (last 5) -->
 <section data-testid="deployments-section">
 	<div class="section-header">
 		<h2 class="section-title">Deployments</h2>
 		<div class="section-actions">
 			<button class="btn-sm" onclick={handleRedeploy} data-testid="redeploy-btn">Redeploy</button>
-			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-sm">View all →</a>
+			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-sm">View all</a>
 		</div>
 	</div>
 	{#if data.deployments.length === 0}
@@ -97,12 +165,12 @@
 					<span class="status-dot {statusClass(dep.status)}"></span>
 					<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
 					<span class="deploy-status">
-						{dep.status === 'live' ? 'success' : dep.status}
+						{deployLabel(dep.status)}
 						{#if dep.triggerType === 'rollback'}
-							<span class="trigger-badge" data-testid="rollback-badge">rollback</span>
+							<span class="trigger-badge" data-testid="rollback-badge">Rollback</span>
 						{/if}
 						{#if dep.status === 'live' && i === data.deployments.findIndex((d) => d.status === 'live')}
-							<span class="current-badge">current</span>
+							<span class="current-badge">Current</span>
 						{/if}
 					</span>
 					<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
@@ -126,59 +194,6 @@
 	{/if}
 </section>
 
-<!-- Container Health -->
-<section data-testid="health-section">
-	<h2 class="section-title">Container Health</h2>
-	{#if data.containerHealth}
-		<div class="health-card">
-			<div class="health-status-row">
-				<span class="status-dot {data.containerHealth.healthy ? 'dot-live' : 'dot-failed'}"></span>
-				<span class="health-status-text" data-testid="health-status">
-					{data.containerHealth.healthy ? 'Healthy' : 'Unhealthy'}
-				</span>
-				{#if data.containerHealth.lastCheckAt}
-					<span class="muted">– Last check {timeAgo(data.containerHealth.lastCheckAt)}</span>
-				{/if}
-			</div>
-			<div class="health-meta">
-				<span class="health-meta-item">
-					Failures: <strong>{data.containerHealth.consecutiveFailures}</strong>
-				</span>
-				<span class="health-meta-item">
-					Restarts: <strong data-testid="restart-count">{data.containerHealth.totalRestarts}</strong>
-				</span>
-				{#if data.containerHealth.lastRestartAt}
-					<span class="health-meta-item">
-						Last restart: <strong>{timeAgo(data.containerHealth.lastRestartAt)}</strong>
-					</span>
-				{/if}
-			</div>
-		</div>
-	{:else}
-		<p class="empty-text">No health data yet. Monitoring starts after deployment goes live.</p>
-	{/if}
-	{#if data.healthEvents.length > 0}
-		<div class="health-events" data-testid="health-events">
-			{#each data.healthEvents as evt (evt.id)}
-				<div class="health-event-row">
-					<span class="event-badge event-{evt.event}">{evt.event.replace('_', ' ')}</span>
-					<span class="event-msg">{evt.message}</span>
-					<span class="event-time mono">{timeAgo(evt.createdAt)}</span>
-				</div>
-			{/each}
-		</div>
-	{/if}
-</section>
-
-<!-- Resource Sparkline (24h) -->
-<section data-testid="resource-section">
-	<h2 class="section-title">Resource history (24h)</h2>
-	<div class="charts-grid">
-		<LineChart points={cpuPoints} label="CPU %" color="var(--color-accent)" unit="%" />
-		<LineChart points={memPoints} label="Memory (MB)" color="var(--color-live)" unit="MB" />
-	</div>
-</section>
-
 <style>
 	.section-actions {
 		display: flex;
@@ -194,81 +209,124 @@
 		font-weight: 600;
 		letter-spacing: 0.03em;
 	}
-	/* Health */
-	.health-card {
+
+	/* Project info card — mirrors dashboard project-card */
+	.project-info-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
-		padding: var(--space-3);
+		gap: var(--space-3);
+		padding: var(--space-4);
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
-		font-size: .875rem;
 	}
-	.health-status-row {
+
+	.card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+
+	.card-name {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-	}
-	.health-status-text {
-		font-weight: 500;
-	}
-	.health-meta {
-		display: flex;
-		gap: var(--space-4);
-		font-size: .875rem;
-		color: var(--color-text-2);
-	}
-	.health-meta-item strong {
-		color: var(--color-text-0);
-	}
-	.health-events {
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-	}
-	.health-event-row {
-		display: grid;
-		grid-template-columns: 90px 1fr auto;
-		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-3);
-		border-bottom: 1px solid var(--color-border);
-		font-size: .875rem;
-	}
-	.health-event-row:last-child {
-		border-bottom: none;
-	}
-	.event-badge {
-		padding: 1px 6px;
-		border-radius: var(--radius-sm);
-		font-size: .875rem;
+		font-size: 1.125rem;
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
+		color: var(--color-text-0);
+		overflow: hidden;
+		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.event-check_failed {
-		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
-		color: var(--color-failed);
+
+	.card-actions {
+		display: flex;
+		gap: var(--space-1);
+		flex-shrink: 0;
 	}
-	.event-restarted {
-		background: color-mix(in srgb, var(--color-building) 15%, transparent);
-		color: var(--color-building);
+
+	.card-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		flex-wrap: wrap;
 	}
-	.event-recovered {
-		background: color-mix(in srgb, var(--color-live) 15%, transparent);
-		color: var(--color-live);
+
+	.card-footer {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
-	.event-msg {
+
+	.card-domain {
+		font-size: .875rem;
 		color: var(--color-text-1);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.event-time {
+
+	.card-deploy {
+		font-size: .75rem;
 		color: var(--color-text-2);
-		white-space: nowrap;
 	}
 
+	.framework-badge {
+		display: inline-block;
+		padding: 1px 6px;
+		background: var(--color-bg-3);
+		border-radius: var(--radius-sm);
+		font-size: .75rem;
+		color: var(--color-text-1);
+	}
+
+	.health-badge {
+		padding: 1px 5px;
+		border-radius: var(--radius-sm);
+		font-size: .75rem;
+		font-weight: 500;
+		letter-spacing: 0.03em;
+	}
+
+	.health-ok {
+		background: color-mix(in srgb, var(--color-live) 15%, transparent);
+		color: var(--color-live);
+	}
+
+	.health-failing {
+		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
+		color: var(--color-failed);
+	}
+
+	.health-na {
+		color: var(--color-text-2);
+	}
+
+	.restart-count {
+		color: var(--color-building);
+		font-size: .75rem;
+	}
+
+	.action-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-1);
+		cursor: pointer;
+		font-size: .875rem;
+		text-decoration: none;
+		transition: all 0.1s;
+	}
+
+	.action-btn:hover {
+		background: var(--color-bg-3);
+		color: var(--color-text-0);
+		text-decoration: none;
+	}
 </style>

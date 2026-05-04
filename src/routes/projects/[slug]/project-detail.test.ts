@@ -103,10 +103,10 @@ describe('settings delete action', () => {
 })
 
 describe('project layout source', () => {
-	it('has project header with name and framework', async () => {
+	it('has project header with name', async () => {
 		const mod = await import('./+layout.svelte?raw')
 		expect(mod.default).toContain('project-header')
-		expect(mod.default).toContain('framework-badge')
+		expect(mod.default).toContain('All projects')
 	})
 
 	it('has tab bar with all tabs', async () => {
@@ -127,14 +127,10 @@ describe('overview page source', () => {
 		expect(mod.default).toContain('deploy-row')
 	})
 
-	it('has health section', async () => {
+	it('has project info card with framework', async () => {
 		const mod = await import('./+page.svelte?raw')
-		expect(mod.default).toContain('health-section')
-	})
-
-	it('has resource charts', async () => {
-		const mod = await import('./+page.svelte?raw')
-		expect(mod.default).toContain('resource-section')
+		expect(mod.default).toContain('project-info')
+		expect(mod.default).toContain('framework-badge')
 	})
 
 	it('has rollback button', async () => {
@@ -145,13 +141,20 @@ describe('overview page source', () => {
 
 	it('has View all link to deployments tab', async () => {
 		const mod = await import('./+page.svelte?raw')
-		expect(mod.default).toContain('View all →')
+		expect(mod.default).toContain('View all')
 	})
 
 	it('exposes triggerType and imageTag in deployment data', async () => {
 		const mod = await import('./+page.server.ts?raw')
 		expect(mod.default).toContain('triggerType')
 		expect(mod.default).toContain('imageTag')
+	})
+})
+
+describe('metrics page source', () => {
+	it('has health section', async () => {
+		const mod = await import('./metrics/+page.svelte?raw')
+		expect(mod.default).toContain('health-section')
 	})
 })
 

@@ -99,7 +99,7 @@
 	{#if data.connections.length === 0}
 		<div class="empty-state" data-testid="no-providers">
 			<p>No Git providers connected.</p>
-			<a href={resolve('/settings/git')} class="btn-primary">Connect a provider</a>
+			<a href={resolve('/settings/git')} class="btn-primary btn-md">Connect a provider</a>
 		</div>
 	{:else}
 		<!-- Account selector -->
@@ -129,7 +129,7 @@
 					data-testid="repo-search"
 				/>
 				<button
-					class="btn-secondary"
+					class="btn-secondary btn-md"
 					onclick={loadRepos}
 					disabled={searching}
 					data-testid="search-btn"
@@ -185,7 +185,7 @@
 						<span class="selected-repo-name mono">{selectedRepo.fullName}</span>
 					</div>
 					<button
-						class="btn-secondary btn-sm"
+						class="btn-secondary btn-md"
 						onclick={clearSelection}
 						data-testid="change-repo-btn"
 					>
@@ -259,7 +259,7 @@
 
 						<button
 							type="submit"
-							class="btn-primary btn-deploy"
+							class="btn-primary btn-md btn-deploy"
 							disabled={deploying || !projectName}
 							data-testid="import-deploy-btn"
 						>
@@ -436,27 +436,6 @@
 	.form-error {
 		font-size: .875rem;
 		color: var(--color-failed);
-	}
-
-	.btn-primary {
-		border: 1px solid var(--color-accent);
-		color: var(--color-bg-0);
-		font-weight: 500;
-	}
-	.btn-primary:hover:not(:disabled) {
-		opacity: 0.9;
-		background: var(--color-accent);
-	}
-
-	.btn-secondary {
-		border-width: 1px;
-		font-size: .875rem;
-		font-weight: 500;
-	}
-
-	.btn-sm {
-		padding: var(--space-1) var(--space-2);
-		font-size: .875rem;
 	}
 
 	.btn-deploy {

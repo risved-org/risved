@@ -4,15 +4,6 @@
 
 	let { data, children } = $props()
 
-	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
-
-	function statusClass(status: string): string {
-		if (status === 'live') return 'dot-live'
-		if (status === 'failed') return 'dot-failed'
-		if (IN_PROGRESS.has(status)) return 'dot-building'
-		return 'dot-stopped'
-	}
-
 	const tabs = [
 		{ href: '', label: 'Overview' },
 		{ href: '/deployments', label: 'Deployments' },
@@ -43,37 +34,22 @@
 
 <article class="project-shell">
 	<header class="project-header">
-		<a href={resolve('/')} class="back-link">← Dashboard</a>
-		<div class="header-row">
+		<a href={resolve('/projects')} class="back-link">← All projects</a>
+		<div class="title-row">
 			<h1>{data.project.name}</h1>
-			<span class="status-dot {statusClass(data.project.status)}"></span>
-			{#if data.project.framework}
-				<span class="framework-badge">{data.project.framework}</span>
-			{/if}
+			<nav class="tab-bar" data-testid="project-tabs">
+				{#each tabs as tab (tab.href)}
+					<a
+						href={resolve(`/projects/${data.project.slug}${tab.href}`)}
+						class="tab"
+						class:tab-active={isActive(tab.href)}
+					>
+						{tab.label}
+					</a>
+				{/each}
+			</nav>
 		</div>
-		{#if data.project.domain}
-			<a
-				href="https://{data.project.domain}"
-				target="_blank"
-				rel="noopener"
-				class="domain-link mono"
-			>
-				{data.project.domain} ↗
-			</a>
-		{/if}
 	</header>
-
-	<nav class="tab-bar" data-testid="project-tabs">
-		{#each tabs as tab (tab.href)}
-			<a
-				href={resolve(`/projects/${data.project.slug}${tab.href}`)}
-				class="tab"
-				class:tab-active={isActive(tab.href)}
-			>
-				{tab.label}
-			</a>
-		{/each}
-	</nav>
 
 	<div class="tab-content">
 		{@render children()}
@@ -84,10 +60,9 @@
 	.project-shell {
 		display: flex;
 		flex-direction: column;
-		max-width: 800px;
+		width: min(100% - 2rem, 64rem);
 		margin: 0 auto;
-		width: 100%;
-		padding: var(--space-4) var(--space-4) var(--space-6);
+		padding: var(--space-4) 0 var(--space-6);
 	}
 
 	.tab-content {
@@ -156,6 +131,7 @@
 	}
 
 	.tab-content :global(.deploy-list) {
+		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
@@ -234,63 +210,34 @@
 	}
 
 	.project-header {
-		margin-bottom: var(--space-3);
+		margin-bottom: var(--space-5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
 	}
 
 	.back-link {
 		font-size: .875rem;
 		color: var(--color-text-2);
-		display: inline-block;
-		margin-bottom: var(--space-2);
 	}
 	.back-link:hover {
 		color: var(--color-text-0);
 		text-decoration: none;
 	}
 
-	.header-row {
+	.title-row {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
+		gap: 1.5rem;
+		flex-wrap: wrap;
 	}
+
 	h1 {
-		font-size: 1.5rem;
+		font-family: var(--font-sans);
+		font-size: .875rem;
 		font-weight: 600;
-	}
-
-	.domain-link {
-		font-size: .875rem;
-		color: var(--color-accent);
-		margin-top: var(--space-1);
-	}
-
-	.status-dot {
-		display: inline-block;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		flex-shrink: 0;
-	}
-	.dot-live {
-		background: var(--color-live);
-		box-shadow: 0 0 6px var(--color-live);
-	}
-	.dot-failed {
-		background: var(--color-failed);
-	}
-	.dot-building {
-		background: var(--color-building);
-	}
-	.dot-stopped {
-		background: var(--color-stopped);
-	}
-
-	.framework-badge {
-		padding: 1px 8px;
-		background: var(--color-bg-3);
-		border-radius: var(--radius-sm);
-		font-size: .875rem;
 		color: var(--color-text-1);
+		margin: 0;
 	}
 
 	.tab-bar {
@@ -299,7 +246,6 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
-		margin-bottom: var(--space-5);
 	}
 
 	.tab {
@@ -307,7 +253,7 @@
 		border-right: 1.5px solid var(--color-border);
 		color: var(--color-text-2);
 		font-size: .875rem;
-		font-weight: 500;
+		font-weight: 600;
 		text-decoration: none;
 		white-space: nowrap;
 		transition: color 0.15s, background 0.15s;

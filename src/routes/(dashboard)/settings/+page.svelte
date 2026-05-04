@@ -9,6 +9,12 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	const providerLabel: Record<string, string> = {
+		github: 'GitHub',
+		gitlab: 'GitLab',
+		forgejo: 'Forgejo'
+	};
+
 	let displayName = $state(data.displayName ?? '');
 	let hostname = $state(data.hostname ?? '');
 	let timezone = $state(
@@ -307,19 +313,18 @@
 		<h2 class="section-title">Git</h2>
 		<div class="form-card">
 			{#if data.connections && data.connections.length > 0}
-				<div class="git-provider-info">
-					<span class="form-label">Git provider</span>
-					<span class="git-provider-value">
-						{#each data.connections as conn, i (conn.id)}
-							{#if i > 0}, {/if}
-							{conn.accountName}
-						{/each}
-					</span>
-				</div>
+				<ul class="git-provider-list">
+					{#each data.connections as conn (conn.id)}
+						<li class="git-provider-info">
+							<span class="form-label">{providerLabel[conn.provider] ?? conn.provider}</span>
+							<span class="git-provider-value">{conn.accountName}</span>
+						</li>
+					{/each}
+				</ul>
 			{:else}
 				<p class="card-desc">No git providers connected.</p>
 			{/if}
-			<a href={resolve('/settings/git')} class="btn-secondary" data-testid="git-settings-link">
+			<a href={resolve('/settings/git')} class="btn-secondary btn-lg" data-testid="git-settings-link">
 				Git settings
 			</a>
 		</div>
@@ -374,7 +379,7 @@
 				<div class="form-actions">
 					<button
 						type="submit"
-						class="btn-primary"
+						class="btn-primary btn-lg"
 						disabled={generalSaving}
 						data-testid="save-general-btn"
 					>
@@ -417,7 +422,7 @@
 				<div class="form-actions">
 					<button
 						type="submit"
-						class="btn-primary"
+						class="btn-primary btn-lg"
 						disabled={emailSaving}
 						data-testid="save-email-btn"
 					>
@@ -489,7 +494,7 @@
 				<div class="form-actions">
 					<button
 						type="submit"
-						class="btn-primary"
+						class="btn-primary btn-lg"
 						disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
 						data-testid="change-password-btn"
 					>
@@ -547,7 +552,7 @@
 				</label>
 				<div class="form-actions">
 					<button
-						class="btn-primary"
+						class="btn-primary btn-lg"
 						disabled={passkeyRegistering}
 						onclick={registerPasskey}
 						data-testid="register-passkey-btn"
@@ -555,7 +560,7 @@
 						{passkeyRegistering ? 'Registering…' : 'Register passkey'}
 					</button>
 					<button
-						class="btn-secondary"
+						class="btn-secondary btn-lg"
 						disabled={passkeysLoading}
 						onclick={loadPasskeys}
 						data-testid="refresh-passkeys-btn"
@@ -613,7 +618,7 @@
 				>
 					<button
 						type="submit"
-						class="btn-secondary"
+						class="btn-secondary btn-lg"
 						disabled={generatingToken}
 						data-testid="generate-token-btn"
 					>
@@ -686,7 +691,7 @@
 				<div class="form-actions">
 					<button
 						type="submit"
-						class="btn-primary"
+						class="btn-primary btn-lg"
 						disabled={retentionSaving}
 						data-testid="save-retention-btn"
 					>
@@ -694,7 +699,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn-secondary"
+						class="btn-secondary btn-lg"
 						disabled={cleanupRunning}
 						onclick={runCleanupNow}
 						data-testid="run-cleanup-btn"
@@ -768,7 +773,7 @@
 
 			<div class="form-actions">
 				<button
-					class="btn-secondary"
+					class="btn-secondary btn-lg"
 					disabled={updateChecking || !!updateStep}
 					onclick={checkForUpdates}
 					data-testid="check-updates-btn"
@@ -777,7 +782,7 @@
 				</button>
 				{#if updateInfo?.updateAvailable}
 					<button
-						class="btn-primary"
+						class="btn-primary btn-lg"
 						disabled={!!updateStep}
 						onclick={triggerUpdate}
 						data-testid="update-now-btn"
@@ -869,7 +874,7 @@
 
 			<div class="form-actions">
 				<button
-					class="btn-secondary"
+					class="btn-secondary btn-lg"
 					disabled={pruning !== null}
 					onclick={() => runPrune('all')}
 					data-testid="prune-all-btn"
@@ -967,8 +972,7 @@
 		display: flex;
 		flex-direction: column;
 		margin: var(--space-4) auto var(--space-8);
-		max-width: 40rem;
-		width: 100%;
+		width: min(100% - 2rem, 40rem);
 		gap: var(--space-5);
 	}
 
@@ -996,6 +1000,15 @@
 	.card-desc {
 		font-size: .875rem;
 		color: var(--color-text-2);
+	}
+
+	.git-provider-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 
 	.git-provider-info {

@@ -170,7 +170,7 @@
 						/>
 						<button
 							type="submit"
-							class="btn-primary"
+							class="btn-primary btn-md"
 							disabled={adding || !hostname.trim()}
 							data-testid="confirm-add-btn"
 						>
@@ -414,15 +414,6 @@
 	}
 	.hostname-input::placeholder {
 		color: var(--color-text-2);
-	}
-	.btn-primary {
-		border: 1px solid var(--color-accent);
-		color: var(--color-bg-0);
-		font-weight: 500;
-	}
-	.btn-primary:hover:not(:disabled) {
-		opacity: 0.9;
-		background: var(--color-accent);
 	}
 	.btn-cancel {
 		padding: var(--space-2) var(--space-3);

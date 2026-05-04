@@ -189,7 +189,7 @@
 				</span>
 			</label>
 			<div class="scripts-actions">
-				<button type="submit" class="btn-primary" disabled={savingScripts} data-testid="save-scripts-btn">
+				<button type="submit" class="btn-primary btn-lg" disabled={savingScripts} data-testid="save-scripts-btn">
 					{savingScripts ? 'Saving…' : 'Save'}
 				</button>
 				{#if form?.scriptsSaved}
@@ -277,7 +277,7 @@
 		<input type="hidden" name="envSecrets" value={envSecretsValue} />
 
 		<div class="save-bar">
-			<button type="submit" class="btn-primary" disabled={savingEnv} data-testid="save-env-btn">
+			<button type="submit" class="btn-primary btn-lg" disabled={savingEnv} data-testid="save-env-btn">
 				{savingEnv ? 'Saving…' : 'Save'}
 			</button>
 			{#if form?.error}

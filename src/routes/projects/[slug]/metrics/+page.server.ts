@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit'
 import { db } from '$lib/server/db'
-import { projects } from '$lib/server/db/schema'
-import { eq } from 'drizzle-orm'
+import { projects, healthEvents } from '$lib/server/db/schema'
+import { eq, desc } from 'drizzle-orm'
 import { getProjectMetrics } from '$lib/server/metrics'
 import type { PageServerLoad } from './$types'
 
@@ -17,8 +17,21 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 	const metrics = await getProjectMetrics(project.id, hours)
 
+	const recentHealthEvents = await db
+		.select()
+		.from(healthEvents)
+		.where(eq(healthEvents.projectId, project.id))
+		.orderBy(desc(healthEvents.createdAt))
+		.limit(10)
+
 	return {
 		resourceMetrics: metrics,
-		hours
+		hours,
+		healthEvents: recentHealthEvents.map((e) => ({
+			id: e.id,
+			event: e.event,
+			message: e.message,
+			createdAt: e.createdAt
+		}))
 	}
 }

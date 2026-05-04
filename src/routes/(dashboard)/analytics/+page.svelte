@@ -12,11 +12,10 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		padding: var(--space-4);
+		padding: var(--space-4) 0;
 		gap: var(--space-4);
-		max-width: 64rem;
+		width: min(100% - 2rem, 64rem);
 		margin: 0 auto;
-		width: 100%;
 	}
 
 	h1 {

@@ -240,7 +240,7 @@
 				<input type="password" name="clientSecret" class="form-input mono" placeholder="secret" data-testid="github-client-secret" />
 			</label>
 			<div class="form-actions">
-				<button type="submit" class="btn-primary" disabled={savingGithubApp} data-testid="github-save-app-btn">
+				<button type="submit" class="btn-primary btn-md" disabled={savingGithubApp} data-testid="github-save-app-btn">
 					{savingGithubApp ? 'Saving…' : 'Save'}
 				</button>
 				{#if showGithubAppSaved}
@@ -285,7 +285,7 @@
 				<input type="password" name="secret" class="form-input mono" placeholder="your-secret" data-testid="gitlab-secret" />
 			</label>
 			<div class="form-actions">
-				<button type="submit" class="btn-primary" disabled={savingGitlabApp} data-testid="gitlab-save-btn">
+				<button type="submit" class="btn-primary btn-md" disabled={savingGitlabApp} data-testid="gitlab-save-btn">
 					{savingGitlabApp ? 'Saving…' : 'Save'}
 				</button>
 				{#if showGitlabAppSaved}
@@ -350,7 +350,7 @@
 			<div class="form-actions">
 				<button
 					type="submit"
-					class="btn-primary"
+					class="btn-primary btn-md"
 					disabled={connectingForgejo || !forgejoUrl || !forgejoToken}
 					data-testid="forgejo-submit-btn"
 				>
@@ -540,29 +540,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-	}
-
-	.btn-primary {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-accent);
-		color: white;
-		border: 1.5px solid transparent;
-		border-radius: var(--radius-md);
-		font-weight: 600;
-		font-size: .875rem;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			opacity 0.15s;
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		background: var(--color-accent-dim);
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 
 	.btn-cancel {

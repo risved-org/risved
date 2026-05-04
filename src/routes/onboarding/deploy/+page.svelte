@@ -171,10 +171,10 @@
 				{/if}
 
 				<div class="deploy-actions">
-					<button type="submit" class="btn-primary" disabled={submitting || !canSubmitStarter}>
+					<button type="submit" class="btn-primary btn-lg" disabled={submitting || !canSubmitStarter}>
 						{submitting ? 'Deploying…' : 'Deploy starter'}
 					</button>
-					<button type="submit" formaction="?/skip" class="btn-secondary">Skip for now</button>
+					<button type="submit" formaction="?/skip" class="btn-secondary btn-lg">Skip for now</button>
 				</div>
 			</form>
 		{:else if path === 'provider'}
@@ -185,7 +185,7 @@
 				</div>
 				<div class="deploy-actions standalone">
 					<form method="post" action="?/skip">
-						<button type="submit" class="btn-secondary">Skip for now</button>
+						<button type="submit" class="btn-secondary btn-lg">Skip for now</button>
 					</form>
 				</div>
 			{:else}
@@ -271,10 +271,10 @@
 					{/if}
 
 					<div class="deploy-actions">
-						<button type="submit" class="btn-primary" disabled={submitting || !canSubmitRepo}>
+						<button type="submit" class="btn-primary btn-lg" disabled={submitting || !canSubmitRepo}>
 							{submitting ? 'Deploying…' : 'Deploy'}
 						</button>
-						<button type="submit" formaction="?/skip" class="btn-secondary">Skip for now</button>
+						<button type="submit" formaction="?/skip" class="btn-secondary btn-lg">Skip for now</button>
 					</div>
 				</form>
 			{/if}
@@ -312,10 +312,10 @@
 				{/if}
 
 				<div class="deploy-actions">
-					<button type="submit" class="btn-primary" disabled={submitting || !canSubmitRepo}>
+					<button type="submit" class="btn-primary btn-lg" disabled={submitting || !canSubmitRepo}>
 						{submitting ? 'Deploying…' : 'Deploy from repo'}
 					</button>
-					<button type="submit" formaction="?/skip" class="btn-secondary">Skip for now</button>
+					<button type="submit" formaction="?/skip" class="btn-secondary btn-lg">Skip for now</button>
 				</div>
 			</form>
 		{/if}

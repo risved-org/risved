@@ -35,12 +35,48 @@ import type {
 export type { PipelineConfig, PipelineResult, LogEntry, LogEmitter, PipelinePhase } from './types';
 
 /**
+ * Per-project build lock. Prevents concurrent pipelines for the same project
+ * from racing on the container name / port.
+ */
+const buildLocks = new Map<string, Promise<PipelineResult>>()
+
+/**
  * Run the full deployment pipeline for a project.
  *
  * Phases: clone → detect → build → start → health → route → cutover → live
  * Each phase emits log entries that can be streamed to the client.
+ *
+ * If a build is already running for the same project, this waits for it
+ * to finish before starting.
  */
 export async function runPipeline(
+	config: PipelineConfig,
+	runner: CommandRunner,
+	options?: {
+		onLog?: LogEmitter;
+		caddy?: CaddyClient;
+		fetchFn?: typeof fetch;
+		healthTimeoutMs?: number;
+		healthIntervalMs?: number;
+		deploymentId?: string;
+	}
+): Promise<PipelineResult> {
+	/* Serialize builds per project to prevent container name conflicts */
+	const prev = buildLocks.get(config.projectId)
+	const result = (prev ?? Promise.resolve()).catch(() => {}).then(() =>
+		_runPipeline(config, runner, options)
+	)
+	buildLocks.set(config.projectId, result)
+	result.finally(() => {
+		/* Only clear if we're still the latest queued build */
+		if (buildLocks.get(config.projectId) === result) {
+			buildLocks.delete(config.projectId)
+		}
+	})
+	return result
+}
+
+async function _runPipeline(
 	config: PipelineConfig,
 	runner: CommandRunner,
 	options?: {

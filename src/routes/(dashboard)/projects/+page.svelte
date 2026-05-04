@@ -46,13 +46,13 @@
 <article class="projects-page">
 	<header class="page-header">
 		<h1>Projects</h1>
-		<a href={resolve('/new')} class="btn-secondary btn-sm">New project</a>
+		<a href={resolve('/new')} class="btn-secondary btn-md">New project</a>
 	</header>
 
 	{#if data.projects.length === 0}
 		<section class="empty-state" data-testid="empty-state">
 			<p class="empty-message">Nothing deployed yet. Connect a repo to get started.</p>
-			<a href={resolve('/new')} class="btn-primary">New Project</a>
+			<a href={resolve('/new')} class="btn-primary btn-lg">New Project</a>
 		</section>
 	{:else}
 		<section class="project-grid" data-testid="project-grid">
@@ -134,11 +134,10 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		padding: var(--space-4);
+		padding: var(--space-4) 0;
 		gap: var(--space-4);
-		max-width: 64rem;
+		width: min(100% - 2rem, 64rem);
 		margin: 0 auto;
-		width: 100%;
 	}
 
 	.page-header {
@@ -247,7 +246,7 @@
 	}
 
 	.card-domain {
-		font-size: .8125rem;
+		font-size: .875rem;
 		color: var(--color-text-1);
 		overflow: hidden;
 		text-overflow: ellipsis;
