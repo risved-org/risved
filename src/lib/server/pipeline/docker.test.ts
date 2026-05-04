@@ -4,6 +4,7 @@ import {
 	dockerRun,
 	dockerStop,
 	dockerVolumeRemove,
+	ensureWarmImage,
 	projectVolumeName,
 	getCommitSha,
 	gitClone,
@@ -296,5 +297,65 @@ describe('dockerVolumeRemove', () => {
 		const result = await dockerVolumeRemove(runner, 'test-vol');
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('permission denied');
+	});
+});
+
+describe('ensureWarmImage', () => {
+	it('skips build when the image already exists', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				if (args[0] === 'image' && args[1] === 'inspect') {
+					return { exitCode: 0, stdout: 'sha256:abc\n', stderr: '' };
+				}
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await ensureWarmImage(runner);
+		expect(result.success).toBe(true);
+		expect(result.built).toBe(false);
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toContain('inspect');
+	});
+
+	it('builds the image when missing', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				if (args[0] === 'image' && args[1] === 'inspect') {
+					return { exitCode: 1, stdout: '', stderr: 'No such image' };
+				}
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await ensureWarmImage(runner);
+		expect(result.success).toBe(true);
+		expect(result.built).toBe(true);
+		expect(calls).toHaveLength(2);
+		expect(calls[1].slice(0, 2)).toEqual(['docker', 'build']);
+		expect(calls[1]).toContain('risved-node-build:22');
+		expect(calls[1].some((arg) => arg.endsWith('node-build.Dockerfile'))).toBe(true);
+	});
+
+	it('returns the build error when the image build fails', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				if (args[0] === 'image' && args[1] === 'inspect') {
+					return { exitCode: 1, stdout: '', stderr: 'No such image' };
+				}
+				if (args[0] === 'build') {
+					return { exitCode: 1, stdout: '', stderr: 'apt-get failed' };
+				}
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await ensureWarmImage(runner);
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('apt-get failed');
 	});
 });
