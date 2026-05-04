@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation'
 	import { resolve } from '$app/paths'
-	import TimeAgo from '$lib/components/TimeAgo.svelte'
 	import type { PageData } from './$types'
 
 	let { data }: { data: PageData } = $props()
@@ -79,34 +78,12 @@
 	}
 </script>
 
+<h1 class="page-title">Overview</h1>
+
 <!-- Project info card -->
 <section class="project-info-card" data-testid="project-info">
 	<header class="card-header">
-		<span class="card-name">
-			<span class="status-dot {statusClass(data.project.status)}" title={data.project.status}></span>
-			{data.project.name}
-		</span>
-		<span class="card-actions">
-			<button
-				class="action-btn"
-				title="Redeploy"
-				onclick={handleRedeploy}
-				aria-label="Redeploy {data.project.name}"
-			>
-				↻
-			</button>
-			{#if data.project.domain}
-				<a
-					class="action-btn"
-					href="https://{data.project.domain}"
-					target="_blank"
-					rel="noopener"
-					aria-label="Open {data.project.domain}"
-				>
-					↗
-				</a>
-			{/if}
-		</span>
+		<span class="card-name">{data.project.name}</span>
 	</header>
 
 	<div class="card-meta">
@@ -125,22 +102,20 @@
 		{/if}
 	</div>
 
-	<footer class="card-footer">
-		{#if data.project.domain}
-			<span class="card-domain mono">{data.project.domain}</span>
-		{/if}
-		<span class="card-deploy mono">
-			{#if data.project.lastCommitSha}
-				{data.project.lastCommitSha.slice(0, 7)}
-				&middot;
-			{/if}
-			{#if data.project.lastDeployedAt}
-				<TimeAgo value={data.project.lastDeployedAt} />
-			{:else}
-				No deploys
-			{/if}
-		</span>
-	</footer>
+	{#if data.project.domains.length > 0}
+		<footer class="card-footer">
+			{#each data.project.domains as dom (dom.id)}
+				<a
+					class="card-domain mono"
+					href="https://{dom.hostname}"
+					target="_blank"
+					rel="noopener"
+				>
+					{dom.hostname}
+				</a>
+			{/each}
+		</footer>
+	{/if}
 </section>
 
 <!-- Deployments (last 5) -->
@@ -148,8 +123,8 @@
 	<div class="section-header">
 		<h2 class="section-title">Deployments</h2>
 		<div class="section-actions">
-			<button class="btn-sm" onclick={handleRedeploy} data-testid="redeploy-btn">Redeploy</button>
-			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-sm">View all</a>
+			<button class="btn-secondary btn-md" onclick={handleRedeploy} data-testid="redeploy-btn">Redeploy</button>
+			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-secondary btn-md">View all</a>
 		</div>
 	</div>
 	{#if data.deployments.length === 0}
@@ -240,12 +215,6 @@
 		white-space: nowrap;
 	}
 
-	.card-actions {
-		display: flex;
-		gap: var(--space-1);
-		flex-shrink: 0;
-	}
-
 	.card-meta {
 		display: flex;
 		align-items: center;
@@ -261,15 +230,14 @@
 
 	.card-domain {
 		font-size: .875rem;
-		color: var(--color-text-1);
+		color: var(--color-accent);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.card-deploy {
-		font-size: .75rem;
-		color: var(--color-text-2);
+	.card-domain:hover {
+		text-decoration: underline;
 	}
 
 	.framework-badge {
@@ -306,27 +274,5 @@
 	.restart-count {
 		color: var(--color-building);
 		font-size: .75rem;
-	}
-
-	.action-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-1);
-		cursor: pointer;
-		font-size: .875rem;
-		text-decoration: none;
-		transition: all 0.1s;
-	}
-
-	.action-btn:hover {
-		background: var(--color-bg-3);
-		color: var(--color-text-0);
-		text-decoration: none;
 	}
 </style>

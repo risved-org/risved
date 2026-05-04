@@ -45,6 +45,8 @@
 	})
 </script>
 
+<h1 class="page-title">Logs</h1>
+
 <section data-testid="logs-section">
 	<div class="section-header">
 		<h2 class="section-title">Container Logs</h2>
@@ -56,14 +58,14 @@
 				<option value={1000}>1000 lines</option>
 			</select>
 			<button
-				class="btn-sm"
+				class="btn-secondary btn-md"
 				class:btn-active={autoRefresh}
 				onclick={toggleAutoRefresh}
 				data-testid="auto-refresh-btn"
 			>
 				{autoRefresh ? 'Stop auto-refresh' : 'Auto-refresh'}
 			</button>
-			<button class="btn-sm" onclick={fetchLogs} disabled={loading} data-testid="refresh-logs-btn">
+			<button class="btn-secondary btn-md" onclick={fetchLogs} disabled={loading} data-testid="refresh-logs-btn">
 				{loading ? 'Loading…' : 'Refresh'}
 			</button>
 		</div>

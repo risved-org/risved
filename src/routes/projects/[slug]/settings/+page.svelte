@@ -28,7 +28,7 @@
 	const envSecretsValue = $derived(envRows.map((r) => (r.isSecret ? '1' : '0')).join('\x1F'))
 
 	function addEnvRow() {
-		envRows = [...envRows, { key: '', value: '', isSecret: false }]
+		envRows = [...envRows, { key: '', value: '', isSecret: true }]
 	}
 
 	function removeEnvRow(index: number) {
@@ -43,11 +43,11 @@
 		const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'))
 		const parsed = lines.map((line) => {
 			const eqIndex = line.indexOf('=')
-			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: false }
+			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: true }
 			return {
 				key: line.slice(0, eqIndex).trim(),
 				value: line.slice(eqIndex + 1).trim(),
-				isSecret: false
+				isSecret: true
 			}
 		})
 
@@ -140,8 +140,11 @@
 	let deleting = $state(false)
 </script>
 
-<!-- Build & Runtime -->
-<section data-testid="scripts-section">
+<div class="settings-page">
+	<h1 class="page-title">Settings</h1>
+
+	<!-- Build & Runtime -->
+	<section data-testid="scripts-section">
 	<h2 class="section-title">Build & Runtime</h2>
 	<form
 		method="post"
@@ -246,12 +249,11 @@
 					<button
 						type="button"
 						class="env-secret-toggle"
-						class:active={row.isSecret}
-						title={row.isSecret ? 'Unmark as secret' : 'Mark as secret'}
+						title={row.isSecret ? 'View value' : 'Hide value'}
 						onclick={() => (row.isSecret = !row.isSecret)}
 						data-testid="env-secret-toggle"
 					>
-						{row.isSecret ? 'Secret' : 'Visible'}
+						{row.isSecret ? 'View' : 'Hide'}
 					</button>
 					<button
 						type="button"
@@ -267,23 +269,22 @@
 			{#if envRows.length === 0}
 				<div class="env-empty">No environment variables configured.</div>
 			{/if}
-			<button type="button" class="env-add" onclick={addEnvRow} data-testid="env-add-btn">
-				+ Add variable
-			</button>
+			<div class="env-actions">
+				<button type="button" class="btn-secondary btn-md" onclick={addEnvRow} data-testid="env-add-btn">
+					+ Add variable
+				</button>
+				<button type="submit" class="btn-primary btn-md" disabled={savingEnv} data-testid="save-env-btn">
+					{savingEnv ? 'Saving…' : 'Save'}
+				</button>
+				{#if form?.error}
+					<span class="save-error" data-testid="save-error">{form.error}</span>
+				{/if}
+			</div>
 		</div>
 
 		<input type="hidden" name="envKeys" value={envKeysValue} />
 		<input type="hidden" name="envValues" value={envValuesValue} />
 		<input type="hidden" name="envSecrets" value={envSecretsValue} />
-
-		<div class="save-bar">
-			<button type="submit" class="btn-primary btn-lg" disabled={savingEnv} data-testid="save-env-btn">
-				{savingEnv ? 'Saving…' : 'Save'}
-			</button>
-			{#if form?.error}
-				<span class="save-error" data-testid="save-error">{form.error}</span>
-			{/if}
-		</div>
 	</form>
 
 	{#if form?.envSaved}
@@ -307,7 +308,7 @@
 		<h2 class="section-title">Domains</h2>
 		<a
 			href={resolve(`/projects/${data.project.slug}/domains`)}
-			class="btn-sm"
+			class="btn-secondary btn-md"
 			data-testid="edit-domains-btn">Edit</a
 		>
 	</div>
@@ -336,12 +337,12 @@
 		<h2 class="section-title">Scheduled Tasks</h2>
 		<a
 			href={resolve(`/projects/${data.project.slug}/crons`)}
-			class="btn-sm"
+			class="btn-secondary btn-md"
 			data-testid="edit-crons-btn">Edit</a
 		>
 	</div>
 	{#if data.cronJobs.length === 0}
-		<p class="empty-text">No scheduled tasks configured.</p>
+		<div class="cron-empty">No scheduled tasks configured.</div>
 	{:else}
 		<div class="cron-list">
 			{#each data.cronJobs as job (job.id)}
@@ -416,7 +417,7 @@
 			</div>
 			<a
 				href={resolve(`/projects/${data.project.slug}/webhooks`)}
-				class="btn-sm"
+				class="btn-secondary btn-md"
 				data-testid="edit-webhook-btn">Edit</a
 			>
 		</div>
@@ -426,7 +427,7 @@
 			</div>
 			<a
 				href={resolve(`/projects/${data.project.slug}/checks`)}
-				class="btn-sm"
+				class="btn-secondary btn-md"
 				data-testid="edit-checks-btn">Edit</a
 			>
 		</div>
@@ -475,8 +476,16 @@
 		{/if}
 	</div>
 </section>
+</div>
 
 <style>
+	.settings-page {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-5);
+		max-width: 40rem;
+		width: 100%;
+	}
 	.section-header {
 		display: flex;
 		align-items: center;
@@ -487,21 +496,6 @@
 		font-size: .875rem;
 	}
 
-	.btn-sm {
-		padding: var(--space-1) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-		text-decoration: none;
-	}
-	.btn-sm:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-		text-decoration: none;
-	}
 
 	/* Scripts */
 	.scripts-fieldset {
@@ -648,40 +642,23 @@
 	.env-remove:hover {
 		color: var(--color-text-0);
 	}
-	.env-secret-toggle.active {
-		color: var(--color-building);
-	}
 	.env-empty {
 		padding: var(--space-3);
 		color: var(--color-text-2);
 		font-size: .875rem;
 		text-align: center;
 	}
-	.env-add {
-		padding: var(--space-2) var(--space-3);
-		background: transparent;
-		border: none;
-		border-top: 1px solid var(--color-border);
-		color: var(--color-accent);
-		font-size: .875rem;
-		font-weight: 500;
-		cursor: pointer;
-		text-align: left;
-		transition: background 0.1s;
-	}
-	.env-add:hover {
-		background: var(--color-bg-2);
-	}
-
-	.save-bar {
+	.env-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--space-3);
-		margin-top: var(--space-3);
+		gap: var(--space-2);
+		padding: var(--space-3);
+		border-top: 1px solid var(--color-border);
 	}
 	.save-error {
 		font-size: .875rem;
 		color: var(--color-failed);
+		margin-left: var(--space-2);
 	}
 
 	.redeploy-banner {
@@ -718,6 +695,7 @@
 
 	/* Domains */
 	.domain-list {
+		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
@@ -754,9 +732,18 @@
 
 	/* Cron jobs */
 	.cron-list {
+		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
+	}
+	.cron-empty {
+		padding: var(--space-4);
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-2);
+		font-size: .875rem;
 	}
 	.cron-row {
 		border-bottom: 1px solid var(--color-border);
@@ -854,6 +841,7 @@
 
 	/* Integrations */
 	.integration-list {
+		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
@@ -916,11 +904,13 @@
 	}
 	.danger-info strong {
 		font-size: 1rem;
+		font-weight: 500;
 	}
 	.danger-info p {
 		margin-top: var(--space-1);
 		font-size: .875rem;
 		line-height: 1.5;
+		text-wrap: balance;
 	}
 	.btn-danger,
 	.btn-danger-confirm {

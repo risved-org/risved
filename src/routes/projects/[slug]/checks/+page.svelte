@@ -16,6 +16,8 @@
 		<a href={resolve(`/projects/${data.project.slug}/settings`)} class="breadcrumb-link">← Settings</a>
 	</nav>
 
+	<h1 class="page-title">Status Checks</h1>
+
 	<!-- GitHub PR Mock -->
 	<section data-testid="status-check-mock">
 		<h2 class="section-title">Commit Status Preview</h2>
@@ -155,6 +157,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-5);
+		max-width: 40rem;
+		width: 100%;
 	}
 
 	.sub-breadcrumb {

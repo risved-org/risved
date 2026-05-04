@@ -42,12 +42,14 @@
 		<a href={resolve(`/projects/${data.project.slug}/settings`)} class="breadcrumb-link">← Settings</a>
 	</nav>
 
+	<h1 class="page-title">Domains</h1>
+
 	<!-- Domain list -->
 	<section data-testid="domains-list">
 		<div class="section-header">
 			<h2 class="section-title">Domains</h2>
 			{#if !showAddForm}
-				<button class="btn-sm" onclick={() => (showAddForm = true)} data-testid="add-domain-btn">
+				<button class="btn-secondary btn-md" onclick={() => (showAddForm = true)} data-testid="add-domain-btn">
 					Add domain
 				</button>
 			{/if}
@@ -58,81 +60,105 @@
 		{/if}
 
 		{#if data.domains.length > 0}
-			<div class="domain-table" data-testid="domain-table">
+			<div class="domain-list" data-testid="domain-table">
 				{#each data.domains as dom (dom.id)}
-					<div class="domain-row" data-testid="domain-row">
-						<div class="domain-info">
-							<span class="domain-hostname mono" data-testid="domain-hostname">{dom.hostname}</span>
-							{#if dom.isPrimary}
-								<span class="primary-badge">Primary</span>
-							{/if}
-						</div>
-						<div class="domain-status">
-							<span class="ssl-badge {sslStatusClass(dom.sslStatus)}" data-testid="ssl-status">
-								SSL: {sslStatusLabel(dom.sslStatus)}
-							</span>
-						</div>
-						<div class="domain-actions">
-							{#if !dom.isPrimary}
+					<article class="domain-card" data-testid="domain-row">
+						<header class="domain-card-header">
+							<div class="domain-info">
+								<span class="domain-hostname mono" data-testid="domain-hostname">{dom.hostname}</span>
+								{#if dom.isPrimary}
+									<span class="primary-badge">Primary</span>
+								{/if}
+								<span class="ssl-badge {sslStatusClass(dom.sslStatus)}" data-testid="ssl-status">
+									SSL: {sslStatusLabel(dom.sslStatus)}
+								</span>
+							</div>
+							<div class="domain-actions">
+								{#if !dom.isPrimary}
+									<form
+										method="post"
+										action="?/primary"
+										use:enhance={() => {
+											return async ({ update }) => {
+												await update();
+											};
+										}}
+									>
+										<input type="hidden" name="domainId" value={dom.id} />
+										<button type="submit" class="btn-action" data-testid="set-primary-btn"
+											>Set primary</button
+										>
+									</form>
+								{/if}
 								<form
 									method="post"
-									action="?/primary"
+									action="?/verify"
 									use:enhance={() => {
+										verifyingId = dom.id;
 										return async ({ update }) => {
+											verifyingId = null;
 											await update();
 										};
 									}}
 								>
 									<input type="hidden" name="domainId" value={dom.id} />
-									<button type="submit" class="btn-action" data-testid="set-primary-btn"
-										>Set primary</button
+									<button
+										type="submit"
+										class="btn-action"
+										disabled={verifyingId === dom.id}
+										data-testid="check-dns-btn"
 									>
+										{verifyingId === dom.id ? 'Checking…' : 'Check DNS'}
+									</button>
 								</form>
-							{/if}
-							<form
-								method="post"
-								action="?/verify"
-								use:enhance={() => {
-									verifyingId = dom.id;
-									return async ({ update }) => {
-										verifyingId = null;
-										await update();
-									};
-								}}
-							>
-								<input type="hidden" name="domainId" value={dom.id} />
-								<button
-									type="submit"
-									class="btn-action"
-									disabled={verifyingId === dom.id}
-									data-testid="check-dns-btn"
+								<form
+									method="post"
+									action="?/remove"
+									use:enhance={() => {
+										removingId = dom.id;
+										return async ({ update }) => {
+											removingId = null;
+											await update();
+										};
+									}}
 								>
-									{verifyingId === dom.id ? 'Checking…' : 'Check DNS'}
-								</button>
-							</form>
-							<form
-								method="post"
-								action="?/remove"
-								use:enhance={() => {
-									removingId = dom.id;
-									return async ({ update }) => {
-										removingId = null;
-										await update();
-									};
-								}}
-							>
-								<input type="hidden" name="domainId" value={dom.id} />
-								<button
-									type="submit"
-									class="btn-action btn-action-danger"
-									disabled={removingId === dom.id}
-									data-testid="remove-domain-btn"
-								>
-									{removingId === dom.id ? 'Removing…' : 'Remove'}
-								</button>
-							</form>
-						</div>
-					</div>
+									<input type="hidden" name="domainId" value={dom.id} />
+									<button
+										type="submit"
+										class="btn-action btn-action-danger"
+										disabled={removingId === dom.id}
+										data-testid="remove-domain-btn"
+									>
+										{removingId === dom.id ? 'Removing…' : 'Remove'}
+									</button>
+								</form>
+							</div>
+						</header>
+
+						{#if data.serverIps.ipv4 || data.serverIps.ipv6}
+							<div class="dns-records" role="table" aria-label="DNS records for {dom.hostname}">
+								<div class="dns-table-header" role="row">
+									<span role="columnheader">Type</span>
+									<span role="columnheader">Name</span>
+									<span role="columnheader">Value</span>
+								</div>
+								{#if data.serverIps.ipv4}
+									<div class="dns-table-row" role="row">
+										<span role="cell"><code>A</code></span>
+										<span role="cell"><code>{dom.hostname}</code></span>
+										<span role="cell"><code>{data.serverIps.ipv4}</code></span>
+									</div>
+								{/if}
+								{#if data.serverIps.ipv6}
+									<div class="dns-table-row" role="row">
+										<span role="cell"><code>AAAA</code></span>
+										<span role="cell"><code>{dom.hostname}</code></span>
+										<span role="cell"><code>{data.serverIps.ipv6}</code></span>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					</article>
 				{/each}
 			</div>
 		{/if}
@@ -278,6 +304,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-5);
+		max-width: 40rem;
+		width: 100%;
 	}
 
 	.sub-breadcrumb {
@@ -299,21 +327,26 @@
 		color: var(--color-text-1);
 		margin-bottom: var(--space-2);
 	}
-	/* Domain table */
-	.domain-table {
+	/* Domain list */
+	.domain-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.domain-card {
+		display: flex;
+		flex-direction: column;
+		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
 	}
-	.domain-row {
+	.domain-card-header {
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
 		padding: var(--space-3);
-		border-bottom: 1px solid var(--color-border);
-	}
-	.domain-row:last-child {
-		border-bottom: none;
+		flex-wrap: wrap;
 	}
 	.domain-info {
 		display: flex;
@@ -321,6 +354,7 @@
 		gap: var(--space-2);
 		flex: 1;
 		min-width: 0;
+		flex-wrap: wrap;
 	}
 	.domain-hostname {
 		word-break: break-all;
@@ -334,13 +368,44 @@
 		font-weight: 500;
 		flex-shrink: 0;
 	}
-	.domain-status {
-		flex-shrink: 0;
-	}
 	.domain-actions {
 		display: flex;
 		gap: var(--space-1);
 		flex-shrink: 0;
+	}
+
+	.dns-records {
+		display: flex;
+		flex-direction: column;
+		border-top: 1px solid var(--color-border);
+		background: var(--color-bg-2);
+	}
+	.dns-table-header,
+	.dns-table-row {
+		display: grid;
+		grid-template-columns: 60px 1fr 1fr;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		align-items: center;
+	}
+	.dns-table-header {
+		font-size: .75rem;
+		color: var(--color-text-2);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-weight: 600;
+	}
+	.dns-table-row {
+		border-top: 1px solid var(--color-border);
+	}
+	.dns-table-row span {
+		min-width: 0;
+	}
+	.dns-table-row code {
+		font-family: var(--font-mono);
+		font-size: .875rem;
+		color: var(--color-text-0);
+		word-break: break-all;
 	}
 
 	/* SSL badges */

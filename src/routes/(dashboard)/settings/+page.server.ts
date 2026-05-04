@@ -26,7 +26,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.select({
 			id: gitConnections.id,
 			provider: gitConnections.provider,
-			accountName: gitConnections.accountName
+			accountName: gitConnections.accountName,
+			avatarUrl: gitConnections.avatarUrl
 		})
 		.from(gitConnections);
 

@@ -15,6 +15,12 @@
 		forgejo: 'Forgejo'
 	};
 
+	const providerIcon: Record<string, string> = {
+		github: 'GH',
+		gitlab: 'GL',
+		forgejo: 'FG'
+	};
+
 	let displayName = $state(data.displayName ?? '');
 	let hostname = $state(data.hostname ?? '');
 	let timezone = $state(
@@ -315,9 +321,16 @@
 			{#if data.connections && data.connections.length > 0}
 				<ul class="git-provider-list">
 					{#each data.connections as conn (conn.id)}
-						<li class="git-provider-info">
-							<span class="form-label">{providerLabel[conn.provider] ?? conn.provider}</span>
-							<span class="git-provider-value">{conn.accountName}</span>
+						<li class="account-row">
+							{#if conn.avatarUrl}
+								<img src={conn.avatarUrl} alt="" class="account-avatar" />
+							{:else}
+								<span class="provider-icon {conn.provider}">{providerIcon[conn.provider] ?? '?'}</span>
+							{/if}
+							<div class="account-info">
+								<span class="account-name">{conn.accountName}</span>
+								<span class="account-provider">{providerLabel[conn.provider] ?? conn.provider}</span>
+							</div>
 						</li>
 					{/each}
 				</ul>
@@ -1005,21 +1018,71 @@
 	.git-provider-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-3);
 		list-style: none;
 		padding: 0;
 		margin: 0;
 	}
 
-	.git-provider-info {
+	.account-row {
 		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
 	}
 
-	.git-provider-value {
-		font-size: 1rem;
+	.account-row:last-child {
+		border-bottom: none;
+	}
+
+	.account-avatar {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.provider-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: var(--radius-md);
+		font-size: .75rem;
+		font-weight: 700;
+		flex-shrink: 0;
+	}
+
+	.provider-icon.github {
+		background: #24292e;
+		color: #fff;
+	}
+
+	.provider-icon.gitlab {
+		background: #fc6d26;
+		color: #fff;
+	}
+
+	.provider-icon.forgejo {
+		background: #fff;
+		color: #000;
+	}
+
+	.account-info {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.account-name {
+		font-size: .875rem;
+		font-weight: 500;
 		color: var(--color-text-0);
+	}
+
+	.account-provider {
+		font-size: .75rem;
+		color: var(--color-text-2);
 	}
 
 	.form-card .btn-secondary {

@@ -91,6 +91,8 @@
 	}
 </script>
 
+<h1 class="page-title">Deployments</h1>
+
 <section data-testid="deployments-full">
 	<div class="section-header">
 		<h2 class="section-title">All Deployments</h2>

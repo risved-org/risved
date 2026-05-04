@@ -102,6 +102,8 @@
 		<a href={resolve(`/projects/${data.project.slug}/settings`)} class="breadcrumb-link">← Settings</a>
 	</nav>
 
+	<h1 class="page-title">Webhooks</h1>
+
 	<!-- Payload URL -->
 	<section data-testid="payload-url-section">
 		<h2 class="section-title">Payload URL</h2>
@@ -171,7 +173,7 @@
 			<span class="section-title">Recent Deliveries</span>
 			<a
 				href={resolve(`/projects/${data.project.slug}/webhooks/deliveries`)}
-				class="btn-sm"
+				class="btn-secondary btn-md"
 				data-testid="view-deliveries-btn"
 			>
 				View delivery log
@@ -230,6 +232,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-5);
+		max-width: 40rem;
+		width: 100%;
 	}
 
 	.sub-breadcrumb {

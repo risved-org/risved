@@ -77,6 +77,18 @@
 		gap: var(--space-3);
 	}
 
+	.tab-content :global(.page-title) {
+		font-size: 3rem;
+		font-weight: 600;
+		margin: 0;
+	}
+
+	@media (max-width: 768px) {
+		.tab-content :global(.page-title) {
+			font-size: 2rem;
+		}
+	}
+
 	/* Shared tab-content styles */
 	.tab-content :global(.section-header) {
 		display: flex;
@@ -89,26 +101,6 @@
 		color: var(--color-text-2);
 		font-size: .875rem;
 	}
-	.tab-content :global(.btn-sm) {
-		padding: var(--space-1) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-		text-decoration: none;
-	}
-	.tab-content :global(.btn-sm:hover) {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-		text-decoration: none;
-	}
-	.tab-content :global(.btn-sm:disabled) {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
 	.tab-content :global(.status-dot) {
 		display: inline-block;
 		width: 8px;

@@ -31,6 +31,10 @@ export const load: LayoutServerLoad = async ({ params }) => {
 
 	const doms = await db.select().from(domains).where(eq(domains.projectId, project.id))
 	const primaryDomain = doms.find((d) => d.isPrimary)?.hostname ?? project.domain ?? null
+	const allDomains = doms
+		.slice()
+		.sort((a, b) => (a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1))
+		.map((d) => ({ id: d.id, hostname: d.hostname, isPrimary: d.isPrimary }))
 
 	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
 
@@ -70,6 +74,7 @@ export const load: LayoutServerLoad = async ({ params }) => {
 				: null,
 			frameworkId: project.frameworkId,
 			domain: primaryDomain,
+			domains: allDomains,
 			port: project.port,
 			status,
 			lastCommitSha: liveDep?.commitSha ?? null,

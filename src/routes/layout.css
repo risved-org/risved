@@ -136,11 +136,11 @@ button:focus:not(:focus-visible) {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border: none;
+	border: 1.5px solid transparent;
 	border-radius: var(--radius-md);
 	cursor: pointer;
 	text-decoration: none;
-	transition: background 0.15s, opacity 0.15s, color 0.15s;
+	transition: background 0.15s, opacity 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .btn-md {
@@ -169,11 +169,25 @@ button:focus:not(:focus-visible) {
 
 .btn-secondary {
 	background: transparent;
-	color: var(--color-text-0);
+	color: var(--color-text-1);
+	border-color: var(--color-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
 	color: var(--color-text-0);
+	border-color: var(--color-text-2);
+	text-decoration: none;
+}
+
+.btn-danger {
+	background: transparent;
+	color: var(--color-failed);
+	border-color: color-mix(in srgb, var(--color-failed) 50%, transparent);
+}
+
+.btn-danger:hover:not(:disabled) {
+	color: var(--color-failed);
+	border-color: var(--color-failed);
 	text-decoration: none;
 }
 

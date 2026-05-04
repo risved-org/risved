@@ -131,7 +131,7 @@
 									<input type="hidden" name="connectionId" value={conn.id} />
 									<button
 										type="submit"
-										class="btn-danger-sm"
+										class="btn-danger btn-md"
 										disabled={disconnecting === conn.id}
 										data-testid="disconnect-btn"
 									>
@@ -144,7 +144,7 @@
 				</ul>
 				{#if !showCards}
 					<button
-						class="btn-secondary btn-md"
+						class="btn-secondary btn-lg"
 						onclick={() => (showCards = true)}
 						data-testid="add-another-btn"
 					>
@@ -446,11 +446,6 @@
 	.toggle-hint {
 		font-size: .875rem;
 		color: var(--color-text-2);
-	}
-
-	.btn-sm {
-		padding: var(--space-1) var(--space-3);
-		font-size: .875rem;
 	}
 
 	.btn-copy {
