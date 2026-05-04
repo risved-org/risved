@@ -62,8 +62,8 @@
 		</header>
 
 		<section class="resource-charts">
-			{@render metricCard(cpuPoints, 'CPU %', 'var(--color-accent)', '%')}
-			{@render metricCard(memPoints, 'Memory (MB)', 'var(--color-live)', ' MB')}
+			{@render metricCard(cpuPoints, 'CPU', 'var(--color-accent)', '%')}
+			{@render metricCard(memPoints, 'Memory', 'var(--color-live)', ' MB')}
 		</section>
 	</section>
 </article>
@@ -82,7 +82,7 @@
 					xScale={scaleTime()}
 					yDomain={[0, null]}
 					yNice
-					padding={{ left: 48, bottom: 24, top: 12, right: 12 }}
+					padding={{ left: 64, bottom: 24, top: 12, right: 12 }}
 				>
 					<Svg>
 						<Axis
@@ -94,9 +94,9 @@
 						>
 							<svelte:fragment slot="tickLabel" let:labelProps>
 								<foreignObject
-									x={labelProps.x - 56}
+									x={labelProps.x - 64}
 									y={labelProps.y - 9}
-									width="48"
+									width="56"
 									height="18"
 								>
 									<span class="axis-tick axis-y">{labelProps.value}{unit}</span>
@@ -124,7 +124,7 @@
 						<Area
 							fill={color}
 							fillOpacity={0.14}
-							line={{ stroke: color, strokeWidth: 1.5 }}
+							line={{ stroke: color, strokeWidth: 1.5, fill: 'none' }}
 							curve={curveMonotoneX}
 						/>
 					</Svg>
