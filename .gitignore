@@ -59,7 +59,8 @@ PRD.md
 CLAUDE.md
 AGENTS.md
 .mcp.json
-.claude/
+.claude/*
+!.claude/commands/
 .codex/
 .cursor/
 .vscode/
