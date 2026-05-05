@@ -2,7 +2,7 @@
 	/* Typography */
 	--font-heading: 'BBH Hegarty', sans-serif;
 	--font-sans: 'Mozilla Text', system-ui, -apple-system, sans-serif;
-	--font-mono: 'Cascadia Code', ui-monospace, 'Source Code Pro', Menlo, Consolas, monospace;
+	--font-mono: 'Cascadia Code', ui-monospace, 'Source Code Pro', Menlo, monospace;
 
 	/* Warm cream palette — light default */
 	--color-bg-0: #ece4df;
@@ -45,13 +45,14 @@
 	--space-8: 6rem;
 
 	/* Radius — updated per DESIGN.md */
-	--radius-sm: 4px;
-	--radius-md: 8px;
-	--radius-lg: 12px;
+	--radius-sm: 0.25rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 0.75rem;
 	--radius-xl: 1.5rem;
 
 	font-family: var(--font-sans);
 	font-size: 16px;
+	line-heigh: 1.25;
 	font-weight: 500;
 	color: var(--color-text-0);
 	color-scheme: light dark;
@@ -97,7 +98,12 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
 	font-family: var(--font-heading);
 	font-weight: 500;
 }
@@ -115,11 +121,15 @@ a:hover {
 	text-decoration: underline;
 }
 
-code, pre, kbd {
+code,
+pre,
+kbd {
 	font-family: var(--font-mono);
 }
 
-input, button, select {
+input,
+button,
+select {
 	font-size: inherit;
 	font-family: inherit;
 }
@@ -140,7 +150,11 @@ button:focus:not(:focus-visible) {
 	border-radius: var(--radius-md);
 	cursor: pointer;
 	text-decoration: none;
-	transition: background 0.15s, opacity 0.15s, color 0.15s, border-color 0.15s;
+	transition:
+		background 0.15s,
+		opacity 0.15s,
+		color 0.15s,
+		border-color 0.15s;
 }
 
 .btn-md {
@@ -210,7 +224,9 @@ button:focus:not(:focus-visible) {
 	font-weight: 600;
 	cursor: pointer;
 	text-decoration: none;
-	transition: border-color 0.15s, color 0.15s;
+	transition:
+		border-color 0.15s,
+		color 0.15s;
 }
 
 .btn-danger-sm:hover:not(:disabled) {
@@ -223,6 +239,57 @@ button:focus:not(:focus-visible) {
 	cursor: not-allowed;
 }
 
+/* Badges */
+.badge-md,
+.badge-sm {
+	display: inline-flex;
+	align-items: center;
+	border-radius: var(--radius-sm);
+	font-weight: 500;
+	letter-spacing: 0.03em;
+	white-space: nowrap;
+}
+
+.badge-md {
+	font-size: 0.875rem;
+	padding: 1.5px 6px;
+}
+
+.badge-sm {
+	font-size: .75rem;
+	line-height: 1.34;
+	padding: 1px 4px;
+}
+
+.badge-neutral {
+	background: var(--color-bg-3);
+	color: var(--color-text-1);
+}
+
+.badge-muted {
+	color: var(--color-text-2);
+}
+
+.badge-accent {
+	background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+	color: var(--color-accent);
+}
+
+.badge-live {
+	background: color-mix(in srgb, var(--color-live) 15%, transparent);
+	color: var(--color-live);
+}
+
+.badge-failed {
+	background: color-mix(in srgb, var(--color-failed) 15%, transparent);
+	color: var(--color-failed);
+}
+
+.badge-building {
+	background: color-mix(in srgb, var(--color-building) 15%, transparent);
+	color: var(--color-building);
+}
+
 /* Form elements */
 .field,
 .form-group {
@@ -232,7 +299,7 @@ button:focus:not(:focus-visible) {
 }
 
 .form-label {
-	font-size: .875rem;
+	font-size: 0.875rem;
 	font-weight: 500;
 	color: var(--color-text-1);
 }
@@ -245,7 +312,9 @@ button:focus:not(:focus-visible) {
 	color: var(--color-text-0);
 	font-size: 1rem;
 	outline: none;
-	transition: border-color 0.15s, box-shadow 0.15s;
+	transition:
+		border-color 0.15s,
+		box-shadow 0.15s;
 }
 
 .form-input:focus {
@@ -258,7 +327,7 @@ button:focus:not(:focus-visible) {
 }
 
 .form-hint {
-	font-size: .875rem;
+	font-size: 0.875rem;
 	color: var(--color-text-2);
 }
 
@@ -268,7 +337,7 @@ button:focus:not(:focus-visible) {
 	border: 1px solid color-mix(in srgb, var(--color-failed) 25%, transparent);
 	border-radius: var(--radius-md);
 	color: var(--color-failed);
-	font-size: .875rem;
+	font-size: 0.875rem;
 }
 
 .form-actions {
@@ -296,7 +365,7 @@ button:focus:not(:focus-visible) {
 
 .section-title {
 	font-family: var(--font-sans);
-	font-size: .875rem;
+	font-size: 0.875rem;
 	font-weight: 600;
 	color: var(--color-text-2);
 	text-transform: uppercase;
@@ -330,11 +399,11 @@ button:focus:not(:focus-visible) {
 }
 
 .save-success {
-	font-size: .875rem;
+	font-size: 0.875rem;
 	color: var(--color-live);
 }
 
 .empty-text {
 	color: var(--color-text-2);
-	font-size: .875rem;
+	font-size: 0.875rem;
 }

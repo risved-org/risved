@@ -10,7 +10,7 @@
 	let adding = $state(false);
 	let verifyingId = $state<string | null>(null);
 	let removingId = $state<string | null>(null);
-	let copied = $state(false);
+	let copiedKey = $state<string | null>(null);
 
 	function sslStatusLabel(status: string): string {
 		if (status === 'active') return 'Active';
@@ -20,16 +20,18 @@
 	}
 
 	function sslStatusClass(status: string): string {
-		if (status === 'active') return 'ssl-active';
-		if (status === 'provisioning') return 'ssl-provisioning';
-		if (status === 'error') return 'ssl-error';
-		return 'ssl-pending';
+		if (status === 'active') return 'badge-live';
+		if (status === 'provisioning') return 'badge-building';
+		if (status === 'error') return 'badge-failed';
+		return 'badge-muted';
 	}
 
-	function copyIp(ip: string) {
+	function copyIp(ip: string, key: string) {
 		navigator.clipboard.writeText(ip);
-		copied = true;
-		setTimeout(() => (copied = false), 2000);
+		copiedKey = key;
+		setTimeout(() => {
+			if (copiedKey === key) copiedKey = null;
+		}, 2000);
 	}
 </script>
 
@@ -43,6 +45,23 @@
 	</nav>
 
 	<h1 class="page-title">Domains</h1>
+
+	{#if data.defaultSubdomain}
+		<section data-testid="default-subdomain-section">
+			<h2 class="section-title">Default subdomain</h2>
+			<div class="form-card">
+				<a
+					href="https://{data.defaultSubdomain}"
+					target="_blank"
+					rel="noopener"
+					class="default-subdomain mono"
+				>
+					{data.defaultSubdomain}
+				</a>
+				<p class="form-hint">Auto-routed via the wildcard DNS record on the control plane.</p>
+			</div>
+		</section>
+	{/if}
 
 	<!-- Domain list -->
 	<section data-testid="domains-list">
@@ -67,9 +86,9 @@
 							<div class="domain-info">
 								<span class="domain-hostname mono" data-testid="domain-hostname">{dom.hostname}</span>
 								{#if dom.isPrimary}
-									<span class="primary-badge">Primary</span>
+									<span class="badge-md badge-accent">Primary</span>
 								{/if}
-								<span class="ssl-badge {sslStatusClass(dom.sslStatus)}" data-testid="ssl-status">
+								<span class="badge-md {sslStatusClass(dom.sslStatus)}" data-testid="ssl-status">
 									SSL: {sslStatusLabel(dom.sslStatus)}
 								</span>
 							</div>
@@ -146,14 +165,34 @@
 									<div class="dns-table-row" role="row">
 										<span role="cell"><code>A</code></span>
 										<span role="cell"><code>{dom.hostname}</code></span>
-										<span role="cell"><code>{data.serverIps.ipv4}</code></span>
+										<span role="cell" class="dns-value-cell">
+											<code>{data.serverIps.ipv4}</code>
+											<button
+												type="button"
+												class="btn-copy"
+												onclick={() => copyIp(data.serverIps.ipv4!, `${dom.id}:v4`)}
+												aria-label="Copy IPv4"
+											>
+												{copiedKey === `${dom.id}:v4` ? 'Copied' : 'Copy'}
+											</button>
+										</span>
 									</div>
 								{/if}
 								{#if data.serverIps.ipv6}
 									<div class="dns-table-row" role="row">
 										<span role="cell"><code>AAAA</code></span>
 										<span role="cell"><code>{dom.hostname}</code></span>
-										<span role="cell"><code>{data.serverIps.ipv6}</code></span>
+										<span role="cell" class="dns-value-cell">
+											<code>{data.serverIps.ipv6}</code>
+											<button
+												type="button"
+												class="btn-copy"
+												onclick={() => copyIp(data.serverIps.ipv6!, `${dom.id}:v6`)}
+												aria-label="Copy IPv6"
+											>
+												{copiedKey === `${dom.id}:v6` ? 'Copied' : 'Copy'}
+											</button>
+										</span>
 									</div>
 								{/if}
 							</div>
@@ -238,8 +277,8 @@
 						<div class="dns-row">
 							<span class="dns-label">Value</span>
 							<span class="dns-value mono" data-testid="server-ip">{data.serverIps.ipv4}</span>
-							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv4!)} data-testid="copy-ip-btn">
-								{copied ? 'Copied!' : 'Copy'}
+							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv4!, 'add:v4')} data-testid="copy-ip-btn">
+								{copiedKey === 'add:v4' ? 'Copied!' : 'Copy'}
 							</button>
 						</div>
 					</div>
@@ -257,8 +296,8 @@
 						<div class="dns-row">
 							<span class="dns-label">Value</span>
 							<span class="dns-value mono" data-testid="server-ipv6">{data.serverIps.ipv6}</span>
-							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv6!)} data-testid="copy-ipv6-btn">
-								{copied ? 'Copied!' : 'Copy'}
+							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv6!, 'add:v6')} data-testid="copy-ipv6-btn">
+								{copiedKey === 'add:v6' ? 'Copied!' : 'Copy'}
 							</button>
 						</div>
 					</div>
@@ -306,6 +345,7 @@
 		gap: var(--space-5);
 		max-width: 40rem;
 		width: 100%;
+		margin: 0 auto;
 	}
 
 	.sub-breadcrumb {
@@ -359,15 +399,6 @@
 	.domain-hostname {
 		word-break: break-all;
 	}
-	.primary-badge {
-		padding: 1px 6px;
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		color: var(--color-accent);
-		border-radius: var(--radius-sm);
-		font-size: .875rem;
-		font-weight: 500;
-		flex-shrink: 0;
-	}
 	.domain-actions {
 		display: flex;
 		gap: var(--space-1);
@@ -390,6 +421,7 @@
 	}
 	.dns-table-header {
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -407,38 +439,40 @@
 		color: var(--color-text-0);
 		word-break: break-all;
 	}
+	.dns-value-cell {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		min-width: 0;
+	}
+	.dns-value-cell code {
+		flex: 1;
+		min-width: 0;
+	}
 
-	/* SSL badges */
-	.ssl-badge {
-		font-size: .875rem;
-		padding: 1px 6px;
-		border-radius: var(--radius-sm);
+	.default-subdomain {
+		font-size: 1rem;
+		color: var(--color-accent);
+		word-break: break-all;
 	}
-	.ssl-active {
-		color: var(--color-live);
-		background: color-mix(in srgb, var(--color-live) 12%, transparent);
+	.default-subdomain:visited {
+		color: var(--color-accent);
 	}
-	.ssl-provisioning {
-		color: var(--color-building);
-		background: color-mix(in srgb, var(--color-building) 12%, transparent);
-	}
-	.ssl-pending {
-		color: var(--color-text-2);
-		background: var(--color-bg-2);
-	}
-	.ssl-error {
-		color: var(--color-failed);
-		background: color-mix(in srgb, var(--color-failed) 12%, transparent);
+	.default-subdomain:hover {
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+		text-underline-offset: 0.25em;
 	}
 
 	/* Action buttons */
 	.btn-action {
-		padding: 2px var(--space-2);
+		padding: 1px 4px;
 		background: transparent;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: .75rem;
+		line-height: 1.34;
 		cursor: pointer;
 	}
 	.btn-action:hover {

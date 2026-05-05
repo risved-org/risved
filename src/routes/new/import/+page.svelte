@@ -5,6 +5,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// svelte-ignore state_referenced_locally
 	let selectedConnectionId = $state(data.connections[0]?.id ?? '');
 	let searchQuery = $state('');
 	let searching = $state(false);

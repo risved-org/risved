@@ -13,8 +13,11 @@
 		message: string;
 	}
 
+	// svelte-ignore state_referenced_locally
 	let logs = $state<LogLine[]>(data.logs);
+	// svelte-ignore state_referenced_locally
 	let status = $state(data.deployment.status);
+	// svelte-ignore state_referenced_locally
 	let isTerminal = $state(data.isTerminal);
 	let elapsed = $state('');
 	let terminalEl: HTMLDivElement | undefined = $state();

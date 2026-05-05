@@ -20,6 +20,8 @@
 	let envRows = $state(
 		data.envVars.map((e) => ({ key: e.key, value: e.value, isSecret: e.isSecret }))
 	)
+	// svelte-ignore state_referenced_locally
+	let revealed = $state<boolean[]>(envRows.map(() => false))
 	let savingEnv = $state(false)
 	let deploying = $state(false)
 
@@ -27,12 +29,34 @@
 	const envValuesValue = $derived(envRows.map((r) => r.value).join('\x1F'))
 	const envSecretsValue = $derived(envRows.map((r) => (r.isSecret ? '1' : '0')).join('\x1F'))
 
+	const revealedStorageKey = $derived(`env-revealed-${data.project.id}`)
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined') return
+		const raw = sessionStorage.getItem(revealedStorageKey)
+		if (!raw) return
+		try {
+			const parsed = JSON.parse(raw) as boolean[]
+			const next = envRows.map((_, i) => parsed[i] ?? false)
+			revealed = next
+		} catch {
+			/* ignore corrupt state */
+		}
+	})
+
+	$effect(() => {
+		if (typeof sessionStorage === 'undefined') return
+		sessionStorage.setItem(revealedStorageKey, JSON.stringify(revealed))
+	})
+
 	function addEnvRow() {
 		envRows = [...envRows, { key: '', value: '', isSecret: true }]
+		revealed = [...revealed, false]
 	}
 
 	function removeEnvRow(index: number) {
 		envRows = envRows.filter((_, i) => i !== index)
+		revealed = revealed.filter((_, i) => i !== index)
 	}
 
 	function handleEnvPaste(event: ClipboardEvent, index: number) {
@@ -55,10 +79,13 @@
 
 		const updated = [...envRows]
 		updated[index] = { ...updated[index], ...parsed[0] }
+		const updatedRevealed = [...revealed]
 		for (let j = 1; j < parsed.length; j++) {
 			updated.splice(index + j, 0, parsed[j])
+			updatedRevealed.splice(index + j, 0, false)
 		}
 		envRows = updated
+		revealed = updatedRevealed
 	}
 
 	async function triggerDeploy() {
@@ -143,8 +170,237 @@
 <div class="settings-page">
 	<h1 class="page-title">Settings</h1>
 
-	<!-- Build & Runtime -->
-	<section data-testid="scripts-section">
+	<!-- Domains -->
+<section data-testid="domains-section">
+	<header class="section-header">
+		<h2 class="section-title">Domains</h2>
+		<a
+			href={resolve(`/projects/${data.project.slug}/domains`)}
+			class="btn-secondary btn-md"
+			data-testid="edit-domains-btn">Edit</a
+		>
+	</header>
+	{#if data.domains.length === 0}
+		<p class="empty-text">No custom domains configured.</p>
+	{:else}
+		<ul class="domain-list">
+			{#each data.domains as dom (dom.id)}
+				<li class="domain-row" data-testid="domain-row">
+					<span class="domain-name mono">{dom.hostname}</span>
+					{#if dom.isPrimary}
+						<span class="badge-md badge-accent">Primary</span>
+					{/if}
+					<span class="badge-md {dom.sslStatus === 'active' ? 'badge-live' : 'badge-muted'}">
+						SSL: {dom.sslStatus}
+					</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>
+
+<!-- Environment Variables -->
+<section data-testid="env-section">
+	<h2 class="section-title">Environment Variables</h2>
+	<form
+		method="post"
+		action="?/saveEnv"
+		use:enhance={() => {
+			savingEnv = true
+			return async ({ update }) => {
+				await update({ reset: false })
+				savingEnv = false
+			}
+		}}
+	>
+		<div class="env-editor">
+			{#each envRows as row, i (i)}
+				<div class="env-row" data-testid="env-row">
+					<input
+						class="env-key"
+						type="text"
+						bind:value={row.key}
+						placeholder="KEY"
+						onpaste={(e) => handleEnvPaste(e, i)}
+						data-testid="env-key-input"
+					/>
+					<span class="env-eq">=</span>
+					{#if !revealed[i]}
+						<input
+							class="env-value secret"
+							type="password"
+							bind:value={row.value}
+							placeholder="value"
+							data-testid="env-value-input"
+						/>
+					{:else}
+						<input
+							class="env-value"
+							type="text"
+							bind:value={row.value}
+							placeholder="value"
+							data-testid="env-value-input"
+						/>
+					{/if}
+					<button
+						type="button"
+						class="env-secret-toggle"
+						title={revealed[i] ? 'Hide value' : 'View value'}
+						onclick={() => (revealed[i] = !revealed[i])}
+						data-testid="env-secret-toggle"
+					>
+						{revealed[i] ? 'Hide' : 'View'}
+					</button>
+					<button
+						type="button"
+						class="env-remove"
+						title="Remove variable"
+						onclick={() => removeEnvRow(i)}
+						data-testid="env-remove-btn"
+					>
+						×
+					</button>
+				</div>
+			{/each}
+			{#if envRows.length === 0}
+				<div class="env-empty">No environment variables configured.</div>
+			{/if}
+			<div class="env-actions">
+				<button type="button" class="btn-secondary btn-md" onclick={addEnvRow} data-testid="env-add-btn">
+					Add variable
+				</button>
+				<button type="submit" class="btn-primary btn-md" disabled={savingEnv} data-testid="save-env-btn">
+					{savingEnv ? 'Saving…' : 'Save'}
+				</button>
+				{#if form?.error}
+					<span class="save-error" data-testid="save-error">{form.error}</span>
+				{/if}
+			</div>
+		</div>
+
+		<input type="hidden" name="envKeys" value={envKeysValue} />
+		<input type="hidden" name="envValues" value={envValuesValue} />
+		<input type="hidden" name="envSecrets" value={envSecretsValue} />
+	</form>
+
+	{#if form?.envSaved}
+		<div class="redeploy-banner" data-testid="redeploy-banner">
+			<span>Saved. Redeploy to apply the new values.</span>
+			<button
+				class="btn-redeploy"
+				disabled={deploying}
+				onclick={triggerDeploy}
+				data-testid="redeploy-btn"
+			>
+				{deploying ? 'Deploying…' : 'Redeploy now'}
+			</button>
+		</div>
+	{/if}
+</section>
+
+<!-- Scheduled Tasks -->
+<section data-testid="crons-section">
+	<header class="section-header">
+		<h2 class="section-title">Scheduled Tasks</h2>
+		<a
+			href={resolve(`/projects/${data.project.slug}/crons`)}
+			class="btn-secondary btn-md"
+			data-testid="edit-crons-btn">Edit</a
+		>
+	</header>
+	{#if data.cronJobs.length === 0}
+		<div class="cron-empty">No scheduled tasks configured.</div>
+	{:else}
+		<ul class="cron-list">
+			{#each data.cronJobs as job (job.id)}
+				<li class="cron-row" data-testid="cron-row">
+					<label class="cron-toggle">
+							<input
+								type="checkbox"
+								checked={job.enabled}
+								oninput={() => handleToggleCron(job.id, !job.enabled)}
+							/>
+						</label>
+						<div class="cron-info">
+							<span class="cron-name" class:cron-disabled={!job.enabled}>{job.name}</span>
+							<span class="cron-route mono">{job.method} {job.route}</span>
+						</div>
+						<span class="cron-schedule mono" title={job.schedule}>{describeSchedule(job.schedule)}</span>
+						{#if job.lastRun}
+							<span class="cron-last-run {cronStatusClass(job.lastRun.status)}">
+								{#if job.lastRun.statusCode}
+									{job.lastRun.statusCode}
+								{:else}
+									{job.lastRun.status}
+								{/if}
+							</span>
+							<span class="cron-last-time mono">{timeAgo(job.lastRun.startedAt)}</span>
+						{:else}
+							<span class="cron-last-run muted">–</span>
+							<span class="cron-last-time muted">never</span>
+						{/if}
+						<span class="cron-actions">
+							<button
+								class="btn-action"
+								data-testid="trigger-cron-btn"
+								disabled={triggeringCron === job.id}
+								onclick={() => handleTriggerCron(job.id)}
+							>
+								{triggeringCron === job.id ? 'Running…' : 'Trigger'}
+							</button>
+							<button
+								class="btn-action btn-action-danger"
+								onclick={() => handleDeleteCron(job.id)}
+								aria-label="Delete cron job {job.name}"
+							>
+								Delete
+							</button>
+						</span>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
+
+	<!-- Integrations -->
+<section data-testid="integrations-section">
+	<h2 class="section-title">Integrations</h2>
+	<ul class="integration-list">
+		<li class="integration-row">
+			<div class="integration-info">
+				<span class="integration-name">Webhook</span>
+				{#if data.webhookActive}
+					<span class="status-dot dot-live"></span>
+					<span class="integration-detail">Active</span>
+				{:else}
+					<span class="status-dot dot-stopped"></span>
+					<span class="integration-detail muted">Not configured</span>
+				{/if}
+			</div>
+			{#if data.webhookActive && data.lastWebhookAt}
+				<span class="integration-meta muted">Last received {timeAgo(data.lastWebhookAt)}</span>
+			{/if}
+			<a
+				href={resolve(`/projects/${data.project.slug}/webhooks`)}
+				class="btn-secondary btn-md"
+				data-testid="edit-webhook-btn">Edit</a
+			>
+		</li>
+		<li class="integration-row">
+			<div class="integration-info">
+				<span class="integration-name">PR status checks</span>
+			</div>
+			<a
+				href={resolve(`/projects/${data.project.slug}/checks`)}
+				class="btn-secondary btn-md"
+				data-testid="edit-checks-btn">Edit</a
+			>
+		</li>
+	</ul>
+</section>
+
+<!-- Build & Runtime -->
+<section data-testid="scripts-section">
 	<h2 class="section-title">Build & Runtime</h2>
 	<form
 		method="post"
@@ -203,248 +459,17 @@
 	</form>
 </section>
 
-<!-- Environment Variables -->
-<section data-testid="env-section">
-	<h2 class="section-title">Environment Variables</h2>
-	<form
-		method="post"
-		action="?/saveEnv"
-		use:enhance={() => {
-			savingEnv = true
-			return async ({ update }) => {
-				await update({ reset: false })
-				savingEnv = false
-			}
-		}}
-	>
-		<div class="env-editor">
-			{#each envRows as row, i (i)}
-				<div class="env-row" data-testid="env-row">
-					<input
-						class="env-key"
-						type="text"
-						bind:value={row.key}
-						placeholder="KEY"
-						onpaste={(e) => handleEnvPaste(e, i)}
-						data-testid="env-key-input"
-					/>
-					<span class="env-eq">=</span>
-					{#if row.isSecret}
-						<input
-							class="env-value secret"
-							type="password"
-							bind:value={row.value}
-							placeholder="value"
-							data-testid="env-value-input"
-						/>
-					{:else}
-						<input
-							class="env-value"
-							type="text"
-							bind:value={row.value}
-							placeholder="value"
-							data-testid="env-value-input"
-						/>
-					{/if}
-					<button
-						type="button"
-						class="env-secret-toggle"
-						title={row.isSecret ? 'View value' : 'Hide value'}
-						onclick={() => (row.isSecret = !row.isSecret)}
-						data-testid="env-secret-toggle"
-					>
-						{row.isSecret ? 'View' : 'Hide'}
-					</button>
-					<button
-						type="button"
-						class="env-remove"
-						title="Remove variable"
-						onclick={() => removeEnvRow(i)}
-						data-testid="env-remove-btn"
-					>
-						×
-					</button>
-				</div>
-			{/each}
-			{#if envRows.length === 0}
-				<div class="env-empty">No environment variables configured.</div>
-			{/if}
-			<div class="env-actions">
-				<button type="button" class="btn-secondary btn-md" onclick={addEnvRow} data-testid="env-add-btn">
-					+ Add variable
-				</button>
-				<button type="submit" class="btn-primary btn-md" disabled={savingEnv} data-testid="save-env-btn">
-					{savingEnv ? 'Saving…' : 'Save'}
-				</button>
-				{#if form?.error}
-					<span class="save-error" data-testid="save-error">{form.error}</span>
-				{/if}
-			</div>
-		</div>
-
-		<input type="hidden" name="envKeys" value={envKeysValue} />
-		<input type="hidden" name="envValues" value={envValuesValue} />
-		<input type="hidden" name="envSecrets" value={envSecretsValue} />
-	</form>
-
-	{#if form?.envSaved}
-		<div class="redeploy-banner" data-testid="redeploy-banner">
-			<span>Saved. Redeploy to apply the new values.</span>
-			<button
-				class="btn-redeploy"
-				disabled={deploying}
-				onclick={triggerDeploy}
-				data-testid="redeploy-btn"
-			>
-				{deploying ? 'Deploying…' : 'Redeploy now'}
-			</button>
-		</div>
-	{/if}
-</section>
-
-<!-- Domains -->
-<section data-testid="domains-section">
-	<div class="section-header">
-		<h2 class="section-title">Domains</h2>
-		<a
-			href={resolve(`/projects/${data.project.slug}/domains`)}
-			class="btn-secondary btn-md"
-			data-testid="edit-domains-btn">Edit</a
-		>
-	</div>
-	{#if data.domains.length === 0}
-		<p class="empty-text">No custom domains configured.</p>
-	{:else}
-		<div class="domain-list">
-			{#each data.domains as dom (dom.id)}
-				<div class="domain-row" data-testid="domain-row">
-					<span class="domain-name mono">{dom.hostname}</span>
-					{#if dom.isPrimary}
-						<span class="primary-badge">Primary</span>
-					{/if}
-					<span class="ssl-badge" class:ssl-active={dom.sslStatus === 'active'}>
-						SSL: {dom.sslStatus}
-					</span>
-				</div>
-			{/each}
-		</div>
-	{/if}
-</section>
-
-<!-- Scheduled Tasks -->
-<section data-testid="crons-section">
-	<div class="section-header">
-		<h2 class="section-title">Scheduled Tasks</h2>
-		<a
-			href={resolve(`/projects/${data.project.slug}/crons`)}
-			class="btn-secondary btn-md"
-			data-testid="edit-crons-btn">Edit</a
-		>
-	</div>
-	{#if data.cronJobs.length === 0}
-		<div class="cron-empty">No scheduled tasks configured.</div>
-	{:else}
-		<div class="cron-list">
-			{#each data.cronJobs as job (job.id)}
-				<div class="cron-row" data-testid="cron-row">
-					<div class="cron-main">
-						<label class="cron-toggle">
-							<input
-								type="checkbox"
-								checked={job.enabled}
-								oninput={() => handleToggleCron(job.id, !job.enabled)}
-							/>
-						</label>
-						<div class="cron-info">
-							<span class="cron-name" class:cron-disabled={!job.enabled}>{job.name}</span>
-							<span class="cron-route mono">{job.method} {job.route}</span>
-						</div>
-						<span class="cron-schedule mono" title={job.schedule}>{describeSchedule(job.schedule)}</span>
-						{#if job.lastRun}
-							<span class="cron-last-run {cronStatusClass(job.lastRun.status)}">
-								{#if job.lastRun.statusCode}
-									{job.lastRun.statusCode}
-								{:else}
-									{job.lastRun.status}
-								{/if}
-							</span>
-							<span class="cron-last-time mono">{timeAgo(job.lastRun.startedAt)}</span>
-						{:else}
-							<span class="cron-last-run muted">–</span>
-							<span class="cron-last-time muted">never</span>
-						{/if}
-						<span class="cron-actions">
-							<button
-								class="btn-action"
-								data-testid="trigger-cron-btn"
-								disabled={triggeringCron === job.id}
-								onclick={() => handleTriggerCron(job.id)}
-							>
-								{triggeringCron === job.id ? 'Running…' : 'Trigger'}
-							</button>
-							<button
-								class="btn-action btn-action-danger"
-								onclick={() => handleDeleteCron(job.id)}
-								aria-label="Delete cron job {job.name}"
-							>
-								Delete
-							</button>
-						</span>
-					</div>
-				</div>
-			{/each}
-		</div>
-	{/if}
-</section>
-
-<!-- Integrations -->
-<section data-testid="integrations-section">
-	<h2 class="section-title">Integrations</h2>
-	<div class="integration-list">
-		<div class="integration-row">
-			<div class="integration-info">
-				<span class="integration-name">Webhook</span>
-				{#if data.webhookActive}
-					<span class="status-dot dot-live"></span>
-					<span class="integration-detail">Active</span>
-					{#if data.lastWebhookAt}
-						<span class="muted">– Last received {timeAgo(data.lastWebhookAt)}</span>
-					{/if}
-				{:else}
-					<span class="status-dot dot-stopped"></span>
-					<span class="integration-detail muted">Not configured</span>
-				{/if}
-			</div>
-			<a
-				href={resolve(`/projects/${data.project.slug}/webhooks`)}
-				class="btn-secondary btn-md"
-				data-testid="edit-webhook-btn">Edit</a
-			>
-		</div>
-		<div class="integration-row">
-			<div class="integration-info">
-				<span class="integration-name">PR Status Checks</span>
-			</div>
-			<a
-				href={resolve(`/projects/${data.project.slug}/checks`)}
-				class="btn-secondary btn-md"
-				data-testid="edit-checks-btn">Edit</a
-			>
-		</div>
-	</div>
-</section>
-
 <!-- Danger Zone -->
 <section class="section danger-zone" data-testid="danger-zone">
 	<h2 class="section-title danger-title">Danger Zone</h2>
-	<div class="danger-card">
-		<div class="danger-info">
+	<article class="danger-card">
+		<header class="danger-info">
 			<strong>Delete this project</strong>
 			<p class="muted">
 				This will permanently delete the project, all deployments, environment variables, domains,
 				and webhook data. This action cannot be undone.
 			</p>
-		</div>
+		</header>
 		{#if !confirmDelete}
 			<button class="btn-danger" onclick={() => (confirmDelete = true)} data-testid="delete-btn">
 				Delete project
@@ -474,7 +499,7 @@
 				</div>
 			</form>
 		{/if}
-	</div>
+	</article>
 </section>
 </div>
 
@@ -485,6 +510,7 @@
 		gap: var(--space-5);
 		max-width: 40rem;
 		width: 100%;
+		margin: 0 auto;
 	}
 	.section-header {
 		display: flex;
@@ -580,7 +606,7 @@
 		background: transparent;
 		border: none;
 		border-right: 1px solid var(--color-border);
-		color: var(--color-term-cmd);
+		color: var(--color-text-0);
 		font-family: var(--font-mono);
 		font-size: .875rem;
 		outline: none;
@@ -598,7 +624,7 @@
 		padding: var(--space-2) var(--space-2);
 		background: transparent;
 		border: none;
-		color: var(--color-term-success);
+		color: var(--color-text-1);
 		font-family: var(--font-mono);
 		font-size: .875rem;
 		outline: none;
@@ -622,6 +648,7 @@
 		color: var(--color-text-2);
 		cursor: pointer;
 		font-size: .75rem;
+		line-height: 1.34;
 		transition: color 0.1s;
 	}
 	.env-remove {
@@ -699,6 +726,9 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 	.domain-row {
 		display: flex;
@@ -706,7 +736,7 @@
 		gap: var(--space-3);
 		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--color-border);
-		font-size: .875rem;
+		font-size: 1rem;
 	}
 	.domain-row:last-child {
 		border-bottom: none;
@@ -714,28 +744,15 @@
 	.domain-name {
 		flex: 1;
 	}
-	.primary-badge {
-		padding: 1px 6px;
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		color: var(--color-accent);
-		border-radius: var(--radius-sm);
-		font-size: .875rem;
-		font-weight: 500;
-	}
-	.ssl-badge {
-		font-size: .875rem;
-		color: var(--color-text-2);
-	}
-	.ssl-active {
-		color: var(--color-live);
-	}
-
 	/* Cron jobs */
 	.cron-list {
 		background: var(--color-bg-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 	.cron-empty {
 		padding: var(--space-4);
@@ -746,18 +763,16 @@
 		font-size: .875rem;
 	}
 	.cron-row {
-		border-bottom: 1px solid var(--color-border);
-	}
-	.cron-row:last-child {
-		border-bottom: none;
-	}
-	.cron-main {
 		display: grid;
 		grid-template-columns: 24px 1fr auto auto auto auto;
 		align-items: center;
 		gap: var(--space-2);
+		border-bottom: 1px solid var(--color-border);
 		padding: var(--space-2) var(--space-3);
 		font-size: .875rem;
+	}
+	.cron-row:last-child {
+		border-bottom: none;
 	}
 	.cron-toggle input[type='checkbox'] {
 		width: 16px;
@@ -817,12 +832,13 @@
 		gap: var(--space-1);
 	}
 	.btn-action {
-		padding: 2px 8px;
+		padding: 1px 4px;
 		background: transparent;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: .875rem;
+		font-size: .75rem;
+		line-height: 1.34;
 		cursor: pointer;
 		white-space: nowrap;
 	}
@@ -845,14 +861,17 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 	.integration-row {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: var(--space-3);
 		padding: var(--space-3);
 		border-bottom: 1px solid var(--color-border);
-		font-size: .875rem;
+		font-size: 1rem;
 	}
 	.integration-row:last-child {
 		border-bottom: none;
@@ -861,6 +880,8 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
+		flex: 1;
+		min-width: 0;
 	}
 	.integration-name {
 		font-weight: 500;
@@ -868,6 +889,11 @@
 	}
 	.integration-detail {
 		color: var(--color-text-1);
+	}
+	.integration-meta {
+		font-size: .875rem;
+		margin-left: auto;
+		text-align: right;
 	}
 
 	.status-dot {
@@ -916,11 +942,11 @@
 	.btn-danger-confirm {
 		padding: var(--space-2) var(--space-3);
 		background: transparent;
-		border: 1px solid var(--color-failed);
+		border: 1.5px solid var(--color-failed);
 		border-radius: var(--radius-md);
 		color: var(--color-failed);
 		font-size: .875rem;
-		font-weight: 500;
+		font-weight: 600;
 		cursor: pointer;
 		white-space: nowrap;
 	}

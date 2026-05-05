@@ -15,7 +15,7 @@ function makeChain(tableName: string) {
 	chain.orderBy = vi.fn().mockImplementation(() => chain)
 	chain.limit = vi.fn().mockImplementation((n: number) => Promise.resolve(rows.slice(0, n)))
 	chain.returning = vi.fn().mockImplementation(() => Promise.resolve(rows))
-	chain.values = vi.fn().mockImplementation((vals: unknown) => {
+	chain.values = vi.fn().mockImplementation((vals: Record<string, unknown>) => {
 		const created = { id: 'new-cron-1', ...vals }
 		mockRows.cronJobs = [created]
 		return { returning: vi.fn().mockResolvedValue([created]) }
@@ -27,16 +27,16 @@ function makeChain(tableName: string) {
 const mockDb = {
 	select: vi.fn().mockImplementation(() => {
 		const chain: Record<string, unknown> = {}
-		chain.from = vi.fn().mockImplementation((table: { id?: string }) => {
-			if (table === schema.projects) return makeChain('projects')
-			if (table === schema.cronJobs) return makeChain('cronJobs')
-			if (table === schema.cronRuns) return makeChain('cronRuns')
+		chain.from = vi.fn().mockImplementation((table: unknown) => {
+			if (table === (schema.projects as unknown)) return makeChain('projects')
+			if (table === (schema.cronJobs as unknown)) return makeChain('cronJobs')
+			if (table === (schema.cronRuns as unknown)) return makeChain('cronRuns')
 			return makeChain('projects')
 		})
 		return chain
 	}),
 	insert: vi.fn().mockImplementation(() => ({
-		values: vi.fn().mockImplementation((vals: unknown) => {
+		values: vi.fn().mockImplementation((vals: Record<string, unknown>) => {
 			const created = { id: 'new-cron-1', ...vals }
 			return { returning: vi.fn().mockResolvedValue([created]) }
 		})

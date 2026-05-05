@@ -9,11 +9,11 @@
 	let checking = $state(false);
 	let copiedIndex = $state<number | null>(null);
 
-	const hasV4 = !!data.serverIps.ipv4
-	const hasV6 = !!data.serverIps.ipv6
-	const typeLabel = hasV4 && hasV6 ? 'A and AAAA' : hasV6 ? 'AAAA' : 'A'
+	const hasV4 = $derived(!!data.serverIps.ipv4)
+	const hasV6 = $derived(!!data.serverIps.ipv6)
+	const typeLabel = $derived(hasV4 && hasV6 ? 'A and AAAA' : hasV6 ? 'AAAA' : 'A')
 
-	const providers = [
+	const providers = $derived([
 		{ name: 'Cloudflare', hint: `DNS → Add Record → Type ${typeLabel} → Proxy status: DNS only` },
 		{ name: 'Namecheap', hint: `Domain List → Manage → Advanced DNS → Add ${typeLabel} Record${hasV4 && hasV6 ? 's' : ''}` },
 		{ name: 'Simply.com', hint: `DNS → Add Record → ${typeLabel} → Enter host and value` },
@@ -24,7 +24,7 @@
 		{ name: 'Dynadot', hint: `Manage → DNS Settings → Add DNS Record → Type ${typeLabel} → Enter IP` },
 		{ name: 'EuroDNS', hint: `DNS Zone → Add Record → Type ${typeLabel} → Set host and value` },
 		{ name: 'Porkbun', hint: `DNS Records → Add → Type ${typeLabel} → Enter host and answer (IP)` }
-	];
+	]);
 
 	let activeProvider = $state<string | null>(null);
 
@@ -248,6 +248,7 @@
 
 	.ip-label {
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
 		letter-spacing: 0.05em;
 		font-weight: 600;
@@ -275,6 +276,7 @@
 		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-2);
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;

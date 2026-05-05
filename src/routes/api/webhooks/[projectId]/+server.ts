@@ -191,6 +191,8 @@ async function handlePrPreview(
 			previewLimit: project.previewLimit,
 			previewsEnabled: project.previewsEnabled,
 			previewAutoDelete: project.previewAutoDelete,
+			buildCommand: project.buildCommand,
+			startCommand: project.startCommand,
 			releaseCommand: project.releaseCommand
 		},
 		webhookEvent.prNumber,

@@ -10,6 +10,23 @@ export default defineConfig({
 	],
 	test: {
 		expect: { requireAssertions: true },
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'html', 'json-summary'],
+			reportsDirectory: './coverage',
+			reportOnFailure: true,
+			include: ['src/**/*.{ts,svelte}'],
+			exclude: [
+				'src/**/*.{test,spec}.{js,ts}',
+				'src/**/*.svelte.{test,spec}.{js,ts}',
+				'src/**/*.d.ts',
+				'src/lib/paraglide/**',
+				'src/app.html',
+				'src/app.d.ts',
+				'src/hooks.server.ts',
+				'src/lib/server/db/migrations/**'
+			]
+		},
 		projects: [
 			{
 				extends: './vite.config.ts',

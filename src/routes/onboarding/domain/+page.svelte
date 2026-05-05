@@ -7,11 +7,15 @@
 
 	type DomainMode = 'subdomain' | 'dedicated' | 'ip';
 
+	// svelte-ignore state_referenced_locally
 	let displayName = $state(form?.displayName ?? data.displayName ?? '');
+	// svelte-ignore state_referenced_locally
 	let mode = $state<DomainMode>(
 		form?.mode ?? (data.domainConfig?.mode as DomainMode) ?? 'subdomain'
 	);
+	// svelte-ignore state_referenced_locally
 	let baseDomain = $state(form?.baseDomain ?? data.domainConfig?.baseDomain ?? '');
+	// svelte-ignore state_referenced_locally
 	let prefix = $state(form?.prefix ?? data.domainConfig?.prefix ?? 'risved');
 	let submitting = $state(false);
 
@@ -401,6 +405,7 @@
 
 	.preview-label {
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
 		font-weight: 600;
 		letter-spacing: 0.05em;

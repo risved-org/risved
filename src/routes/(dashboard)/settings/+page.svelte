@@ -21,11 +21,15 @@
 		forgejo: 'FG'
 	};
 
+	// svelte-ignore state_referenced_locally
 	let displayName = $state(data.displayName ?? '');
+	// svelte-ignore state_referenced_locally
 	let hostname = $state(data.hostname ?? '');
+	// svelte-ignore state_referenced_locally
 	let timezone = $state(
 		data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 	);
+	// svelte-ignore state_referenced_locally
 	let email = $state(data.user?.email ?? '');
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -37,14 +41,17 @@
 	let revokingToken = $state(false);
 	let tokenCopied = $state(false);
 	let newlyGeneratedToken = $state<string | null>(null);
+	// svelte-ignore state_referenced_locally
 	let retentionDays = $state(data.retentionDays ?? 30);
 	let retentionSaving = $state(false);
 
 	/* Heartbeat state */
+	// svelte-ignore state_referenced_locally
 	let heartbeatEnabled = $state(data.heartbeatInfo?.enabled ?? false);
 	let heartbeatSaving = $state(false);
 
 	/* Update state */
+	// svelte-ignore state_referenced_locally
 	let updateInfo = $state(data.updateInfo);
 	let updateChecking = $state(false);
 	let updateStep = $state<string | null>(null);
@@ -113,13 +120,25 @@
 			setTimeout(() => { showRetentionSaved = false }, 3000)
 		}
 	})
-	$effect(() => {
-		if (form?.heartbeatSaved) {
-			heartbeatEnabled = !heartbeatEnabled
+	async function toggleHeartbeat() {
+		if (heartbeatSaving) return
+		const next = !heartbeatEnabled
+		heartbeatSaving = true
+		const previous = heartbeatEnabled
+		heartbeatEnabled = next
+		try {
+			const formData = new FormData()
+			formData.append('enabled', next ? 'true' : 'false')
+			const res = await fetch('?/heartbeat', { method: 'POST', body: formData })
+			if (!res.ok) throw new Error('Toggle failed')
 			showHeartbeatSaved = true
 			setTimeout(() => { showHeartbeatSaved = false }, 3000)
+		} catch {
+			heartbeatEnabled = previous
+		} finally {
+			heartbeatSaving = false
 		}
-	})
+	}
 
 	onMount(() => {
 		loadPasskeys()
@@ -343,6 +362,28 @@
 		</div>
 	</section>
 
+	<!-- Control plane URLs -->
+	{#if data.domainConfig && data.domainConfig.mode !== 'ip' && data.domainConfig.baseDomain}
+		<section class="section" data-testid="urls-section">
+			<h2 class="section-title">Control plane</h2>
+			<div class="form-card">
+				<div class="url-row">
+					<span class="form-label">Dashboard</span>
+					<code class="url-value mono">
+						{data.domainConfig.mode === 'subdomain' && data.domainConfig.prefix
+							? `${data.domainConfig.prefix}.${data.domainConfig.baseDomain}`
+							: data.domainConfig.baseDomain}
+					</code>
+				</div>
+				<div class="url-row">
+					<span class="form-label">Apps</span>
+					<code class="url-value mono">*.{data.domainConfig.baseDomain}</code>
+				</div>
+				<p class="form-hint">Each project is reachable by default at <code class="mono">&lt;slug&gt;.{data.domainConfig.baseDomain}</code>.</p>
+			</div>
+		</section>
+	{/if}
+
 	<!-- General Settings -->
 	<section class="section" data-testid="general-section">
 		<h2 class="section-title">General</h2>
@@ -529,9 +570,9 @@
 		<h2 class="section-title">Passkeys</h2>
 		<div class="form-card">
 			{#if passkeys.length > 0}
-				<div class="passkey-list" data-testid="passkey-list">
+				<ul class="passkey-list" data-testid="passkey-list">
 					{#each passkeys as pk (pk.id)}
-						<div class="passkey-item">
+						<li class="passkey-item">
 							<div class="passkey-info">
 								<span class="passkey-name">{pk.name || 'Unnamed passkey'}</span>
 								<span class="passkey-date">
@@ -545,9 +586,9 @@
 							>
 								Remove
 							</button>
-						</div>
+						</li>
 					{/each}
-				</div>
+				</ul>
 			{:else if !passkeysLoading}
 				<p class="empty-text" data-testid="no-passkeys">No passkeys registered.</p>
 			{/if}
@@ -904,54 +945,42 @@
 	<!-- Operational Reporting -->
 	<section class="section" data-testid="heartbeat-section">
 		<h2 class="section-title">Operational reporting</h2>
-		<form
-			method="post"
-			action="?/heartbeat"
-			use:enhance={() => {
-				heartbeatSaving = true
-				return async ({ update }) => {
-					heartbeatSaving = false
-					await update()
-				}
-			}}
-		>
-			<div class="form-card">
-				<p class="form-hint">
-					Send anonymous operational metadata to Risved every 5 minutes.
-					This powers live status in your Cloud dashboard.
-				</p>
-				<p class="form-hint">
-					Includes: version, uptime, project count, last deploy time, aggregate usage metrics.
-				</p>
-				<p class="form-hint">
-					Does NOT include: project names, domain names, log contents, or any project data.
-				</p>
-				<input type="hidden" name="enabled" value={heartbeatEnabled ? 'false' : 'true'} />
-				<div class="form-actions">
-					<label class="toggle-label">
-						<button
-							type="submit"
-							class="toggle-btn"
-							class:toggle-on={heartbeatEnabled}
-							disabled={heartbeatSaving}
-							data-testid="heartbeat-toggle"
-							aria-label={heartbeatEnabled ? 'Disable operational reporting' : 'Enable operational reporting'}
-						>
-							<span class="toggle-knob"></span>
-						</button>
-						<span class="toggle-text">{heartbeatEnabled ? 'Enabled' : 'Disabled'}</span>
-					</label>
-					{#if showHeartbeatSaved}
-						<span class="save-success" data-testid="heartbeat-saved">Saved</span>
-					{/if}
-				</div>
-				{#if heartbeatEnabled && data.heartbeatInfo?.lastPing}
-					<p class="form-hint">
-						Last ping: <TimeAgo value={data.heartbeatInfo.lastPing} includeTime />
-					</p>
+		<div class="form-card">
+			<p class="form-hint">
+				Send anonymous operational metadata to Risved every 5 minutes.
+				This powers live status in your Cloud dashboard.
+			</p>
+			<p class="form-hint">
+				Includes: version, uptime, project count, last deploy time, aggregate usage metrics.
+			</p>
+			<p class="form-hint">
+				Does NOT include: project names, domain names, log contents, or any project data.
+			</p>
+			<div class="form-actions">
+				<label class="toggle-label">
+					<button
+						type="button"
+						class="toggle-btn"
+						class:toggle-on={heartbeatEnabled}
+						disabled={heartbeatSaving}
+						onclick={toggleHeartbeat}
+						data-testid="heartbeat-toggle"
+						aria-label={heartbeatEnabled ? 'Disable operational reporting' : 'Enable operational reporting'}
+					>
+						<span class="toggle-knob"></span>
+					</button>
+					<span class="toggle-text">{heartbeatEnabled ? 'Enabled' : 'Disabled'}</span>
+				</label>
+				{#if showHeartbeatSaved}
+					<span class="save-success" data-testid="heartbeat-saved">Saved</span>
 				{/if}
 			</div>
-		</form>
+			{#if heartbeatEnabled && data.heartbeatInfo?.lastPing}
+				<p class="form-hint">
+					Last ping: <TimeAgo value={data.heartbeatInfo.lastPing} includeTime />
+				</p>
+			{/if}
+		</div>
 	</section>
 
 	<!-- Census Reporting -->
@@ -1036,8 +1065,8 @@
 	}
 
 	.account-avatar {
-		width: 28px;
-		height: 28px;
+		width: 2rem;
+		height: 2rem;
 		border-radius: 50%;
 		flex-shrink: 0;
 	}
@@ -1046,10 +1075,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 28px;
-		height: 28px;
+		width: 2rem;
+		height: 2rem;
 		border-radius: var(--radius-md);
 		font-size: .75rem;
+		line-height: 1.34;
 		font-weight: 700;
 		flex-shrink: 0;
 	}
@@ -1075,14 +1105,27 @@
 	}
 
 	.account-name {
-		font-size: .875rem;
+		font-size: 1rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}
 
 	.account-provider {
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
+	}
+
+	.url-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+	}
+
+	.url-value {
+		font-size: .875rem;
+		color: var(--color-text-0);
+		word-break: break-all;
 	}
 
 	.form-card .btn-secondary {
@@ -1188,10 +1231,11 @@
 		width: 18px;
 		height: 18px;
 		border-radius: 50%;
-		background: var(--color-text-0);
-		transition: transform 0.2s;
+		background: var(--color-text-1);
+		transition: transform 0.2s, background 0.2s;
 	}
 	.toggle-on .toggle-knob {
+		background: var(--color-bg-1);
 		transform: translateX(20px);
 	}
 	.toggle-text {
@@ -1254,6 +1298,7 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
 		font-size: .75rem;
+		line-height: 1.34;
 		cursor: pointer;
 		justify-self: end;
 	}
@@ -1345,6 +1390,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 	.passkey-item {
 		display: flex;

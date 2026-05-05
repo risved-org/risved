@@ -46,17 +46,17 @@
 
 					<span class="card-meta">
 						{#if project.framework}
-							<span class="framework-badge">{project.framework}</span>
+							<span class="badge-sm badge-neutral">{project.framework}</span>
 						{/if}
 						{#if project.status === 'live' && project.containerHealthy === true}
-							<span class="health-badge health-ok">Healthy</span>
+							<span class="badge-sm badge-live">Healthy</span>
 						{:else if project.status === 'live' && project.containerHealthy === false}
-							<span class="health-badge health-failing">Unhealthy</span>
+							<span class="badge-sm badge-failed">Unhealthy</span>
 						{:else}
-							<span class="health-badge health-na">{statusLabel(project.status)}</span>
+							<span class="badge-sm badge-muted">{statusLabel(project.status)}</span>
 						{/if}
 						{#if project.totalRestarts > 0}
-							<span class="restart-count" title="{project.totalRestarts} restart(s)">{project.totalRestarts}x restarts</span>
+							<span class="badge-sm badge-building" title="{project.totalRestarts} restart(s)">{project.totalRestarts}x restarts</span>
 						{/if}
 					</span>
 
@@ -217,49 +217,20 @@
 		white-space: nowrap;
 	}
 
+	.card-domain:visited {
+		color: var(--color-accent);
+	}
+
 	.card-domain:hover {
 		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+		text-underline-offset: 0.25em;
 	}
 
 	.card-deploy {
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
 	}
 
-	/* Badges */
-	.framework-badge {
-		display: inline-block;
-		padding: 1px 6px;
-		background: var(--color-bg-3);
-		border-radius: var(--radius-sm);
-		font-size: .75rem;
-		color: var(--color-text-1);
-	}
-
-	.health-badge {
-		padding: 1px 5px;
-		border-radius: var(--radius-sm);
-		font-size: .75rem;
-		font-weight: 500;
-		letter-spacing: 0.03em;
-	}
-
-	.health-ok {
-		background: color-mix(in srgb, var(--color-live) 15%, transparent);
-		color: var(--color-live);
-	}
-
-	.health-failing {
-		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
-		color: var(--color-failed);
-	}
-
-	.health-na {
-		color: var(--color-text-2);
-	}
-
-	.restart-count {
-		color: var(--color-building);
-		font-size: .75rem;
-	}
 </style>

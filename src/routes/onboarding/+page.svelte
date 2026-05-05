@@ -5,6 +5,7 @@
 
 	let { form }: { form: ActionData } = $props()
 
+	// svelte-ignore state_referenced_locally
 	let email = $state(form?.email ?? '')
 	let password = $state('')
 	let confirmPassword = $state('')

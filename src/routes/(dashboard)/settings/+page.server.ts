@@ -18,6 +18,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const displayName = await getSetting('display_name');
 	const hostname = await getSetting('hostname');
 	const timezone = await getSetting('timezone');
+	const domainConfigRaw = await getSetting('domain_config');
+	let domainConfig: { mode: string; baseDomain: string; prefix: string } | null = null;
+	try {
+		if (domainConfigRaw) domainConfig = JSON.parse(domainConfigRaw);
+	} catch {
+		/* ignore corrupt config */
+	}
 	const apiToken = await getSetting('api_token');
 	const retentionSetting = await getSetting('log_retention_days');
 	const retentionDays = retentionSetting ? parseInt(retentionSetting, 10) : 30;
@@ -47,6 +54,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		apiToken: apiToken ? maskToken(apiToken) : null,
 		retentionDays: isNaN(retentionDays) ? 30 : retentionDays,
 		connections,
+		domainConfig,
 		updateInfo,
 		censusInfo,
 		heartbeatInfo

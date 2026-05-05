@@ -252,6 +252,7 @@
 	.metric-label {
 		font-family: var(--font-mono);
 		font-size: .75rem;
+		line-height: 1.34;
 		font-weight: 500;
 		color: var(--color-text-2);
 		letter-spacing: 0.04em;

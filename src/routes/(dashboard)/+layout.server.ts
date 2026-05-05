@@ -40,15 +40,7 @@ export function _getSystemHealth() {
 		uptimeStr = '—'
 	}
 
-	let containerCount = 0
-	try {
-		const output = execSync('docker ps -q 2>/dev/null | wc -l', { encoding: 'utf8' })
-		containerCount = parseInt(output.trim(), 10) || 0
-	} catch {
-		/* docker not available */
-	}
-
-	return { cpuPercent: cpuUsage, memoryPercent, diskPercent, uptime: uptimeStr, containerCount }
+	return { cpuPercent: cpuUsage, memoryPercent, diskPercent, uptime: uptimeStr }
 }
 
 export const load: LayoutServerLoad = async () => {

@@ -127,6 +127,9 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 	.tab-content :global(.deploy-row) {
 		display: grid;
@@ -162,14 +165,6 @@
 	}
 	.tab-content :global(.deploy-actions) {
 		text-align: right;
-	}
-	.tab-content :global(.trigger-badge) {
-		padding: 1px 6px;
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		color: var(--color-accent);
-		border-radius: var(--radius-sm);
-		font-size: .875rem;
-		font-weight: 500;
 	}
 	.tab-content :global(.btn-rollback) {
 		padding: 2px 8px;

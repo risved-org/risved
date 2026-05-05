@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
-	import { Area, Axis, Chart, Svg } from 'layerchart'
+	import { Area, Axis, Chart, Spline, Svg } from 'layerchart'
 	import { scaleTime } from 'd3-scale'
 	import { curveMonotoneX } from 'd3-shape'
 
@@ -34,8 +34,13 @@
 		data.serverMetrics.map((m) => ({ date: new Date(m.bucket), value: m.cpuPercent }))
 	)
 	let memPoints = $derived(
-		data.serverMetrics.map((m) => ({ date: new Date(m.bucket), value: m.memoryMb }))
+		data.serverMetrics.map((m) => ({
+			date: new Date(m.bucket),
+			value: m.memoryMb,
+			limit: m.memoryLimitMb || null
+		}))
 	)
+	let memHasLimit = $derived(data.serverMetrics.some((m) => m.memoryLimitMb > 0))
 </script>
 
 <svelte:head>
@@ -62,13 +67,13 @@
 		</header>
 
 		<section class="resource-charts">
-			{@render metricCard(cpuPoints, 'CPU', 'var(--color-accent)', '%')}
-			{@render metricCard(memPoints, 'Memory', 'var(--color-live)', ' MB')}
+			{@render metricCard(cpuPoints, 'CPU', 'var(--color-accent)', '%', false)}
+			{@render metricCard(memPoints, 'Memory', 'var(--color-live)', ' MB', memHasLimit)}
 		</section>
 	</section>
 </article>
 
-{#snippet metricCard(points: Array<{ date: Date; value: number }>, title: string, color: string, unit: string)}
+{#snippet metricCard(points: Array<{ date: Date; value: number; limit?: number | null }>, title: string, color: string, unit: string, showLimit: boolean)}
 	<article class="metric-card">
 		<span class="metric-label">{title}</span>
 		<div class="chart-frame">
@@ -78,7 +83,7 @@
 				<Chart
 					data={points}
 					x="date"
-					y="value"
+					y={showLimit ? ['value', 'limit'] : 'value'}
 					xScale={scaleTime()}
 					yDomain={[0, null]}
 					yNice
@@ -122,11 +127,15 @@
 							</svelte:fragment>
 						</Axis>
 						<Area
+							y="value"
 							fill={color}
 							fillOpacity={0.14}
 							line={{ stroke: color, strokeWidth: 1.5, fill: 'none' }}
 							curve={curveMonotoneX}
 						/>
+						{#if showLimit}
+							<Spline y="limit" class="metric-limit-line" />
+						{/if}
 					</Svg>
 				</Chart>
 			{/if}
@@ -172,6 +181,7 @@
 	.resource-header h2 {
 		font-family: var(--font-sans);
 		font-size: .75rem;
+		line-height: 1.34;
 		font-weight: 600;
 		color: var(--color-text-2);
 		text-transform: uppercase;
@@ -237,6 +247,7 @@
 	.metric-label {
 		font-family: var(--font-mono);
 		font-size: .75rem;
+		line-height: 1.34;
 		font-weight: 500;
 		color: var(--color-text-2);
 		letter-spacing: 0.04em;
@@ -285,5 +296,13 @@
 
 	:global(.metric-card .metric-tick-hidden) {
 		stroke: transparent;
+	}
+
+	:global(.metric-card .metric-limit-line) {
+		stroke: var(--color-text-2);
+		stroke-width: 1;
+		stroke-dasharray: 3 3;
+		fill: none;
+		opacity: 0.7;
 	}
 </style>

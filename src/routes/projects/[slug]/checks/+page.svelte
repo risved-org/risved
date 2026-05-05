@@ -159,6 +159,7 @@
 		gap: var(--space-5);
 		max-width: 40rem;
 		width: 100%;
+		margin: 0 auto;
 	}
 
 	.sub-breadcrumb {

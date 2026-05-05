@@ -10,11 +10,14 @@
 
 	let path = $state<DeployPath>('starter')
 	let selectedTemplate = $state<string | null>(null)
+	// svelte-ignore state_referenced_locally
 	let repoUrl = $state(form?.repoUrl ?? '')
+	// svelte-ignore state_referenced_locally
 	let branch = $state(form?.branch ?? 'main')
 	let submitting = $state(false)
 
 	/* Provider tab state */
+	// svelte-ignore state_referenced_locally
 	let selectedConnectionId = $state(data.connections[0]?.id ?? '')
 	let searchQuery = $state('')
 	let searching = $state(false)
@@ -593,6 +596,7 @@
 
 	.repo-desc {
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
 		white-space: nowrap;
 		overflow: hidden;
@@ -605,6 +609,7 @@
 		gap: var(--space-2);
 		flex-shrink: 0;
 		font-size: .75rem;
+		line-height: 1.34;
 		color: var(--color-text-2);
 	}
 
@@ -640,6 +645,7 @@
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
 		font-size: .75rem;
+		line-height: 1.34;
 		cursor: pointer;
 	}
 

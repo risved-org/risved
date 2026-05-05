@@ -4,6 +4,7 @@ import { projects, domains } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getServerIps, checkDnsRecord } from '$lib/server/dns';
 import { createCaddyClient } from '$lib/server/caddy';
+import { getSetting } from '$lib/server/settings';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -17,6 +18,18 @@ export const load: PageServerLoad = async ({ params }) => {
 	const project = proj[0];
 	const doms = await db.select().from(domains).where(eq(domains.projectId, project.id));
 	const serverIps = await getServerIps();
+
+	const domainConfigRaw = await getSetting('domain_config');
+	let baseDomain: string | null = null;
+	try {
+		if (domainConfigRaw) {
+			const cfg = JSON.parse(domainConfigRaw) as { mode: string; baseDomain: string };
+			if (cfg.mode !== 'ip' && cfg.baseDomain) baseDomain = cfg.baseDomain;
+		}
+	} catch {
+		/* ignore corrupt config */
+	}
+	const defaultSubdomain = baseDomain ? `${project.slug}.${baseDomain}` : null;
 
 	return {
 		project: {
@@ -33,7 +46,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			verifiedAt: d.verifiedAt,
 			createdAt: d.createdAt
 		})),
-		serverIps
+		serverIps,
+		defaultSubdomain
 	};
 };
 

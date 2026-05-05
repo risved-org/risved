@@ -270,7 +270,8 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: 0.75rem;
+		font-size: .75rem;
+		line-height: 1.34;
 		font-weight: 400;
 		cursor: pointer;
 	}
@@ -367,7 +368,8 @@
 	}
 
 	.hint {
-		font-size: 0.75rem;
+		font-size: .75rem;
+		line-height: 1.34;
 		font-weight: 400;
 		color: var(--color-text-2);
 	}

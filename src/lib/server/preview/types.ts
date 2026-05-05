@@ -10,6 +10,8 @@ export interface PreviewProject {
 	previewLimit: number;
 	previewsEnabled: boolean;
 	previewAutoDelete: boolean;
+	buildCommand: string | null;
+	startCommand: string | null;
 	releaseCommand: string | null;
 }
 

@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('node:child_process', () => ({
 	execSync: vi.fn((cmd: string) => {
 		if (cmd.includes('df -h')) return '/dev/sda1  50G  20G  28G  42% /\n';
-		if (cmd.includes('docker ps')) return '3\n';
 		return '';
 	})
 }));
@@ -63,13 +62,12 @@ function setupDbMocks(
 }
 
 describe('getSystemHealth', () => {
-	it('returns CPU, memory, disk, uptime, and container count', () => {
+	it('returns CPU, memory, disk, and uptime', () => {
 		const health = getSystemHealth();
 		expect(health.cpuPercent).toBe(70);
 		expect(health.memoryPercent).toBe(50);
 		expect(health.diskPercent).toBe(42);
 		expect(health.uptime).toBe('1d 1h');
-		expect(health.containerCount).toBe(3);
 	});
 });
 
@@ -168,10 +166,10 @@ describe('dashboard load', () => {
 });
 
 describe('dashboard page source', () => {
-	it('has health bar with CPU, MEM, DISK, UP, CTR', async () => {
+	it('has health bar with CPU, MEM, DISK, UP', async () => {
 		const mod = await import('./(dashboard)/+layout.svelte?raw');
 		expect(mod.default).toContain('health-bar');
-		for (const label of ['CPU', 'MEM', 'DISK', 'UP', 'CTR']) {
+		for (const label of ['CPU', 'MEM', 'DISK', 'UP']) {
 			expect(mod.default).toContain(label);
 		}
 	});

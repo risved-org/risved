@@ -15,8 +15,11 @@
 	let keyCopied = $state(false)
 	let showKeyGenerated = $state(false)
 	let showDefaultsSaved = $state(false)
+	// svelte-ignore state_referenced_locally
 	let autoWebhook = $state(data.defaults.autoWebhook)
+	// svelte-ignore state_referenced_locally
 	let commitStatus = $state(data.defaults.commitStatus)
+	// svelte-ignore state_referenced_locally
 	let deployPreviews = $state(data.defaults.deployPreviews)
 
 	$effect(() => {
@@ -355,9 +358,33 @@
 		align-self: flex-start;
 	}
 	.account-avatar {
-		width: 28px;
-		height: 28px;
+		width: 2rem;
+		height: 2rem;
 		border-radius: 50%;
+	}
+	.account-row .provider-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: var(--radius-md);
+		font-size: .75rem;
+		line-height: 1.34;
+		font-weight: 700;
+		flex-shrink: 0;
+	}
+	.account-row .provider-icon.github {
+		background: #24292e;
+		color: #fff;
+	}
+	.account-row .provider-icon.gitlab {
+		background: #fc6d26;
+		color: #fff;
+	}
+	.account-row .provider-icon.forgejo {
+		background: #fff;
+		color: #000;
 	}
 	.account-info {
 		flex: 1;
@@ -365,7 +392,7 @@
 		flex-direction: column;
 	}
 	.account-name {
-		font-size: .875rem;
+		font-size: 1rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}

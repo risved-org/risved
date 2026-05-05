@@ -7,7 +7,6 @@
 		memoryPercent: number
 		diskPercent: number
 		uptime: string
-		containerCount: number
 	}
 
 	let {
@@ -48,10 +47,6 @@
 			<span class="meter">
 				<span class="meter-label">UP</span>
 				<span class="meter-value">{health.uptime}</span>
-			</span>
-			<span class="meter">
-				<span class="meter-label">CTR</span>
-				<span class="meter-value">{health.containerCount}</span>
 			</span>
 		</aside>
 	</div>
@@ -127,6 +122,7 @@
 		gap: var(--space-3);
 		font-family: var(--font-mono);
 		font-size: .75rem;
+		line-height: 1.34;
 		padding: var(--space-1) var(--space-3);
 		background: var(--color-bg-3);
 		border-radius: var(--radius-md);

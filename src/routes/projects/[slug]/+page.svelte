@@ -88,17 +88,17 @@
 
 	<div class="card-meta">
 		{#if data.project.framework}
-			<span class="framework-badge">{data.project.framework}</span>
+			<span class="badge-sm badge-neutral">{data.project.framework}</span>
 		{/if}
 		{#if data.project.status === 'live' && data.containerHealth?.healthy === true}
-			<span class="health-badge health-ok">Healthy</span>
+			<span class="badge-sm badge-live">Healthy</span>
 		{:else if data.project.status === 'live' && data.containerHealth?.healthy === false}
-			<span class="health-badge health-failing">Unhealthy</span>
+			<span class="badge-sm badge-failed">Unhealthy</span>
 		{:else}
-			<span class="health-badge health-na">{projectStatusLabel(data.project.status)}</span>
+			<span class="badge-sm badge-muted">{projectStatusLabel(data.project.status)}</span>
 		{/if}
 		{#if data.containerHealth && data.containerHealth.totalRestarts > 0}
-			<span class="restart-count">{data.containerHealth.totalRestarts}x restarts</span>
+			<span class="badge-sm badge-building">{data.containerHealth.totalRestarts}x restarts</span>
 		{/if}
 	</div>
 
@@ -120,52 +120,54 @@
 
 <!-- Deployments (last 5) -->
 <section data-testid="deployments-section">
-	<div class="section-header">
+	<header class="section-header">
 		<h2 class="section-title">Deployments</h2>
-		<div class="section-actions">
+		<nav class="section-actions">
 			<button class="btn-secondary btn-md" onclick={handleRedeploy} data-testid="redeploy-btn">Redeploy</button>
 			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-secondary btn-md">View all</a>
-		</div>
-	</div>
+		</nav>
+	</header>
 	{#if data.deployments.length === 0}
 		<p class="empty-text">No deployments yet.</p>
 	{:else}
-		<div class="deploy-list">
+		<ul class="deploy-list">
 			{#each data.deployments as dep, i (dep.id)}
-				<a
-					href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
-					class="deploy-row"
-					data-testid="deploy-row"
-				>
-					<span class="status-dot {statusClass(dep.status)}"></span>
-					<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
-					<span class="deploy-status">
-						{deployLabel(dep.status)}
-						{#if dep.triggerType === 'rollback'}
-							<span class="trigger-badge" data-testid="rollback-badge">Rollback</span>
-						{/if}
-						{#if dep.status === 'live' && i === data.deployments.findIndex((d) => d.status === 'live')}
-							<span class="current-badge">Current</span>
-						{/if}
-					</span>
-					<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
-					<span class="deploy-actions">
-						{#if i > 0 && (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
-							<button
-								class="btn-rollback"
-								data-testid="rollback-btn"
-								disabled={rollingBack === dep.id}
-								onclick={(e) => handleRollback(e, dep.id)}
-							>
-								{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
-							</button>
-						{:else}
-							<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
-						{/if}
-					</span>
-				</a>
+				<li>
+					<a
+						href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
+						class="deploy-row"
+						data-testid="deploy-row"
+					>
+						<span class="status-dot {statusClass(dep.status)}"></span>
+						<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
+						<span class="deploy-status">
+							{deployLabel(dep.status)}
+							{#if dep.triggerType === 'rollback'}
+								<span class="badge-md badge-accent" data-testid="rollback-badge">Rollback</span>
+							{/if}
+							{#if dep.status === 'live' && i === data.deployments.findIndex((d) => d.status === 'live')}
+								<span class="badge-md badge-live">Current</span>
+							{/if}
+						</span>
+						<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
+						<span class="deploy-actions">
+							{#if i > 0 && (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
+								<button
+									class="btn-rollback"
+									data-testid="rollback-btn"
+									disabled={rollingBack === dep.id}
+									onclick={(e) => handleRollback(e, dep.id)}
+								>
+									{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
+								</button>
+							{:else}
+								<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
+							{/if}
+						</span>
+					</a>
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{/if}
 </section>
 
@@ -173,16 +175,6 @@
 	.section-actions {
 		display: flex;
 		gap: var(--space-2);
-	}
-
-	.current-badge {
-		padding: 1px 6px;
-		background: color-mix(in srgb, var(--color-live) 15%, transparent);
-		color: var(--color-live);
-		border-radius: var(--radius-sm);
-		font-size: .75rem;
-		font-weight: 600;
-		letter-spacing: 0.03em;
 	}
 
 	/* Project info card — mirrors dashboard project-card */
@@ -236,43 +228,14 @@
 		white-space: nowrap;
 	}
 
+	.card-domain:visited {
+		color: var(--color-accent);
+	}
+
 	.card-domain:hover {
 		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+		text-underline-offset: 0.25em;
 	}
 
-	.framework-badge {
-		display: inline-block;
-		padding: 1px 6px;
-		background: var(--color-bg-3);
-		border-radius: var(--radius-sm);
-		font-size: .75rem;
-		color: var(--color-text-1);
-	}
-
-	.health-badge {
-		padding: 1px 5px;
-		border-radius: var(--radius-sm);
-		font-size: .75rem;
-		font-weight: 500;
-		letter-spacing: 0.03em;
-	}
-
-	.health-ok {
-		background: color-mix(in srgb, var(--color-live) 15%, transparent);
-		color: var(--color-live);
-	}
-
-	.health-failing {
-		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
-		color: var(--color-failed);
-	}
-
-	.health-na {
-		color: var(--color-text-2);
-	}
-
-	.restart-count {
-		color: var(--color-building);
-		font-size: .75rem;
-	}
 </style>

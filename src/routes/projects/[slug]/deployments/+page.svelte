@@ -94,9 +94,9 @@
 <h1 class="page-title">Deployments</h1>
 
 <section data-testid="deployments-full">
-	<div class="section-header">
+	<header class="section-header">
 		<h2 class="section-title">All Deployments</h2>
-		<div class="filter-bar" data-testid="status-filter">
+		<nav class="filter-bar" data-testid="status-filter">
 			{#each ['all', 'succeeded', 'failed'] as f (f)}
 				<button
 					class="filter-btn"
@@ -106,94 +106,100 @@
 					{f === 'all' ? 'All' : f === 'succeeded' ? 'Succeeded' : 'Failed'}
 				</button>
 			{/each}
-		</div>
-	</div>
+		</nav>
+	</header>
 
 	{#if filtered.length === 0}
 		<p class="empty-text">No deployments match the filter.</p>
 	{:else}
-		<div class="deploy-list">
+		<ul class="deploy-list">
 			{#each groups as group (group.sha ?? group.items[0].id)}
 				{#if group.items.length === 1}
 					{@const dep = group.items[0]}
-					<a
-						href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
-						class="deploy-row"
-						data-testid="deploy-row"
-					>
-						<span class="status-dot {statusClass(dep.status)}"></span>
-						<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
-						<span class="deploy-status">
-							{deployLabel(dep.status)}
-							{#if dep.triggerType === 'rollback'}
-								<span class="trigger-badge">Rollback</span>
-							{/if}
-						</span>
-						<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
-						<span class="deploy-actions">
-							{#if (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
-								<button
-									class="btn-rollback"
-									disabled={rollingBack === dep.id}
-									onclick={(e) => handleRollback(e, dep.id)}
-								>
-									{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
-								</button>
-							{:else}
-								<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
-							{/if}
-						</span>
-					</a>
+					<li>
+						<a
+							href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
+							class="deploy-row"
+							data-testid="deploy-row"
+						>
+							<span class="status-dot {statusClass(dep.status)}"></span>
+							<span class="deploy-sha mono">{dep.commitSha?.slice(0, 7) ?? '–'}</span>
+							<span class="deploy-status">
+								{deployLabel(dep.status)}
+								{#if dep.triggerType === 'rollback'}
+									<span class="badge-md badge-accent">Rollback</span>
+								{/if}
+							</span>
+							<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
+							<span class="deploy-actions">
+								{#if (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
+									<button
+										class="btn-rollback"
+										disabled={rollingBack === dep.id}
+										onclick={(e) => handleRollback(e, dep.id)}
+									>
+										{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
+									</button>
+								{:else}
+									<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
+								{/if}
+							</span>
+						</a>
+					</li>
 				{:else}
 					{@const failCount = group.items.filter((d) => d.status === 'failed').length}
 					{@const successCount = group.items.filter((d) => d.status === 'live').length}
 					{@const latest = group.items[0]}
-					<button
-						class="deploy-row deploy-group-header"
-						data-testid="deploy-group"
-						onclick={() => (expandedSha = expandedSha === group.sha ? null : group.sha)}
-					>
-						<span class="status-dot {statusClass(latest.status)}"></span>
-						<span class="deploy-sha mono">{group.sha?.slice(0, 7) ?? '–'}</span>
-						<span class="deploy-status">
-							{group.items.length} deploys
-							{#if failCount > 0}
-								<span class="group-count group-failed">{failCount} failed</span>
-							{/if}
-							{#if successCount > 0}
-								<span class="group-count group-succeeded">{successCount} succeeded</span>
-							{/if}
-						</span>
-						<span class="deploy-time mono">{timeAgo(latest.createdAt)}</span>
-						<span class="deploy-actions">
-							<span class="expand-icon">{expandedSha === group.sha ? '▾' : '▸'}</span>
-						</span>
-					</button>
+					<li>
+						<button
+							class="deploy-row deploy-group-header"
+							data-testid="deploy-group"
+							onclick={() => (expandedSha = expandedSha === group.sha ? null : group.sha)}
+						>
+							<span class="status-dot {statusClass(latest.status)}"></span>
+							<span class="deploy-sha mono">{group.sha?.slice(0, 7) ?? '–'}</span>
+							<span class="deploy-status">
+								{group.items.length} deploys
+								{#if failCount > 0}
+									<span class="badge-sm badge-failed">{failCount} failed</span>
+								{/if}
+								{#if successCount > 0}
+									<span class="badge-sm badge-live">{successCount} succeeded</span>
+								{/if}
+							</span>
+							<span class="deploy-time mono">{timeAgo(latest.createdAt)}</span>
+							<span class="deploy-actions">
+								<span class="expand-icon">{expandedSha === group.sha ? '▾' : '▸'}</span>
+							</span>
+						</button>
+					</li>
 					{#if expandedSha === group.sha}
 						{#each group.items as dep (dep.id)}
-							<a
-								href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
-								class="deploy-row deploy-nested"
-								data-testid="deploy-row-nested"
-							>
-								<span class="status-dot {statusClass(dep.status)}"></span>
-								<span class="deploy-sha mono"></span>
-								<span class="deploy-status">
-									{dep.status === 'live' ? 'success' : dep.status}
-									{#if dep.triggerType === 'rollback'}
-										<span class="trigger-badge">rollback</span>
-									{/if}
-								</span>
-								<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
-								<span class="deploy-actions">
-									<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
-								</span>
-							</a>
+							<li>
+								<a
+									href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
+									class="deploy-row deploy-nested"
+									data-testid="deploy-row-nested"
+								>
+									<span class="status-dot {statusClass(dep.status)}"></span>
+									<span class="deploy-sha mono"></span>
+									<span class="deploy-status">
+										{deployLabel(dep.status)}
+										{#if dep.triggerType === 'rollback'}
+											<span class="badge-md badge-accent">Rollback</span>
+										{/if}
+									</span>
+									<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
+									<span class="deploy-actions">
+										<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
+									</span>
+								</a>
+							</li>
 						{/each}
 					{/if}
 				{/if}
 			{/each}
-		</div>
+		</ul>
 	{/if}
 </section>
 
@@ -236,20 +242,6 @@
 	.deploy-nested {
 		padding-left: var(--space-5);
 		background: var(--color-bg-1);
-	}
-	.group-count {
-		padding: 1px 6px;
-		border-radius: var(--radius-sm);
-		font-size: .75rem;
-		font-weight: 600;
-	}
-	.group-failed {
-		background: color-mix(in srgb, var(--color-failed) 15%, transparent);
-		color: var(--color-failed);
-	}
-	.group-succeeded {
-		background: color-mix(in srgb, var(--color-live) 15%, transparent);
-		color: var(--color-live);
 	}
 	.expand-icon {
 		color: var(--color-text-2);

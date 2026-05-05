@@ -13,7 +13,7 @@
 	<button onclick={() => setLocale('es')}>es</button>
 	<button onclick={() => setLocale('pl')}>pl</button>
 	<button onclick={() => setLocale('nl')}>nl</button>
-	<button onclick={() => setLocale('se')}>se</button>
+	<button onclick={() => setLocale('sv')}>sv</button>
 	<button onclick={() => setLocale('da')}>da</button>
 </div>
 
