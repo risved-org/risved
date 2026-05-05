@@ -1,5 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const { mockSelectFrom, mockDb } = vi.hoisted(() => {
+	const mockSelectFrom = vi.fn();
+	return {
+		mockSelectFrom,
+		mockDb: { select: vi.fn().mockReturnValue({ from: mockSelectFrom }) }
+	};
+});
+
+vi.mock('$lib/server/db', () => ({ db: mockDb }));
+
+vi.mock('$lib/server/db/schema', () => ({
+	gitConnections: { id: 'id', provider: 'provider', accountName: 'account_name' }
+}));
+
 vi.mock('$lib/server/auth-utils', () => ({
 	isFirstRun: vi.fn()
 }));
@@ -34,6 +48,8 @@ function makeActionEvent(formEntries: Record<string, string> = {}): ActionParams
 describe('deploy load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockDb.select.mockReturnValue({ from: mockSelectFrom });
+		mockSelectFrom.mockResolvedValue([]);
 	});
 
 	it('redirects to /onboarding if first run', async () => {
