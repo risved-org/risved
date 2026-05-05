@@ -43,6 +43,7 @@ describe('gitClone', () => {
 			'clone',
 			'--depth',
 			'1',
+			'--single-branch',
 			'--branch',
 			'main',
 			'https://github.com/user/repo.git',

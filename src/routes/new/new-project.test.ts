@@ -28,7 +28,8 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: 'projects_table',
-	envVars: 'env_vars_table'
+	envVars: 'env_vars_table',
+	gitConnections: 'git_connections_table'
 }));
 
 vi.mock('$lib/server/api-utils', () => ({

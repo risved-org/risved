@@ -64,6 +64,7 @@ describe('settings load', () => {
 			.mockResolvedValueOnce(null) // display_name
 			.mockResolvedValueOnce('risved.example.com') // hostname
 			.mockResolvedValueOnce('America/New_York') // timezone
+			.mockResolvedValueOnce(null) // domain_config
 			.mockResolvedValueOnce(null) // api_token
 			.mockResolvedValueOnce(null); // log_retention_days
 
@@ -87,6 +88,7 @@ describe('settings load', () => {
 			.mockResolvedValueOnce(null) // display_name
 			.mockResolvedValueOnce(null) // hostname
 			.mockResolvedValueOnce(null) // timezone
+			.mockResolvedValueOnce(null) // domain_config
 			.mockResolvedValueOnce('rsv_abcdef1234567890abcdef1234567890') // api_token
 			.mockResolvedValueOnce(null); // log_retention_days
 
@@ -205,8 +207,9 @@ describe('settings page source', () => {
 		expect(mod.default).toContain('hostname-input');
 	});
 
-	it('has timezone select', async () => {
+	it('has timezone picker', async () => {
 		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
-		expect(mod.default).toContain('timezone-select');
+		expect(mod.default).toContain('TimezonePicker');
+		expect(mod.default).toContain('name="timezone"');
 	});
 });

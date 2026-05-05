@@ -206,14 +206,15 @@ export function parseDockerSize(size: string): number {
 	return value * (multipliers[unit] || 1);
 }
 
-/** Format bytes to a human-readable string. */
+/** Format bytes to a compact human-readable string with 3 significant figures. */
 export function formatBytes(bytes: number): string {
-	if (bytes === 0) return '0 B';
+	if (bytes === 0) return '0B';
 	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-	const i = Math.floor(Math.log(bytes) / Math.log(1000));
+	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1000)), units.length - 1);
 	const val = bytes / Math.pow(1000, i);
-	const decimals = i >= 3 ? 1 : 0;
-	return `${val.toFixed(decimals)} ${units[i]}`;
+	if (i === 0) return `${Math.round(val)}${units[i]}`;
+	const decimals = val >= 100 ? 0 : val >= 10 ? 1 : 2;
+	return `${val.toFixed(decimals)}${units[i]}`;
 }
 
 /* Singleton */

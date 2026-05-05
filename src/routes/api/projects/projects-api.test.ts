@@ -304,7 +304,7 @@ describe('POST /api/projects/:id/deploy', () => {
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(data.success).toBe(true);
-		expect(data.deploymentId).toBe('d-1');
+		expect(data.deploymentId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 	});
 
 	it('returns 404 for missing project', async () => {

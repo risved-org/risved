@@ -130,7 +130,8 @@ describe('overview page source', () => {
 	it('has project info card with framework', async () => {
 		const mod = await import('./+page.svelte?raw')
 		expect(mod.default).toContain('project-info')
-		expect(mod.default).toContain('framework-badge')
+		expect(mod.default).toContain('data.project.framework')
+		expect(mod.default).toContain('badge-neutral')
 	})
 
 	it('has rollback button', async () => {

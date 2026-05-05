@@ -187,9 +187,9 @@ describe('webhook config page source', () => {
 		expect(mod.default).toContain('use:enhance');
 	});
 
-	it('uses JetBrains Mono for URLs and secrets', async () => {
+	it('uses mono class for URLs and secrets', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('font-mono');
+		expect(mod.default).toContain('class="field-value mono"');
 	});
 
 	it('has save button', async () => {

@@ -39,7 +39,8 @@ vi.mock('$lib/server/db/schema', () => ({
 	},
 	deployments: { id: 'id' },
 	buildLogs: {},
-	envVars: { key: 'key', value: 'value', projectId: 'project_id' }
+	envVars: { key: 'key', value: 'value', projectId: 'project_id' },
+	domains: { hostname: 'hostname', projectId: 'project_id' }
 }));
 
 vi.mock('$lib/server/settings', () => ({
@@ -292,7 +293,8 @@ describe('runPipeline', () => {
 		expect(calls.some((c) => c.includes('docker stop'))).toBe(true);
 	});
 
-	it('uses override framework when provided', async () => {
+	it('falls back to saved framework when detection fails', async () => {
+		vi.mocked(detectFramework).mockResolvedValueOnce({ detected: false });
 		const result = await runPipeline(
 			makeConfig({ frameworkId: 'hono', tier: 'deno' }),
 			makeSuccessRunner(),
@@ -300,7 +302,10 @@ describe('runPipeline', () => {
 		);
 
 		expect(result.success).toBe(true);
-		expect(detectFramework).not.toHaveBeenCalled();
+		const detectLog = result.logs.find(
+			(l) => l.phase === 'detect' && l.message.includes('Using saved')
+		);
+		expect(detectLog?.message).toContain('hono');
 	});
 
 	it('frees port before starting new container', async () => {
@@ -377,16 +382,21 @@ describe('runPipeline', () => {
 		);
 
 		expect(result.success).toBe(true);
-		const buildIdx = calls.findIndex((c) => c.includes('docker build'));
-		const releaseIdx = calls.findIndex(
-			(c) => c.includes('docker run') && c.includes('--target') && c.includes('build')
+		/* The release flow: docker build --target build → docker run for the release image. */
+		const buildIdx = calls.findIndex((c) => c.includes('docker build') && !c.includes('--target'));
+		const releaseBuildIdx = calls.findIndex(
+			(c) => c.includes('docker build') && c.includes('--target') && c.includes('build')
+		);
+		const releaseRunIdx = calls.findIndex(
+			(c) => c.includes('docker run') && c.includes('risved-release')
 		);
 		const startIdx = calls.findIndex(
-			(c) => c.includes('docker run') && !c.includes('--target')
+			(c) => c.includes('docker run') && !c.includes('risved-release')
 		);
 		expect(buildIdx).toBeGreaterThanOrEqual(0);
-		expect(releaseIdx).toBeGreaterThan(buildIdx);
-		expect(startIdx).toBeGreaterThan(releaseIdx);
+		expect(releaseBuildIdx).toBeGreaterThan(buildIdx);
+		expect(releaseRunIdx).toBeGreaterThan(releaseBuildIdx);
+		expect(startIdx).toBeGreaterThan(releaseRunIdx);
 		expect(result.logs.some((l) => l.phase === 'release')).toBe(true);
 	});
 
@@ -397,7 +407,7 @@ describe('runPipeline', () => {
 				const joined = `${cmd} ${args.join(' ')}`;
 				calls.push(joined);
 				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
-				if (joined.includes('docker run') && joined.includes('--target')) {
+				if (joined.includes('docker run') && joined.includes('risved-release')) {
 					return { exitCode: 1, stdout: '', stderr: 'migration failed' };
 				}
 				if (joined.includes('docker run'))
@@ -416,7 +426,7 @@ describe('runPipeline', () => {
 		expect(result.error).toContain('Release command failed');
 		/* The runtime container must NOT have been started — old version keeps serving. */
 		const runtimeRun = calls.find(
-			(c) => c.includes('docker run') && !c.includes('--target')
+			(c) => c.includes('docker run') && !c.includes('risved-release')
 		);
 		expect(runtimeRun).toBeUndefined();
 		const failureLog = result.logs.find((l) => l.phase === 'release' && l.level === 'error');

@@ -99,11 +99,10 @@ describe('Install Script', () => {
 	});
 
 	describe('banner', () => {
-		it('prints the Risved ASCII art', () => {
+		it('prints the Risved logo and tagline', () => {
 			const { stdout } = runBash('banner');
-			// ASCII art renders "risved" across multiple lines
-			expect(stdout).toContain('_____');
-			expect(stdout).toContain('Deploy to Risved');
+			expect(stdout).toContain('Risved');
+			expect(stdout).toContain('Deploy from here');
 		});
 	});
 

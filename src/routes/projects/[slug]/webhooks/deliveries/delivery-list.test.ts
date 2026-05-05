@@ -107,8 +107,8 @@ describe('delivery list page source', () => {
 		expect(mod.default).toContain('delivery-status');
 	});
 
-	it('uses mono font for event type', async () => {
+	it('uses mono class for event type', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('font-mono');
+		expect(mod.default).toContain('col-event mono');
 	});
 });

@@ -33,7 +33,13 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: 'projects_table',
-	domains: { projectId: 'project_id', id: 'id', hostname: 'hostname' }
+	domains: { projectId: 'project_id', id: 'id', hostname: 'hostname' },
+	settings: { key: 'key', value: 'value' }
+}));
+
+vi.mock('$lib/server/settings', () => ({
+	getSetting: vi.fn().mockResolvedValue(null),
+	setSetting: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$lib/server/dns', () => ({

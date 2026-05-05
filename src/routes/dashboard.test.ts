@@ -167,8 +167,8 @@ describe('dashboard load', () => {
 
 describe('dashboard page source', () => {
 	it('has health bar with CPU, MEM, DISK, UP', async () => {
-		const mod = await import('./(dashboard)/+layout.svelte?raw');
-		expect(mod.default).toContain('health-bar');
+		const mod = await import('$lib/components/DashboardHeader.svelte?raw');
+		expect(mod.default).toContain('data-testid="health-bar"');
 		for (const label of ['CPU', 'MEM', 'DISK', 'UP']) {
 			expect(mod.default).toContain(label);
 		}
@@ -180,9 +180,9 @@ describe('dashboard page source', () => {
 		expect(mod.default).toContain('project-card');
 	});
 
-	it('has status dots for project states', async () => {
+	it('has status badges for project states', async () => {
 		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
-		for (const cls of ['status-live', 'status-failed', 'status-stopped', 'status-building']) {
+		for (const cls of ['badge-live', 'badge-failed', 'badge-muted', 'badge-building']) {
 			expect(mod.default).toContain(cls);
 		}
 	});
@@ -193,16 +193,16 @@ describe('dashboard page source', () => {
 		expect(mod.default).toContain('Nothing deployed yet');
 	});
 
-	it('has framework badge and action buttons', async () => {
+	it('shows framework name on each card', async () => {
 		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
-		expect(mod.default).toContain('framework-badge');
-		expect(mod.default).toContain('Redeploy');
+		expect(mod.default).toContain('project.framework');
+		expect(mod.default).toContain('badge-neutral');
 	});
 
-	it('uses client-side navigation via goto', async () => {
+	it('uses anchor links to project pages', async () => {
 		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
-		expect(mod.default).toContain("from '$app/navigation'");
-		expect(mod.default).toContain('goto(');
+		expect(mod.default).toContain("from '$app/paths'");
+		expect(mod.default).toContain("resolve(`/projects/${project.slug}`)");
 	});
 
 	it('uses mono class and CSS custom properties', async () => {

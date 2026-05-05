@@ -119,9 +119,10 @@ describe('login action', () => {
 });
 
 describe('login page source', () => {
-	it('includes RISVED wordmark', async () => {
+	it('includes Risved wordmark', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('RISVED');
+		expect(mod.default).toContain('class="wordmark"');
+		expect(mod.default).toContain('Risved');
 	});
 
 	it('has email and password fields', async () => {

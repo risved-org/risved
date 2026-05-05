@@ -36,7 +36,9 @@ const err = (msg) => console.error(`${RED}✗${RESET} ${msg}`);
 /* ── Database ─────────────────────────────────────────────────── */
 
 function findDbPath() {
-	/* Check common locations for the database file */
+	/* DATABASE_URL takes precedence so tests and explicit overrides win. */
+	if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+	/* Otherwise check common locations for the database file */
 	const candidates = [
 		resolve(process.cwd(), 'local.db'),
 		resolve(process.cwd(), 'data/local.db'),
@@ -45,8 +47,6 @@ function findDbPath() {
 	for (const p of candidates) {
 		if (existsSync(p)) return `file:${p}`;
 	}
-	/* Fall back to DATABASE_URL env var */
-	if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
 	return 'file:local.db';
 }
 

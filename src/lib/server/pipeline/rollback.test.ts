@@ -20,6 +20,10 @@ vi.mock('$lib/server/db/schema', () => ({
 	buildLogs: {}
 }));
 
+vi.mock('$lib/server/settings', () => ({
+	getSetting: vi.fn().mockResolvedValue(null)
+}));
+
 import { runRollback } from './rollback';
 import type { RollbackConfig } from './rollback';
 import type { CommandRunner, LogEntry } from './types';
@@ -186,13 +190,12 @@ describe('runRollback', () => {
 		expect(result.error).toContain('Health check timed out');
 	});
 
-	it('performs cutover when old container exists', async () => {
+	it('removes existing container before starting the rollback container', async () => {
 		const calls: string[] = [];
 		const runner: CommandRunner = {
 			async exec(cmd, args) {
 				const joined = `${cmd} ${args.join(' ')}`;
 				calls.push(joined);
-				if (joined.includes('docker rename')) return { exitCode: 0, stdout: '', stderr: '' };
 				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
 				return { exitCode: 0, stdout: '', stderr: '' };
 			}
@@ -204,31 +207,9 @@ describe('runRollback', () => {
 		});
 
 		expect(result.success).toBe(true);
-		const stopCalls = calls.filter((c) => c.includes('docker stop'));
-		expect(stopCalls.length).toBeGreaterThanOrEqual(1);
-	});
-
-	it('restores old container on docker run failure', async () => {
-		const calls: string[] = [];
-		const runner: CommandRunner = {
-			async exec(cmd, args) {
-				const joined = `${cmd} ${args.join(' ')}`;
-				calls.push(joined);
-				if (joined.includes('docker rename')) return { exitCode: 0, stdout: '', stderr: '' };
-				if (joined.includes('docker run'))
-					return { exitCode: 1, stdout: '', stderr: 'Failed' };
-				return { exitCode: 0, stdout: '', stderr: '' };
-			}
-		};
-
-		const result = await runRollback(makeConfig(), runner, {
-			caddy: makeCaddy() as never,
-			fetchFn: makeHealthyFetch()
-		});
-
-		expect(result.success).toBe(false);
-		/* Second rename restores old container */
-		const renameCalls = calls.filter((c) => c.includes('docker rename'));
-		expect(renameCalls.length).toBe(2);
+		const rmIdx = calls.findIndex((c) => c.includes('docker rm -f my-app'));
+		const runIdx = calls.findIndex((c) => c.includes('docker run'));
+		expect(rmIdx).toBeGreaterThanOrEqual(0);
+		expect(runIdx).toBeGreaterThan(rmIdx);
 	});
 });
