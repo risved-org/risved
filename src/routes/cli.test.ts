@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/libsql';
+import { migrate } from 'drizzle-orm/libsql/migrator';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve } from 'node:path';
@@ -26,6 +28,9 @@ describe('Risved CLI', () => {
 
 	beforeAll(async () => {
 		db = createClient({ url: DB_URL });
+		await migrate(drizzle(db), {
+			migrationsFolder: resolve(import.meta.dirname, '../../drizzle')
+		});
 
 		/* Ensure test data exists */
 		await db.executeMultiple(`

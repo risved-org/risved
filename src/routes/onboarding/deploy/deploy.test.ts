@@ -9,6 +9,11 @@ vi.mock('$lib/server/settings', () => ({
 	setSetting: vi.fn()
 }));
 
+const { mockSelect } = vi.hoisted(() => ({ mockSelect: vi.fn() }));
+vi.mock('$lib/server/db', () => ({
+	db: { select: mockSelect }
+}));
+
 import { isFirstRun } from '$lib/server/auth-utils';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { load, actions } from './+page.server';
@@ -76,6 +81,7 @@ describe('deploy load', () => {
 			if (key === 'dns_verified') return 'true';
 			return null;
 		});
+		mockSelect.mockReturnValue({ from: vi.fn().mockResolvedValue([]) });
 
 		const result = (await load({} as LoadParams)) as Record<string, unknown>;
 		expect(result.templates).toEqual(STARTER_TEMPLATES);
