@@ -107,9 +107,7 @@ describe('Install Script', () => {
 	});
 
 	describe('check_root', () => {
-		it('fails when not running as root', () => {
-			// In most test environments we are not root
-			if (process.getuid?.() === 0) return;
+		it.skipIf(process.getuid?.() === 0)('fails when not running as root', () => {
 			const { exitCode } = runBash('check_root 2>/dev/null');
 			expect(exitCode).toBe(1);
 		});
