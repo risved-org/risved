@@ -3,15 +3,37 @@ import { createClient } from '@libsql/client';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { resolve } from 'node:path';
-import { unlinkSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 const exec = promisify(execFile);
 const CLI = resolve(import.meta.dirname, '../../scripts/risved.mjs');
-const DB_FILE = `/tmp/risved_test_${Date.now()}.db`;
-const DB_URL = `file:${DB_FILE}`;
+const DB_URL = 'file:risved.db';
 
-afterAll(() => {
-	try { unlinkSync(DB_FILE); } catch { /* already gone */ }
+const DRIZZLE_DIR = resolve(import.meta.dirname, '../../drizzle');
+const MIGRATION_FILES = [
+	'0000_sticky_omega_red.sql',
+	'0001_add_release_command.sql',
+	'0002_modern_the_renegades.sql',
+	'0003_chief_otto_octavius.sql',
+	'0004_disable_pr_merged_default.sql'
+];
+
+beforeAll(async () => {
+	const migDb = createClient({ url: DB_URL });
+	const stmts = MIGRATION_FILES.flatMap((f) =>
+		readFileSync(resolve(DRIZZLE_DIR, f), 'utf-8')
+			.split('--> statement-breakpoint')
+			.map((s) => s.trim())
+			.filter(Boolean)
+	);
+	for (const stmt of stmts) {
+		try {
+			await migDb.execute(stmt);
+		} catch {
+			// ignore: table / index already exists or column already added
+		}
+	}
+	migDb.close();
 });
 
 async function run(...args: string[]) {
