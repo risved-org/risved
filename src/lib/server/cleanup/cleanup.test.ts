@@ -23,7 +23,7 @@ vi.mock('$lib/server/settings', () => ({
 
 import { db } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
-import { CleanupManager, parseDockerSize, formatBytes } from './index';
+import { CleanupManager, parseDockerSize, formatBytes, getCleanupManager } from './index';
 
 const mockDb = db as unknown as {
 	select: ReturnType<typeof vi.fn>;
@@ -178,5 +178,59 @@ describe('formatBytes', () => {
 		expect(formatBytes(150_000_000_000)).toBe('150GB');
 		expect(formatBytes(15_000_000_000)).toBe('15.0GB');
 		expect(formatBytes(1_230_000_000)).toBe('1.23GB');
+	});
+});
+
+/* ── CleanupManager.getDockerDiskUsage ───────────────────────────── */
+
+describe('CleanupManager.getDockerDiskUsage', () => {
+	let manager: CleanupManager;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		manager = new CleanupManager();
+	});
+
+	afterEach(() => manager.stop());
+
+	it('returns zero-filled usage when docker is unavailable', async () => {
+		const usage = await manager.getDockerDiskUsage();
+		/* In the test environment docker is not available, so the catch branch fires */
+		expect(usage.images).toBeDefined();
+		expect(usage.containers).toBeDefined();
+		expect(usage.volumes).toBeDefined();
+		expect(usage.buildCache).toBeDefined();
+		expect(usage.totalFormatted).toBeDefined();
+	});
+});
+
+/* ── CleanupManager.dockerPrune ──────────────────────────────────── */
+
+describe('CleanupManager.dockerPrune', () => {
+	let manager: CleanupManager;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		manager = new CleanupManager();
+	});
+
+	afterEach(() => manager.stop());
+
+	it('returns spaceReclaimed 0B when docker is unavailable', async () => {
+		for (const type of ['images', 'containers', 'volumes', 'buildcache', 'all'] as const) {
+			const result = await manager.dockerPrune(type);
+			expect(result.type).toBe(type);
+			expect(result.spaceReclaimed).toBe('0B');
+		}
+	});
+});
+
+/* ── getCleanupManager singleton ─────────────────────────────────── */
+
+describe('getCleanupManager', () => {
+	it('returns the same instance on repeated calls', () => {
+		const a = getCleanupManager();
+		const b = getCleanupManager();
+		expect(a).toBe(b);
 	});
 });
