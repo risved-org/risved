@@ -9,8 +9,16 @@ import { unlinkSync } from 'node:fs';
 
 const exec = promisify(execFile);
 const CLI = resolve(import.meta.dirname, '../../scripts/risved.mjs');
+const MIGRATIONS_FOLDER = resolve(import.meta.dirname, '../../drizzle');
 const DB_FILE = `/tmp/risved_test_${Date.now()}.db`;
 const DB_URL = `file:${DB_FILE}`;
+
+/* Run migrations once so all describe blocks have a schema to work with */
+beforeAll(async () => {
+	const migrationClient = createClient({ url: DB_URL });
+	await migrate(drizzle(migrationClient), { migrationsFolder: MIGRATIONS_FOLDER });
+	migrationClient.close();
+});
 
 afterAll(() => {
 	try { unlinkSync(DB_FILE); } catch { /* already gone */ }
