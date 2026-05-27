@@ -56,9 +56,6 @@ describe('Risved CLI', () => {
 
 	beforeAll(async () => {
 		db = createClient({ url: DB_URL });
-		await migrate(drizzle(db), {
-			migrationsFolder: resolve(import.meta.dirname, '../../drizzle')
-		});
 
 		/* Ensure test data exists */
 		await db.executeMultiple(`
