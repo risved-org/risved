@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
+/* Mock node:child_process so docker commands don't actually run */
+vi.mock('node:child_process', () => ({
+	execFile: vi.fn()
+}));
+
 vi.mock('$lib/server/db', () => ({
 	db: { select: vi.fn(), delete: vi.fn() }
 }));
@@ -21,9 +26,10 @@ vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn()
 }));
 
+import { execFile } from 'node:child_process';
 import { db } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
-import { CleanupManager, parseDockerSize, formatBytes } from './index';
+import { CleanupManager, getCleanupManager, parseDockerSize, formatBytes } from './index';
 
 const mockDb = db as unknown as {
 	select: ReturnType<typeof vi.fn>;
@@ -178,5 +184,136 @@ describe('formatBytes', () => {
 		expect(formatBytes(150_000_000_000)).toBe('150GB');
 		expect(formatBytes(15_000_000_000)).toBe('15.0GB');
 		expect(formatBytes(1_230_000_000)).toBe('1.23GB');
+	});
+});
+
+/* ── CleanupManager.getDockerDiskUsage ───────────────────────────── */
+
+describe('CleanupManager.getDockerDiskUsage', () => {
+	let manager: CleanupManager;
+	const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		manager = new CleanupManager();
+	});
+
+	afterEach(() => {
+		manager.stop();
+	});
+
+	it('returns parsed disk usage on success', async () => {
+		mockExecFile.mockImplementation(
+			(_cmd: string, _args: string[], callback: (err: null, result: { stdout: string }) => void) => {
+				callback(null, {
+					stdout: [
+						'{"Type":"Images","TotalCount":"3","Size":"1.5GB"}',
+						'{"Type":"Containers","TotalCount":"2","Size":"200MB"}',
+						'{"Type":"Local Volumes","TotalCount":"1","Size":"50MB"}',
+						'{"Type":"Build Cache","TotalCount":"0","Size":"0B"}'
+					].join('\n')
+				});
+			}
+		);
+
+		const usage = await manager.getDockerDiskUsage();
+		expect(usage.images.count).toBe(3);
+		expect(usage.images.sizeFormatted).toBe('1.5GB');
+		expect(usage.containers.count).toBe(2);
+		expect(usage.containers.sizeFormatted).toBe('200MB');
+		expect(usage.volumes.count).toBe(1);
+		expect(usage.totalFormatted).not.toBe('0 B');
+	});
+
+	it('returns empty defaults when docker command fails', async () => {
+		mockExecFile.mockImplementation(
+			(_cmd: string, _args: string[], callback: (err: Error) => void) => {
+				callback(new Error('docker: command not found'));
+			}
+		);
+
+		const usage = await manager.getDockerDiskUsage();
+		expect(usage.images.count).toBe(0);
+		expect(usage.totalFormatted).toBe('0 B');
+	});
+});
+
+/* ── CleanupManager.dockerPrune ──────────────────────────────────── */
+
+describe('CleanupManager.dockerPrune', () => {
+	let manager: CleanupManager;
+	const mockExecFile = execFile as unknown as ReturnType<typeof vi.fn>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		manager = new CleanupManager();
+	});
+
+	afterEach(() => {
+		manager.stop();
+	});
+
+	function mockPruneSuccess(output: string) {
+		mockExecFile.mockImplementation(
+			(_cmd: string, _args: string[], callback: (err: null, result: { stdout: string }) => void) => {
+				callback(null, { stdout: output });
+			}
+		);
+	}
+
+	it('prunes all resources', async () => {
+		mockPruneSuccess('Total reclaimed space: 1.5GB');
+		const result = await manager.dockerPrune('all');
+		expect(result.type).toBe('all');
+		expect(result.spaceReclaimed).toBe('1.5GB');
+	});
+
+	it('prunes images', async () => {
+		mockPruneSuccess('Total reclaimed space: 200MB');
+		const result = await manager.dockerPrune('images');
+		expect(result.type).toBe('images');
+		expect(result.spaceReclaimed).toBe('200MB');
+	});
+
+	it('prunes containers', async () => {
+		mockPruneSuccess('Total reclaimed space: 50MB');
+		const result = await manager.dockerPrune('containers');
+		expect(result.type).toBe('containers');
+		expect(result.spaceReclaimed).toBe('50MB');
+	});
+
+	it('prunes volumes', async () => {
+		mockPruneSuccess('Total reclaimed space: 100MB');
+		const result = await manager.dockerPrune('volumes');
+		expect(result.type).toBe('volumes');
+		expect(result.spaceReclaimed).toBe('100MB');
+	});
+
+	it('prunes buildcache', async () => {
+		mockPruneSuccess('Total reclaimed space: 300MB');
+		const result = await manager.dockerPrune('buildcache');
+		expect(result.type).toBe('buildcache');
+		expect(result.spaceReclaimed).toBe('300MB');
+	});
+
+	it('returns 0B when docker command fails', async () => {
+		mockExecFile.mockImplementation(
+			(_cmd: string, _args: string[], callback: (err: Error) => void) => {
+				callback(new Error('permission denied'));
+			}
+		);
+		const result = await manager.dockerPrune('all');
+		expect(result.type).toBe('all');
+		expect(result.spaceReclaimed).toBe('0B');
+	});
+});
+
+/* ── getCleanupManager singleton ─────────────────────────────────── */
+
+describe('getCleanupManager singleton', () => {
+	it('returns the same instance on repeated calls', () => {
+		const a = getCleanupManager();
+		const b = getCleanupManager();
+		expect(a).toBe(b);
 	});
 });
