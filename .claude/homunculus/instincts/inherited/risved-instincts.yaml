@@ -1,0 +1,778 @@
+# Instincts generated from https://github.com/risved-org/risved
+# Generated: 2026-05-25T07:58:58.986Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: risved-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Commit Length
+
+## Action
+
+Keep commit messages concise (~44 characters)
+
+## Evidence
+
+- Average commit message length: 44 chars
+- Based on 200 commits
+
+---
+id: risved-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: risved-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: risved-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: lib, routes
+
+---
+id: risved-test-colocate
+trigger: "when writing tests"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Test Colocate
+
+## Action
+
+Place test file next to the source file (e.g., Button.test.tsx next to Button.tsx)
+
+## Evidence
+
+- Colocated test pattern detected
+- Tests live alongside source files
+
+---
+id: risved-test-framework
+trigger: "when writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Test Framework
+
+## Action
+
+Use playwright as the test framework
+
+## Evidence
+
+- Test framework detected: playwright
+- File pattern: *.test.ts
+
+---
+id: risved-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: risved-test-mocking
+trigger: "when mocking dependencies in tests"
+confidence: 0.75
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Test Mocking
+
+## Action
+
+Use vi.mock for mocking
+
+## Evidence
+
+- Mocking pattern detected: vi.mock
+- Consistent across test files
+
+---
+id: risved-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Test Types
+
+## Action
+
+Write unit, integration, e2e tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, integration, e2e
+- Coverage config: yes
+
+---
+id: risved-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: **/schema.*
+
+---
+id: risved-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~6x per month
+- Files: src/lib/server/detection/*, src/lib/server/dockerfile/*, src/lib/server/pipeline/*
+
+---
+id: risved-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/**/*
+
+---
+id: risved-workflow-test-health-maintenance
+trigger: "when doing test health maintenance"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Test Health Maintenance
+
+## Action
+
+Follow the test-health-maintenance workflow:
+1. Identify failing or stale test suites.
+2. Fix broken tests or update test logic/mocks.
+3. Add new test files or cases to increase coverage.
+4. Commit changes to relevant *.test.ts files.
+5. Optionally, run a /test-health routine to automate this process.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: src/**/*.test.ts, src/routes/**/*.test.ts, src/lib/**/*.test.ts
+
+---
+id: risved-workflow-version-bump-release
+trigger: "when doing version bump release"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Version Bump Release
+
+## Action
+
+Follow the version-bump-release workflow:
+1. Update the version in package.json.
+2. Commit the change with a 'bump version to x.x.x' message.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~10x per month
+- Files: package.json
+
+---
+id: risved-workflow-database-schema-migration
+trigger: "when doing database schema migration"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Database Schema Migration
+
+## Action
+
+Follow the database-schema-migration workflow:
+1. Edit src/lib/server/db/schema.ts to add or modify tables/columns.
+2. Generate a new migration SQL file in drizzle/ (e.g., drizzle/000x_*.sql).
+3. Update drizzle/meta/_journal.json to track the migration.
+4. Commit all related files together.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/lib/server/db/schema.ts, drizzle/*.sql, drizzle/meta/_journal.json
+
+---
+id: risved-workflow-docker-pipeline-fix-or-feature
+trigger: "when doing docker pipeline fix or feature"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Docker Pipeline Fix Or Feature
+
+## Action
+
+Follow the docker-pipeline-fix-or-feature workflow:
+1. Edit src/lib/server/pipeline/docker.ts and related pipeline files.
+2. Update or add tests in src/lib/server/pipeline/docker.test.ts.
+3. Optionally update Dockerfile templates/configs if needed.
+4. Commit all related files together.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: src/lib/server/pipeline/docker.ts, src/lib/server/pipeline/docker.test.ts, src/lib/server/pipeline/index.ts
+
+---
+id: risved-workflow-ui-design-system-refactor
+trigger: "when doing ui design system refactor"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Ui Design System Refactor
+
+## Action
+
+Follow the ui-design-system-refactor workflow:
+1. Edit Svelte components in src/lib/components/ and src/routes/ directories.
+2. Update layout and style files (e.g., src/routes/layout.css).
+3. Refactor or redesign dashboard/project/settings pages.
+4. Commit all related UI files together.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: src/lib/components/*.svelte, src/routes/**/*.svelte, src/routes/layout.css
+
+---
+id: risved-workflow-api-endpoint-fix-or-feature
+trigger: "when doing api endpoint fix or feature"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/risved-org/risved
+---
+
+# Risved Workflow Api Endpoint Fix Or Feature
+
+## Action
+
+Follow the api-endpoint-fix-or-feature workflow:
+1. Edit or add src/routes/api/**/*.ts files for the endpoint logic.
+2. Update or add corresponding *.test.ts files for the endpoint.
+3. Commit logic and test changes together.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/routes/api/**/*.ts, src/routes/api/**/*.test.ts
+
+---
+id: risved-instinct-file-naming-camelCase
+trigger: "When creating a new file in the codebase."
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct File Naming CamelCase
+
+## Action
+
+Name the file using camelCase.
+
+## Evidence
+
+- Pattern in namingConventions.files
+- Observed in src/lib/server/detection/detectors.ts
+
+---
+id: risved-instinct-function-naming-camelCase
+trigger: "When defining a new function."
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Function Naming CamelCase
+
+## Action
+
+Name the function using camelCase.
+
+## Evidence
+
+- Pattern in namingConventions.functions
+- Seen in src/lib/server/pipeline/docker.ts
+
+---
+id: risved-instinct-class-naming-PascalCase
+trigger: "When defining a new class."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Class Naming PascalCase
+
+## Action
+
+Name the class using PascalCase.
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: risved-instinct-constant-naming-SCREAMING_SNAKE_CASE
+trigger: "When defining a constant."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Constant Naming SCREAMING_SNAKE_CASE
+
+## Action
+
+Name the constant in SCREAMING_SNAKE_CASE.
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: risved-instinct-absolute-imports
+trigger: "When importing modules."
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Absolute Imports
+
+## Action
+
+Use absolute import paths.
+
+## Evidence
+
+- Pattern in importStyle: absolute
+- Seen in src/lib/server/detection/detectors.ts
+
+---
+id: risved-instinct-named-exports
+trigger: "When exporting modules or functions."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Named Exports
+
+## Action
+
+Use named exports.
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: risved-instinct-test-file-pattern
+trigger: "When creating a test file."
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Test File Pattern
+
+## Action
+
+Name the test file with the pattern *.test.ts and colocate near the code.
+
+## Evidence
+
+- Pattern in testing.filePattern
+- Pattern in architecture.folderStructure.testLocation
+
+---
+id: risved-instinct-use-playwright
+trigger: "When writing tests."
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Use Playwright
+
+## Action
+
+Use Playwright as the test framework.
+
+## Evidence
+
+- Pattern in testing.framework
+
+---
+id: risved-instinct-use-vi-mock
+trigger: "When mocking dependencies in tests."
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Use Vi Mock
+
+## Action
+
+Use vi.mock for mocking.
+
+## Evidence
+
+- Pattern in testing.mockingStyle
+
+---
+id: risved-instinct-test-coverage-config
+trigger: "When configuring tests."
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Test Coverage Config
+
+## Action
+
+Enable test coverage reporting.
+
+## Evidence
+
+- Pattern in testing.coverageConfig
+
+---
+id: risved-instinct-commit-prefix
+trigger: "When writing a commit message."
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Commit Prefix
+
+## Action
+
+Prefix the commit message with a type (e.g., fix, feat, style, chore, refactor, test).
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Seen in commit 'fix: tidy metrics chart labels, line fill, and y-axis width'
+
+---
+id: risved-instinct-commit-length
+trigger: "When writing a commit message."
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Commit Length
+
+## Action
+
+Keep the commit message concise (average ~44 characters).
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: risved-instinct-merge-pull-request-format
+trigger: "When merging a pull request."
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Merge Pull Request Format
+
+## Action
+
+Use the format 'Merge pull request #[number] from [branch]'.
+
+## Evidence
+
+- Seen in commit 'Merge pull request #7 from risved-org/chore/test-health-2026-05-06'
+
+---
+id: risved-instinct-test-health-maintenance
+trigger: "When test suites are failing, stale, or coverage needs to be improved."
+confidence: 0.98
+domain: workflow
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Test Health Maintenance
+
+## Action
+
+Identify failing or stale test suites, fix or update them, add new tests for coverage, and commit changes to relevant *.test.ts files. Optionally run /test-health.
+
+## Evidence
+
+- Workflow: test-health-maintenance
+- Seen in commits 'test: fix 3 stale/broken test suites'
+
+---
+id: risved-instinct-version-bump-release
+trigger: "When a new release is ready to be published or after significant changes."
+confidence: 0.99
+domain: workflow
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Version Bump Release
+
+## Action
+
+Update the version in package.json and commit with a 'bump version to x.x.x' message. Optionally run /bump-version.
+
+## Evidence
+
+- Workflow: version-bump-release
+- Seen in commit 'bump version to 0.13.0'
+
+---
+id: risved-instinct-database-schema-migration
+trigger: "When a new table/column is added or schema needs to be changed."
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Database Schema Migration
+
+## Action
+
+Edit schema.ts, generate a migration SQL file in drizzle/, update drizzle/meta/_journal.json, and commit all related files together. Optionally run /new-table.
+
+## Evidence
+
+- Workflow: database-schema-migration
+- Seen in files 'drizzle/0004_disable_pr_merged_default.sql', 'src/lib/server/db/schema.ts'
+
+---
+id: risved-instinct-docker-pipeline-fix-or-feature
+trigger: "When a Docker build/deploy issue is found or a new framework/build config is supported."
+confidence: 0.92
+domain: workflow
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Docker Pipeline Fix Or Feature
+
+## Action
+
+Edit docker pipeline files, update/add tests, optionally update Dockerfile templates/configs, and commit all related files together. Optionally run /fix-docker-pipeline.
+
+## Evidence
+
+- Workflow: docker-pipeline-fix-or-feature
+- Seen in files 'src/lib/server/pipeline/docker.ts', 'src/lib/server/pipeline/docker.test.ts'
+
+---
+id: risved-instinct-ui-design-system-refactor
+trigger: "When the design system or dashboard UI needs updates or new patterns."
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Ui Design System Refactor
+
+## Action
+
+Edit Svelte components, update layout/style files, refactor/redesign dashboard/project/settings pages, and commit all related UI files together. Optionally run /refactor-ui.
+
+## Evidence
+
+- Workflow: ui-design-system-refactor
+- Seen in files 'src/lib/components/DashboardHeader.svelte', 'src/routes/layout.css'
+
+---
+id: risved-instinct-api-endpoint-fix-or-feature
+trigger: "When a new API endpoint is needed or an existing one requires a fix."
+confidence: 0.87
+domain: workflow
+source: repo-analysis
+source_repo: risved-org/risved
+---
+
+# Risved Instinct Api Endpoint Fix Or Feature
+
+## Action
+
+Edit or add API endpoint files, update/add corresponding tests, and commit logic and test changes together. Optionally run /new-api-endpoint.
+
+## Evidence
+
+- Workflow: api-endpoint-fix-or-feature
+- Seen in files 'src/routes/api/**/*.ts', 'src/routes/api/**/*.test.ts'
+
