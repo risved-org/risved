@@ -12,6 +12,13 @@ const CLI = resolve(import.meta.dirname, '../../scripts/risved.mjs');
 const DB_FILE = `/tmp/risved_test_${Date.now()}.db`;
 const DB_URL = `file:${DB_FILE}`;
 
+beforeAll(async () => {
+	const client = createClient({ url: DB_URL });
+	const orm = drizzle(client);
+	await migrate(orm, { migrationsFolder: resolve(import.meta.dirname, '../../drizzle') });
+	client.close();
+});
+
 afterAll(() => {
 	try { unlinkSync(DB_FILE); } catch { /* already gone */ }
 });
