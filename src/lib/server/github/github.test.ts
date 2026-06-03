@@ -198,3 +198,81 @@ describe('exchangeGitHubCode', () => {
 		).rejects.toThrow('token exchange failed');
 	});
 });
+
+describe('GitHubClient — additional methods', () => {
+	let mockFetch: ReturnType<typeof vi.fn>;
+	let client: GitHubClient;
+
+	beforeEach(() => {
+		mockFetch = vi.fn();
+		client = new GitHubClient('test-token', mockFetch as unknown as typeof fetch);
+	});
+
+	describe('getFileContents', () => {
+		it('returns file contents on success', async () => {
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				text: () => Promise.resolve('file content here')
+			});
+
+			const result = await client.getFileContents('owner', 'repo', 'README.md', 'main');
+			expect(result).toBe('file content here');
+			expect(mockFetch).toHaveBeenCalledWith(
+				expect.stringContaining('/repos/owner/repo/contents/README.md'),
+				expect.objectContaining({
+					headers: expect.objectContaining({ Accept: 'application/vnd.github.raw' })
+				})
+			);
+		});
+
+		it('returns null when file does not exist (404)', async () => {
+			mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+
+			const result = await client.getFileContents('owner', 'repo', 'missing.txt', 'main');
+			expect(result).toBeNull();
+		});
+
+		it('throws on non-404 error', async () => {
+			mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+			await expect(client.getFileContents('owner', 'repo', 'file.txt', 'main')).rejects.toThrow('GitHub API 500');
+		});
+	});
+
+	describe('listRootFiles', () => {
+		it('returns file list on success', async () => {
+			const files = [{ name: 'package.json', type: 'file' }, { name: 'src', type: 'dir' }];
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve(files)
+			});
+
+			const result = await client.listRootFiles('owner', 'repo', 'main');
+			expect(result).toHaveLength(2);
+			expect(result[0].name).toBe('package.json');
+		});
+
+		it('returns empty array on error', async () => {
+			mockFetch.mockResolvedValueOnce({ ok: false, status: 403 });
+
+			const result = await client.listRootFiles('owner', 'repo', 'main');
+			expect(result).toEqual([]);
+		});
+	});
+
+	describe('deleteWebhook', () => {
+		it('sends DELETE request to hooks endpoint', async () => {
+			mockFetch.mockResolvedValueOnce({ ok: true });
+
+			await client.deleteWebhook('owner', 'repo', 42);
+			expect(mockFetch).toHaveBeenCalledWith(
+				'https://api.github.com/repos/owner/repo/hooks/42',
+				expect.objectContaining({
+					method: 'DELETE',
+					headers: expect.objectContaining({ Authorization: 'Bearer test-token' })
+				})
+			);
+		});
+	});
+});
