@@ -23,7 +23,7 @@ vi.mock('$lib/server/settings', () => ({
 
 import { db } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
-import { CleanupManager, parseDockerSize, formatBytes } from './index';
+import { CleanupManager, getCleanupManager, parseDockerSize, formatBytes } from './index';
 
 const mockDb = db as unknown as {
 	select: ReturnType<typeof vi.fn>;
@@ -178,5 +178,58 @@ describe('formatBytes', () => {
 		expect(formatBytes(150_000_000_000)).toBe('150GB');
 		expect(formatBytes(15_000_000_000)).toBe('15.0GB');
 		expect(formatBytes(1_230_000_000)).toBe('1.23GB');
+	});
+});
+
+describe('CleanupManager.getDockerDiskUsage', () => {
+	let manager: CleanupManager;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		manager = new CleanupManager();
+	});
+
+	it('returns zeroed usage object when docker is unavailable', async () => {
+		/* docker binary not available in test environment → falls through catch */
+		const usage = await manager.getDockerDiskUsage();
+		expect(usage).toMatchObject({
+			images: { count: 0, sizeFormatted: '0 B' },
+			containers: { count: 0, sizeFormatted: '0 B' },
+			volumes: { count: 0, sizeFormatted: '0 B' },
+			buildCache: { sizeFormatted: '0 B' },
+			totalFormatted: '0 B'
+		});
+	});
+});
+
+describe('CleanupManager.dockerPrune', () => {
+	let manager: CleanupManager;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		manager = new CleanupManager();
+	});
+
+	it('returns 0B spaceReclaimed when docker is unavailable', async () => {
+		const result = await manager.dockerPrune('images');
+		expect(result.type).toBe('images');
+		expect(result.spaceReclaimed).toBe('0B');
+	});
+
+	it.each(['images', 'containers', 'volumes', 'buildcache', 'all'] as const)(
+		'accepts prune type %s without throwing',
+		async (type) => {
+			const result = await manager.dockerPrune(type);
+			expect(result.type).toBe(type);
+		}
+	);
+});
+
+describe('getCleanupManager singleton', () => {
+	it('returns the same instance on repeated calls', () => {
+		const a = getCleanupManager();
+		const b = getCleanupManager();
+		expect(a).toBe(b);
+		a.stop();
 	});
 });
