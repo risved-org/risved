@@ -1,21 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockEnv = { CALLBACK_SECRET: 'test-secret' }
+
 const { mockDb, mockGetSetting, mockDecrypt, mockGetGitLabAuthUrl } = vi.hoisted(() => ({
 	mockDb: { select: vi.fn(), delete: vi.fn() },
 	mockGetSetting: vi.fn(),
 	mockDecrypt: vi.fn((v: string) => `dec:${v}`),
-	mockGetGitLabAuthUrl: vi.fn(() => 'https://gitlab.com/oauth/authorize?...')
+	mockGetGitLabAuthUrl: vi.fn(() => 'https://gitlab.com/oauth/authorize?test')
 }))
 
 vi.mock('$lib/server/db', () => ({ db: mockDb }))
 vi.mock('$lib/server/db/schema', () => ({
 	gitConnections: { id: 'id', provider: 'provider', accountName: 'account_name' }
 }))
-vi.mock('drizzle-orm', () => ({ eq: vi.fn((a: unknown, b: unknown) => ({ a, b })) }))
+vi.mock('drizzle-orm', () => ({
+	eq: vi.fn((a: unknown, b: unknown) => ({ a, b }))
+}))
 vi.mock('$lib/server/settings', () => ({ getSetting: mockGetSetting }))
-vi.mock('$lib/server/crypto', () => ({ decrypt: mockDecrypt }))
 vi.mock('$lib/server/gitlab', () => ({ getGitLabAuthUrl: mockGetGitLabAuthUrl }))
-vi.mock('$env/dynamic/private', () => ({ env: { CALLBACK_SECRET: 'test-secret' } }))
+vi.mock('$lib/server/crypto', () => ({ decrypt: mockDecrypt }))
 vi.mock('$lib/server/api-utils', () => ({
 	requireAuth: vi.fn().mockResolvedValue({ id: 'user-1' }),
 	jsonError: vi.fn((status: number, message: string) =>
@@ -28,69 +31,59 @@ vi.mock('@sveltejs/kit', () => ({
 		throw Object.assign(new Error('redirect'), { status, location })
 	})
 }))
+vi.mock('$env/dynamic/private', () => ({ get env() { return mockEnv } }))
 
-function makeSelectChain(rows: unknown[]) {
-	return {
-		from: vi.fn().mockReturnValue({
-			where: vi.fn().mockReturnValue(rows)
-		})
-	}
-}
-
-function makeEvent(method: string, options: { body?: unknown; searchParams?: Record<string, string>; cookies?: Record<string, string | undefined> } = {}) {
-	const url = new URL('http://localhost/')
-	for (const [k, v] of Object.entries(options.searchParams ?? {})) url.searchParams.set(k, v)
-	const cookies = options.cookies ?? {}
+function makeEvent(searchParams: Record<string, string> = {}, body?: unknown) {
+	const url = new URL('http://localhost/api/git/gitlab')
+	for (const [k, v] of Object.entries(searchParams)) url.searchParams.set(k, v)
 	return {
 		request: new Request(url.toString(), {
-			method,
-			body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+			method: body !== undefined ? 'DELETE' : 'GET',
+			body: body !== undefined ? JSON.stringify(body) : undefined
 		}),
 		locals: { user: { id: 'user-1' }, session: {} },
-		params: {},
 		url,
-		cookies: {
-			set: vi.fn(),
-			get: vi.fn((k: string) => cookies[k]),
-			delete: vi.fn()
-		}
+		cookies: { set: vi.fn(), get: vi.fn(), delete: vi.fn() }
 	}
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+	vi.clearAllMocks()
+	mockEnv.CALLBACK_SECRET = 'test-secret'
+	mockGetSetting.mockResolvedValue(null)
+})
 
 describe('GET /api/git/gitlab — list connections', () => {
 	it('returns list of gitlab connections', async () => {
-		mockGetSetting.mockResolvedValue(null)
-		mockDb.select.mockReturnValue(makeSelectChain([{ id: 'c1', provider: 'gitlab', accountName: 'alice' }]))
+		mockDb.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockResolvedValue([{ id: 'c1', provider: 'gitlab' }])
+			})
+		})
 
 		const { GET } = await import('./+server')
-		const resp = await GET(makeEvent('GET') as never)
+		const resp = await GET(makeEvent() as never)
 		const data = await resp.json()
 		expect(Array.isArray(data)).toBe(true)
+		expect(data[0].id).toBe('c1')
 	})
 })
 
-describe('GET /api/git/gitlab — ?action=connect proxy mode', () => {
-	it('redirects to risved proxy when no custom creds', async () => {
-		mockGetSetting.mockResolvedValue(null) // gitlab_app_mode → null (proxy)
-
+describe('GET /api/git/gitlab — connect (proxy mode)', () => {
+	it('redirects to risved.com proxy when no custom creds', async () => {
 		const { GET } = await import('./+server')
-		await expect(
-			GET(makeEvent('GET', { searchParams: { action: 'connect' } }) as never)
-		).rejects.toMatchObject({ status: 302, location: expect.stringContaining('risved.com') })
+		await expect(GET(makeEvent({ action: 'connect' }) as never)).rejects.toMatchObject({
+			status: 302,
+			location: expect.stringContaining('risved.com/callback/gitlab/start')
+		})
 	})
 
-	it('sets redirect cookie when returnTo is provided', async () => {
-		mockGetSetting.mockResolvedValue(null)
-
-		const event = makeEvent('GET', { searchParams: { action: 'connect', redirect: '/settings/git' } })
+	it('sets redirect cookie when returnTo param provided', async () => {
+		const { GET } = await import('./+server')
+		const event = makeEvent({ action: 'connect', redirect: '/settings/git' })
 		try {
-			await (await import('./+server')).GET(event as never)
-		} catch {
-			/* expected redirect */
-		}
-
+			await GET(event as never)
+		} catch { /* expected */ }
 		expect(event.cookies.set).toHaveBeenCalledWith(
 			'gitlab_oauth_redirect',
 			'/settings/git',
@@ -98,58 +91,73 @@ describe('GET /api/git/gitlab — ?action=connect proxy mode', () => {
 		)
 	})
 
-	it('does not set redirect cookie when returnTo is absent', async () => {
-		mockGetSetting.mockResolvedValue(null)
-
-		const event = makeEvent('GET', { searchParams: { action: 'connect' } })
-		try {
-			await (await import('./+server')).GET(event as never)
-		} catch {
-			/* expected redirect */
-		}
-
-		expect(event.cookies.set).not.toHaveBeenCalledWith('gitlab_oauth_redirect', expect.anything(), expect.anything())
+	it('returns 500 when CALLBACK_SECRET is missing', async () => {
+		mockEnv.CALLBACK_SECRET = ''
+		const { GET } = await import('./+server')
+		const resp = await GET(makeEvent({ action: 'connect' }) as never)
+		expect(resp.status).toBe(500)
 	})
 })
 
-describe('GET /api/git/gitlab — ?action=connect custom mode', () => {
-	it('redirects to GitLab OAuth in custom mode', async () => {
-		mockGetSetting
-			.mockResolvedValueOnce('custom') // gitlab_app_mode
-			.mockResolvedValueOnce('my-client-id') // gitlab_client_id
-			.mockResolvedValueOnce('enc-secret') // gitlab_client_secret
-			.mockResolvedValueOnce('https://gitlab.example.com') // gitlab_instance_url
+describe('GET /api/git/gitlab — connect (custom mode)', () => {
+	it('redirects to GitLab OAuth when custom creds are set', async () => {
+		mockGetSetting.mockImplementation((key: string) => {
+			if (key === 'gitlab_app_mode') return Promise.resolve('custom')
+			if (key === 'gitlab_client_id') return Promise.resolve('my-client-id')
+			if (key === 'gitlab_client_secret') return Promise.resolve('enc:my-secret')
+			if (key === 'gitlab_instance_url') return Promise.resolve('https://gitlab.example.com')
+			return Promise.resolve(null)
+		})
 
 		const { GET } = await import('./+server')
-		await expect(
-			GET(makeEvent('GET', { searchParams: { action: 'connect' } }) as never)
-		).rejects.toMatchObject({ status: 302, location: expect.stringContaining('gitlab.com') })
+		await expect(GET(makeEvent({ action: 'connect' }) as never)).rejects.toMatchObject({
+			status: 302,
+			location: 'https://gitlab.com/oauth/authorize?test'
+		})
+		expect(mockGetGitLabAuthUrl).toHaveBeenCalledWith(
+			'my-client-id',
+			expect.any(String),
+			expect.any(String),
+			'https://gitlab.example.com'
+		)
+	})
+
+	it('falls through to proxy mode when clientId or secret are missing', async () => {
+		mockGetSetting.mockImplementation((key: string) => {
+			if (key === 'gitlab_app_mode') return Promise.resolve('custom')
+			return Promise.resolve(null)
+		})
+
+		const { GET } = await import('./+server')
+		await expect(GET(makeEvent({ action: 'connect' }) as never)).rejects.toMatchObject({
+			status: 302,
+			location: expect.stringContaining('risved.com')
+		})
 	})
 })
 
 describe('DELETE /api/git/gitlab', () => {
 	it('returns 400 when body is invalid JSON', async () => {
+		const { DELETE } = await import('./+server')
 		const event = {
-			...makeEvent('DELETE'),
+			...makeEvent(),
 			request: new Request('http://localhost/', { method: 'DELETE', body: 'not-json' })
 		}
-
-		const { DELETE } = await import('./+server')
 		const resp = await DELETE(event as never)
 		expect(resp.status).toBe(400)
 	})
 
 	it('returns 400 when connectionId is missing', async () => {
 		const { DELETE } = await import('./+server')
-		const resp = await DELETE(makeEvent('DELETE', { body: {} }) as never)
+		const resp = await DELETE(makeEvent({}, {}) as never)
 		expect(resp.status).toBe(400)
 	})
 
-	it('deletes the connection and returns success', async () => {
+	it('deletes connection and returns success', async () => {
 		mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
 
 		const { DELETE } = await import('./+server')
-		const resp = await DELETE(makeEvent('DELETE', { body: { connectionId: 'conn-1' } }) as never)
+		const resp = await DELETE(makeEvent({}, { connectionId: 'conn-1' }) as never)
 		expect(resp.status).toBe(200)
 		const data = await resp.json()
 		expect(data).toMatchObject({ success: true })

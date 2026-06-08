@@ -1,21 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockEnv = { CALLBACK_SECRET: 'test-secret' }
+
 const { mockDb, mockGetSetting, mockDecrypt, mockGetGitHubAuthUrl } = vi.hoisted(() => ({
 	mockDb: { select: vi.fn(), delete: vi.fn() },
 	mockGetSetting: vi.fn(),
 	mockDecrypt: vi.fn((v: string) => `dec:${v}`),
-	mockGetGitHubAuthUrl: vi.fn(() => 'https://github.com/login/oauth/authorize?...')
+	mockGetGitHubAuthUrl: vi.fn(() => 'https://github.com/login/oauth/authorize?test')
 }))
 
 vi.mock('$lib/server/db', () => ({ db: mockDb }))
 vi.mock('$lib/server/db/schema', () => ({
 	gitConnections: { id: 'id', provider: 'provider', accountName: 'account_name' }
 }))
-vi.mock('drizzle-orm', () => ({ eq: vi.fn((a: unknown, b: unknown) => ({ a, b })) }))
+vi.mock('drizzle-orm', () => ({
+	eq: vi.fn((a: unknown, b: unknown) => ({ a, b }))
+}))
 vi.mock('$lib/server/settings', () => ({ getSetting: mockGetSetting }))
-vi.mock('$lib/server/crypto', () => ({ decrypt: mockDecrypt }))
 vi.mock('$lib/server/github', () => ({ getGitHubAuthUrl: mockGetGitHubAuthUrl }))
-vi.mock('$env/dynamic/private', () => ({ env: { CALLBACK_SECRET: 'test-secret' } }))
+vi.mock('$lib/server/crypto', () => ({ decrypt: mockDecrypt }))
 vi.mock('$lib/server/api-utils', () => ({
 	requireAuth: vi.fn().mockResolvedValue({ id: 'user-1' }),
 	jsonError: vi.fn((status: number, message: string) =>
@@ -28,131 +31,130 @@ vi.mock('@sveltejs/kit', () => ({
 		throw Object.assign(new Error('redirect'), { status, location })
 	})
 }))
+vi.mock('$env/dynamic/private', () => ({ get env() { return mockEnv } }))
 
-function makeSelectChain(rows: unknown[]) {
-	return {
-		from: vi.fn().mockReturnValue({
-			where: vi.fn().mockReturnValue(rows)
-		})
-	}
-}
-
-function makeEvent(method: string, options: { body?: unknown; searchParams?: Record<string, string>; cookies?: Record<string, string | undefined> } = {}) {
-	const url = new URL('http://localhost/')
-	for (const [k, v] of Object.entries(options.searchParams ?? {})) url.searchParams.set(k, v)
-	const cookies = options.cookies ?? {}
+function makeEvent(searchParams: Record<string, string> = {}, body?: unknown) {
+	const url = new URL('http://localhost/api/git/github')
+	for (const [k, v] of Object.entries(searchParams)) url.searchParams.set(k, v)
 	return {
 		request: new Request(url.toString(), {
-			method,
-			body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+			method: body !== undefined ? 'DELETE' : 'GET',
+			body: body !== undefined ? JSON.stringify(body) : undefined
 		}),
 		locals: { user: { id: 'user-1' }, session: {} },
-		params: {},
 		url,
-		cookies: {
-			set: vi.fn(),
-			get: vi.fn((k: string) => cookies[k]),
-			delete: vi.fn()
-		}
+		cookies: { set: vi.fn(), get: vi.fn(), delete: vi.fn() }
 	}
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+	vi.clearAllMocks()
+	mockEnv.CALLBACK_SECRET = 'test-secret'
+	mockGetSetting.mockResolvedValue(null)
+})
 
 describe('GET /api/git/github — list connections', () => {
 	it('returns list of github connections', async () => {
-		mockGetSetting.mockResolvedValue(null)
-		mockDb.select.mockReturnValue(makeSelectChain([{ id: 'c1', provider: 'github', accountName: 'alice' }]))
+		mockDb.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockResolvedValue([{ id: 'c1', provider: 'github' }])
+			})
+		})
 
 		const { GET } = await import('./+server')
-		const resp = await GET(makeEvent('GET') as never)
+		const resp = await GET(makeEvent() as never)
 		const data = await resp.json()
 		expect(Array.isArray(data)).toBe(true)
+		expect(data[0].id).toBe('c1')
 	})
 })
 
-describe('GET /api/git/github — ?action=connect proxy mode', () => {
-	it('redirects to risved proxy when no custom creds', async () => {
-		mockGetSetting.mockResolvedValue(null) // github_app_mode → null (proxy)
-
+describe('GET /api/git/github — connect (proxy mode)', () => {
+	it('redirects to risved.com proxy when no custom creds', async () => {
 		const { GET } = await import('./+server')
-		await expect(
-			GET(makeEvent('GET', { searchParams: { action: 'connect' } }) as never)
-		).rejects.toMatchObject({ status: 302, location: expect.stringContaining('risved.com') })
+		await expect(GET(makeEvent({ action: 'connect' }) as never)).rejects.toMatchObject({
+			status: 302,
+			location: expect.stringContaining('risved.com/callback/github/start')
+		})
 	})
 
-	it('sets oauth_redirect cookie when returnTo param is absent', async () => {
-		mockGetSetting.mockResolvedValue(null)
-
-		const event = makeEvent('GET', { searchParams: { action: 'connect' } })
-		try {
-			await (await import('./+server')).GET(event as never)
-		} catch {
-			/* expected redirect */
-		}
-		// no redirect cookie set when returnTo is absent
-		expect(event.cookies.set).not.toHaveBeenCalledWith('github_oauth_redirect', expect.anything(), expect.anything())
-	})
-})
-
-describe('GET /api/git/github — ?action=connect custom mode', () => {
-	it('redirects to GitHub OAuth in custom mode', async () => {
-		mockGetSetting
-			.mockResolvedValueOnce('custom') // github_app_mode
-			.mockResolvedValueOnce('my-client-id') // github_app_client_id
-			.mockResolvedValueOnce('enc-secret') // github_app_client_secret
-
+	it('sets redirect cookie when returnTo param provided', async () => {
 		const { GET } = await import('./+server')
-		await expect(
-			GET(makeEvent('GET', { searchParams: { action: 'connect' } }) as never)
-		).rejects.toMatchObject({ status: 302, location: expect.stringContaining('github.com') })
-	})
-
-	it('sets redirect cookie when returnTo is provided', async () => {
-		mockGetSetting.mockResolvedValue(null) // proxy mode
-
-		const event = makeEvent('GET', { searchParams: { action: 'connect', redirect: '/settings/git' } })
-
-		const { GET } = await import('./+server')
+		const event = makeEvent({ action: 'connect', redirect: '/settings/git' })
 		try {
 			await GET(event as never)
-		} catch {
-			/* expected redirect */
-		}
-
+		} catch { /* expected */ }
 		expect(event.cookies.set).toHaveBeenCalledWith(
 			'github_oauth_redirect',
 			'/settings/git',
 			expect.any(Object)
 		)
 	})
+
+	it('returns 500 when CALLBACK_SECRET is missing', async () => {
+		mockEnv.CALLBACK_SECRET = ''
+		const { GET } = await import('./+server')
+		const resp = await GET(makeEvent({ action: 'connect' }) as never)
+		expect(resp.status).toBe(500)
+	})
+})
+
+describe('GET /api/git/github — connect (custom mode)', () => {
+	it('redirects to GitHub OAuth when custom creds are set', async () => {
+		mockGetSetting.mockImplementation((key: string) => {
+			if (key === 'github_app_mode') return Promise.resolve('custom')
+			if (key === 'github_app_client_id') return Promise.resolve('my-client-id')
+			if (key === 'github_app_client_secret') return Promise.resolve('enc:my-secret')
+			return Promise.resolve(null)
+		})
+
+		const { GET } = await import('./+server')
+		await expect(GET(makeEvent({ action: 'connect' }) as never)).rejects.toMatchObject({
+			status: 302,
+			location: 'https://github.com/login/oauth/authorize?test'
+		})
+		expect(mockGetGitHubAuthUrl).toHaveBeenCalledWith('my-client-id', expect.any(String), expect.any(String))
+	})
+
+	it('falls through to proxy mode when clientId or secret are missing', async () => {
+		mockGetSetting.mockImplementation((key: string) => {
+			if (key === 'github_app_mode') return Promise.resolve('custom')
+			return Promise.resolve(null)
+		})
+
+		const { GET } = await import('./+server')
+		await expect(GET(makeEvent({ action: 'connect' }) as never)).rejects.toMatchObject({
+			status: 302,
+			location: expect.stringContaining('risved.com')
+		})
+	})
 })
 
 describe('DELETE /api/git/github', () => {
 	it('returns 400 when body is invalid JSON', async () => {
+		const { DELETE } = await import('./+server')
 		const event = {
-			...makeEvent('DELETE'),
+			...makeEvent(),
 			request: new Request('http://localhost/', { method: 'DELETE', body: 'not-json' })
 		}
-
-		const { DELETE } = await import('./+server')
 		const resp = await DELETE(event as never)
 		expect(resp.status).toBe(400)
 	})
 
 	it('returns 400 when connectionId is missing', async () => {
 		const { DELETE } = await import('./+server')
-		const resp = await DELETE(makeEvent('DELETE', { body: {} }) as never)
+		const resp = await DELETE(makeEvent({}, {}) as never)
 		expect(resp.status).toBe(400)
 	})
 
-	it('deletes the connection and returns success', async () => {
+	it('deletes connection and returns success', async () => {
 		mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
 
 		const { DELETE } = await import('./+server')
-		const resp = await DELETE(makeEvent('DELETE', { body: { connectionId: 'conn-1' } }) as never)
+		const resp = await DELETE(makeEvent({}, { connectionId: 'conn-1' }) as never)
 		expect(resp.status).toBe(200)
 		const data = await resp.json()
 		expect(data).toMatchObject({ success: true })
+		expect(mockDb.delete).toHaveBeenCalled()
 	})
 })

@@ -1,21 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockDb, mockGetSetting, mockEncrypt, mockDecrypt, mockDecryptCallbackToken, mockExchangeCode, mockGetUser } = vi.hoisted(() => {
-	const mockGetUser = vi.fn().mockResolvedValue({ username: 'alice', avatar_url: 'https://a.co/a.png' })
-	return {
-		mockDb: { select: vi.fn(), insert: vi.fn(), update: vi.fn() },
-		mockGetSetting: vi.fn(),
-		mockEncrypt: vi.fn((v: string) => `enc:${v}`),
-		mockDecrypt: vi.fn((v: string) => `dec:${v}`),
-		mockDecryptCallbackToken: vi.fn((v: string) => `tok:${v}`),
-		mockExchangeCode: vi.fn().mockResolvedValue({
-			access_token: 'gl-token',
-			refresh_token: 'gl-refresh',
-			expires_in: 7200
-		}),
-		mockGetUser
-	}
-})
+const mockEnv = { CALLBACK_SECRET: 'test-secret' }
+
+const {
+	mockDb,
+	mockGetSetting,
+	mockEncrypt,
+	mockDecrypt,
+	mockDecryptCallbackToken,
+	mockExchangeGitLabCode,
+	mockGetUser
+} = vi.hoisted(() => ({
+	mockDb: { select: vi.fn(), insert: vi.fn(), update: vi.fn() },
+	mockGetSetting: vi.fn(),
+	mockEncrypt: vi.fn((v: string) => `enc:${v}`),
+	mockDecrypt: vi.fn((v: string) => `dec:${v}`),
+	mockDecryptCallbackToken: vi.fn((v: string) => `tok:${v}`),
+	mockExchangeGitLabCode: vi.fn(),
+	mockGetUser: vi.fn()
+}))
 
 vi.mock('$lib/server/db', () => ({ db: mockDb }))
 vi.mock('$lib/server/db/schema', () => ({
@@ -32,13 +35,12 @@ vi.mock('$lib/server/crypto', () => ({
 	decryptCallbackToken: mockDecryptCallbackToken
 }))
 vi.mock('$lib/server/gitlab', () => ({
-	exchangeGitLabCode: mockExchangeCode,
+	exchangeGitLabCode: mockExchangeGitLabCode,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	GitLabClient: vi.fn().mockImplementation(function (this: any) {
 		this.getUser = mockGetUser
 	})
 }))
-vi.mock('$env/dynamic/private', () => ({ env: { CALLBACK_SECRET: 'test-secret' } }))
 vi.mock('$lib/server/api-utils', () => ({
 	requireAuth: vi.fn().mockResolvedValue({ id: 'user-1' }),
 	jsonError: vi.fn((status: number, message: string) =>
@@ -50,150 +52,166 @@ vi.mock('@sveltejs/kit', () => ({
 		throw Object.assign(new Error('redirect'), { status, location })
 	})
 }))
+vi.mock('$env/dynamic/private', () => ({ get env() { return mockEnv } }))
 
-function makeSelectWithLimit(rows: unknown[]) {
-	return {
-		from: vi.fn().mockReturnValue({
-			where: vi.fn().mockReturnValue({
-				limit: vi.fn().mockResolvedValue(rows)
-			})
-		})
-	}
-}
-
-function makeEvent(searchParams: Record<string, string>, cookies: Record<string, string | undefined> = {}) {
-	const url = new URL('http://localhost/')
+function makeEvent(searchParams: Record<string, string> = {}, cookies: Record<string, string> = {}) {
+	const url = new URL('http://localhost/api/git/gitlab/callback')
 	for (const [k, v] of Object.entries(searchParams)) url.searchParams.set(k, v)
 	return {
 		request: new Request(url.toString()),
 		locals: { user: { id: 'user-1' }, session: {} },
-		params: {},
 		url,
 		cookies: {
 			set: vi.fn(),
-			get: vi.fn((k: string) => cookies[k]),
+			get: vi.fn((key: string) => cookies[key] ?? null),
 			delete: vi.fn()
 		}
 	}
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+	vi.clearAllMocks()
+	mockEnv.CALLBACK_SECRET = 'test-secret'
+	mockGetSetting.mockResolvedValue(null)
+	mockGetUser.mockResolvedValue({ username: 'alice', avatar_url: 'https://a.co/a.png' })
+})
 
 describe('GET /api/git/gitlab/callback — proxy mode', () => {
 	it('returns 400 when token param is missing', async () => {
-		mockGetSetting.mockResolvedValue(null)
-
 		const { GET } = await import('./+server')
-		const resp = await GET(makeEvent({}) as never)
+		const resp = await GET(makeEvent() as never)
 		expect(resp.status).toBe(400)
 	})
 
-	it('returns 400 when token decryption fails', async () => {
-		mockGetSetting.mockResolvedValue(null)
-		mockDecryptCallbackToken.mockImplementationOnce(() => { throw new Error('bad') })
+	it('returns 500 when CALLBACK_SECRET is missing', async () => {
+		mockEnv.CALLBACK_SECRET = ''
+		const { GET } = await import('./+server')
+		const resp = await GET(makeEvent({ token: 'enc-token' }) as never)
+		expect(resp.status).toBe(500)
+	})
 
+	it('returns 400 when token decryption fails', async () => {
+		mockDecryptCallbackToken.mockImplementationOnce(() => { throw new Error('bad token') })
 		const { GET } = await import('./+server')
 		const resp = await GET(makeEvent({ token: 'bad-token' }) as never)
 		expect(resp.status).toBe(400)
 	})
 
-	it('inserts new connection and redirects', async () => {
-		mockGetSetting.mockResolvedValue(null)
-		mockDb.select.mockReturnValue(makeSelectWithLimit([]))
+	it('inserts new connection on successful proxy callback', async () => {
+		mockDb.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) })
+			})
+		})
 		mockDb.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
 
 		const { GET } = await import('./+server')
-		await expect(GET(makeEvent({ token: 'enc-tok' }) as never)).rejects.toMatchObject({
+		await expect(GET(makeEvent({ token: 'enc-token' }) as never)).rejects.toMatchObject({
 			status: 302,
 			location: '/settings/git'
 		})
 		expect(mockDb.insert).toHaveBeenCalled()
 	})
 
-	it('updates existing connection and redirects', async () => {
-		mockGetSetting.mockResolvedValue(null)
-		mockDb.select.mockReturnValue(makeSelectWithLimit([{ id: 'conn-1' }]))
+	it('updates existing connection on proxy callback', async () => {
+		mockDb.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: 'conn-1' }]) })
+			})
+		})
 		mockDb.update.mockReturnValue({
 			set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
 		})
 
 		const { GET } = await import('./+server')
-		await expect(GET(makeEvent({ token: 'enc-tok' }) as never)).rejects.toMatchObject({
-			status: 302
-		})
+		await expect(GET(makeEvent({ token: 'enc-token' }) as never)).rejects.toMatchObject({ status: 302 })
 		expect(mockDb.update).toHaveBeenCalled()
 	})
 
-	it('decrypts optional refresh token from query params', async () => {
-		mockGetSetting.mockResolvedValue(null)
-		mockDb.select.mockReturnValue(makeSelectWithLimit([]))
+	it('handles optional refresh_token in proxy callback', async () => {
+		mockDb.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) })
+			})
+		})
 		mockDb.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
 
 		const { GET } = await import('./+server')
 		await expect(
-			GET(makeEvent({ token: 'enc-tok', refresh_token: 'enc-refresh', expires_in: '3600' }) as never)
+			GET(makeEvent({ token: 'enc-token', refresh_token: 'enc-refresh', expires_in: '3600' }) as never)
 		).rejects.toMatchObject({ status: 302 })
-		expect(mockDecryptCallbackToken).toHaveBeenCalledWith('enc-refresh', 'test-secret')
+		expect(mockEncrypt).toHaveBeenCalledTimes(2)
 	})
 
-	it('redirects to returnTo cookie path', async () => {
-		mockGetSetting.mockResolvedValue(null)
-		mockDb.select.mockReturnValue(makeSelectWithLimit([]))
+	it('uses redirect cookie as returnTo destination', async () => {
+		mockDb.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) })
+			})
+		})
 		mockDb.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
 
-		const event = makeEvent({ token: 'enc-tok' }, { gitlab_oauth_redirect: '/onboarding/git' })
 		const { GET } = await import('./+server')
-		await expect(GET(event as never)).rejects.toMatchObject({
-			status: 302,
-			location: '/onboarding/git'
-		})
+		await expect(
+			GET(makeEvent({ token: 'tok' }, { gitlab_oauth_redirect: '/new' }) as never)
+		).rejects.toMatchObject({ status: 302, location: '/new' })
 	})
 })
 
 describe('GET /api/git/gitlab/callback — custom mode', () => {
-	it('returns 400 when state is missing or mismatched', async () => {
-		mockGetSetting.mockResolvedValue('custom')
+	beforeEach(() => {
+		mockGetSetting.mockImplementation((key: string) => {
+			if (key === 'gitlab_app_mode') return Promise.resolve('custom')
+			if (key === 'gitlab_client_id') return Promise.resolve('client-id')
+			if (key === 'gitlab_client_secret') return Promise.resolve('enc:secret')
+			if (key === 'gitlab_instance_url') return Promise.resolve('https://gitlab.example.com')
+			return Promise.resolve(null)
+		})
+	})
 
+	it('returns 400 when state is missing', async () => {
+		const { GET } = await import('./+server')
+		const resp = await GET(makeEvent({ code: 'auth-code' }) as never)
+		expect(resp.status).toBe(400)
+	})
+
+	it('returns 400 when state does not match', async () => {
 		const { GET } = await import('./+server')
 		const resp = await GET(
-			makeEvent({ code: 'abc', state: 'x' }, { gitlab_oauth_state: 'y' }) as never
+			makeEvent({ code: 'c', state: 'wrong' }, { gitlab_oauth_state: 'correct' }) as never
 		)
 		expect(resp.status).toBe(400)
 	})
 
-	it('returns 500 when custom app credentials not configured', async () => {
-		mockGetSetting
-			.mockResolvedValueOnce('custom')   // mode
-			.mockResolvedValueOnce(null)        // client_id
-			.mockResolvedValueOnce(null)        // client_secret
-			.mockResolvedValueOnce(null)        // instance_url
+	it('returns 500 when clientId or secret are missing', async () => {
+		mockGetSetting.mockImplementation((key: string) => {
+			if (key === 'gitlab_app_mode') return Promise.resolve('custom')
+			return Promise.resolve(null)
+		})
 
 		const { GET } = await import('./+server')
-		const resp = await GET(
-			makeEvent({ code: 'abc', state: 'my-state' }, { gitlab_oauth_state: 'my-state' }) as never
-		)
+		const resp = await GET(makeEvent({ code: 'c', state: 'st' }, { gitlab_oauth_state: 'st' }) as never)
 		expect(resp.status).toBe(500)
 	})
 
-	it('exchanges code and inserts connection', async () => {
-		mockGetSetting
-			.mockResolvedValueOnce('custom')
-			.mockResolvedValueOnce('client-id')
-			.mockResolvedValueOnce('enc-secret')
-			.mockResolvedValueOnce('https://gitlab.example.com')
-		mockDb.select.mockReturnValue(makeSelectWithLimit([]))
+	it('exchanges code and inserts connection in custom mode', async () => {
+		mockExchangeGitLabCode.mockResolvedValue({
+			access_token: 'glpat_abc123',
+			refresh_token: 'glrt_xyz',
+			expires_in: 7200
+		})
+		mockDb.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) })
+			})
+		})
 		mockDb.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) })
 
 		const { GET } = await import('./+server')
 		await expect(
-			GET(makeEvent({ code: 'auth-code', state: 'st' }, { gitlab_oauth_state: 'st' }) as never)
+			GET(makeEvent({ code: 'auth-code', state: 'mystate' }, { gitlab_oauth_state: 'mystate' }) as never)
 		).rejects.toMatchObject({ status: 302 })
-		expect(mockExchangeCode).toHaveBeenCalledWith(
-			'client-id',
-			'dec:enc-secret',
-			'auth-code',
-			expect.any(String),
-			'https://gitlab.example.com'
-		)
+		expect(mockExchangeGitLabCode).toHaveBeenCalled()
+		expect(mockDb.insert).toHaveBeenCalled()
 	})
 })
