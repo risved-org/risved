@@ -8,6 +8,19 @@ vi.mock('node:fs', () => ({
 	readFileSync: vi.fn((_path: string) => JSON.stringify({ version: mockPackageVersion }))
 }))
 
+vi.mock('node:child_process', () => ({
+	execFile: vi.fn(),
+	execSync: vi.fn().mockReturnValue('2000000\n')
+}))
+
+vi.mock('node:util', () => ({
+	promisify: vi.fn((fn: unknown) => fn)
+}))
+
+vi.mock('node:fs/promises', () => ({
+	writeFile: vi.fn().mockResolvedValue(undefined)
+}))
+
 vi.mock('node:path', () => ({
 	resolve: (...args: string[]) => args.join('/')
 }))
@@ -230,5 +243,171 @@ describe('UpdateChecker', () => {
 		expect(info.error).toContain('Could not reach')
 
 		vi.restoreAllMocks()
+	})
+})
+
+describe('UpdateChecker.pullUpdate', () => {
+	let checker: UpdateChecker
+
+	beforeEach(() => {
+		vi.clearAllMocks()
+		mockPackageVersion = '0.2.0'
+		checker = new UpdateChecker({ versionUrl: 'https://example.com/version.json', installDir: '/tmp/test' })
+	})
+
+	afterEach(() => checker.stop())
+
+	it('calls docker pull with the correct image tag', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+		mockExec.mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+		await checker.pullUpdate('0.3.0')
+
+		expect(mockExec).toHaveBeenCalledWith(
+			'docker',
+			['pull', 'ghcr.io/risved-org/risved:0.3.0'],
+			expect.objectContaining({ timeout: 300_000 })
+		)
+	})
+
+	it('strips v prefix from version tag', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+		mockExec.mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+		await checker.pullUpdate('v0.3.0')
+
+		expect(mockExec).toHaveBeenCalledWith(
+			'docker',
+			['pull', 'ghcr.io/risved-org/risved:0.3.0'],
+			expect.anything()
+		)
+	})
+
+	it('propagates docker pull errors', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+		mockExec.mockRejectedValueOnce(new Error('docker: not found'))
+
+		await expect(checker.pullUpdate('0.3.0')).rejects.toThrow('docker: not found')
+	})
+})
+
+describe('UpdateChecker.restartControlPlane', () => {
+	let checker: UpdateChecker
+
+	beforeEach(() => {
+		vi.clearAllMocks()
+		mockPackageVersion = '0.2.0'
+		checker = new UpdateChecker({ versionUrl: 'https://example.com/version.json', installDir: '/tmp/test' })
+	})
+
+	afterEach(() => checker.stop())
+
+	it('calls docker inspect and spawns helper container', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+
+		const fakeInspect = JSON.stringify([{
+			Config: { Env: ['FOO=bar'] },
+			HostConfig: { PortBindings: {}, Binds: ['/opt/risved/data:/app/data'], Mounts: [] },
+			NetworkSettings: { Networks: { risved: {} } }
+		}])
+		mockExec
+			.mockResolvedValueOnce({ stdout: fakeInspect, stderr: '' })
+			.mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+		await checker.restartControlPlane('0.3.0')
+
+		expect(mockExec).toHaveBeenCalledTimes(2)
+		expect(mockExec).toHaveBeenNthCalledWith(1, 'docker', ['inspect', 'risved-control'])
+		expect(mockExec).toHaveBeenNthCalledWith(
+			2, 'docker',
+			expect.arrayContaining(['run', '-d', '--rm']),
+			expect.any(Object)
+		)
+	})
+
+	it('stores target version in settings before restart', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+
+		const fakeInspect = JSON.stringify([{
+			Config: { Env: [] },
+			HostConfig: { PortBindings: {}, Binds: ['/data:/app/data'], Mounts: [] },
+			NetworkSettings: { Networks: { risved: {} } }
+		}])
+		mockExec
+			.mockResolvedValueOnce({ stdout: fakeInspect, stderr: '' })
+			.mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+		const mockSettings = new Map<string, string>()
+		const { setSetting } = await import('$lib/server/settings')
+		vi.mocked(setSetting).mockImplementation((k: string, v: string) => {
+			mockSettings.set(k, v)
+			return Promise.resolve()
+		})
+
+		await checker.restartControlPlane('0.3.0')
+		expect(mockSettings.get('risved_version')).toBe('0.3.0')
+	})
+})
+
+describe('UpdateChecker.performUpdate', () => {
+	let checker: UpdateChecker
+
+	beforeEach(() => {
+		vi.clearAllMocks()
+		mockPackageVersion = '0.2.0'
+		checker = new UpdateChecker({ versionUrl: 'https://example.com/version.json', installDir: '/tmp/test' })
+	})
+
+	afterEach(() => checker.stop())
+
+	it('throws when update already in progress', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+		/* Make pullUpdate hang */
+		mockExec.mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+		const firstUpdate = checker.performUpdate('0.3.0')
+		await expect(checker.performUpdate('0.3.0')).rejects.toThrow('already in progress')
+		/* Clean up the hanging promise */
+		checker.stop()
+		firstUpdate.catch(() => {})
+	})
+
+	it('isUpdating returns true once update begins', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+		mockExec.mockRejectedValueOnce(new Error('pull failed'))
+
+		expect(checker.isUpdating()).toBe(false)
+		const updatePromise = checker.performUpdate('0.3.0')
+		/* isUpdating is set synchronously before the first await */
+		expect(checker.isUpdating()).toBe(true)
+		await updatePromise.catch(() => {})
+		/* After failure, updating is cleared */
+		expect(checker.isUpdating()).toBe(false)
+	})
+
+	it('clears updating flag and stores error on failure', async () => {
+		const { execFile } = await import('node:child_process')
+		const mockExec = vi.mocked(execFile) as ReturnType<typeof vi.fn>
+		mockExec.mockRejectedValueOnce(new Error('pull failed'))
+
+		await expect(checker.performUpdate('0.3.0')).rejects.toThrow('pull failed')
+		expect(checker.isUpdating()).toBe(false)
+	})
+})
+
+describe('getUpdateChecker singleton', () => {
+	it('returns the same instance on multiple calls', async () => {
+		const { getUpdateChecker } = await import('./index')
+		const a = getUpdateChecker()
+		const b = getUpdateChecker()
+		expect(a).toBe(b)
+		a.stop()
 	})
 })
