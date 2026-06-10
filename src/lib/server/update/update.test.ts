@@ -232,3 +232,22 @@ describe('UpdateChecker', () => {
 		vi.restoreAllMocks()
 	})
 })
+
+describe('getUpdateChecker singleton', () => {
+	it('returns the same instance on repeated calls', async () => {
+		const { getUpdateChecker } = await import('./index')
+		const a = getUpdateChecker()
+		const b = getUpdateChecker()
+		expect(a).toBe(b)
+		a.stop()
+	})
+
+	it('passes config to the singleton on first call', async () => {
+		/* Re-import to get a fresh module with no existing instance */
+		vi.resetModules()
+		const { getUpdateChecker } = await import('./index')
+		const instance = getUpdateChecker({ versionUrl: 'https://custom.example.com/v.json' })
+		expect(instance).toBeDefined()
+		instance.stop()
+	})
+})
