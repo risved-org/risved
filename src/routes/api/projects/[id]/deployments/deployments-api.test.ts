@@ -177,4 +177,66 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 		expect(text).toContain('event: done');
 		expect(text).toContain('live');
 	});
+
+	it('streams logs for an in-progress deployment and closes when terminal', async () => {
+		/* Select call sequence:
+		 * 0 – initial deployment lookup → non-terminal (building)
+		 * 1 – in-loop log poll          → one log entry
+		 * 2 – in-loop status re-check   → terminal (live) → loop exits
+		 */
+		let selectCallIdx = 0;
+		mockDb.select.mockImplementation(() => {
+			const idx = selectCallIdx++;
+			return {
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockImplementation(() => {
+							if (idx === 0) {
+								return Promise.resolve([{ id: 'd-2', projectId: 'p-1', status: 'building' }]);
+							}
+							return Promise.resolve([{ id: 'd-2', projectId: 'p-1', status: 'live' }]);
+						}),
+						orderBy: vi.fn().mockResolvedValue([
+							{ id: 10, timestamp: '2026-01-01T00:00:00Z', phase: 'build', level: 'info', message: 'Compiling' }
+						])
+					})
+				})
+			};
+		});
+
+		const { GET } = await import('./[did]/logs/+server');
+		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-2' } }));
+
+		expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+		expect(res.headers.get('Cache-Control')).toBe('no-cache');
+
+		const text = await res.text();
+		expect(text).toContain('Compiling');
+		expect(text).toContain('event: done');
+		expect(text).toContain('live');
+	});
+
+	it('stream cancel() sets closed flag without throwing', async () => {
+		const deployment = { id: 'd-3', projectId: 'p-1', status: 'building' };
+		let selectCallIdx2 = 0;
+		mockDb.select.mockImplementation(() => {
+			const idx = selectCallIdx2++;
+			return {
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockImplementation(() => {
+							if (idx === 0) return Promise.resolve([deployment]);
+							return Promise.resolve([{ ...deployment, status: 'live' }]);
+						}),
+						orderBy: vi.fn().mockResolvedValue([])
+					})
+				})
+			};
+		});
+
+		const { GET } = await import('./[did]/logs/+server');
+		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-3' } }));
+
+		await expect(res.body!.cancel()).resolves.toBeUndefined();
+	});
 });
