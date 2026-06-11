@@ -38,7 +38,31 @@ vi.mock('$lib/server/db/schema', () => ({
 		instanceUrl: 'instance_url',
 		avatarUrl: 'avatar_url',
 		createdAt: 'created_at'
-	}
+	},
+	settings: { key: 'key' }
+}));
+
+vi.mock('$lib/server/git-actions', () => ({
+	connectForgejo: vi.fn().mockResolvedValue({ connected: true }),
+	saveGithubApp: vi.fn().mockResolvedValue({ savedGithub: true }),
+	saveGitlabApp: vi.fn().mockResolvedValue({ savedGitlab: true })
+}));
+
+vi.mock('node:child_process', () => ({
+	execSync: vi.fn()
+}));
+
+vi.mock('node:fs/promises', () => ({
+	readFile: vi.fn().mockResolvedValue('ssh-ed25519 AAABBBCCC risved-deploy-key\n'),
+	rm: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('node:path', () => ({
+	join: (...args: string[]) => args.join('/')
+}));
+
+vi.mock('node:os', () => ({
+	tmpdir: vi.fn().mockReturnValue('/tmp')
 }));
 
 vi.mock('$lib/server/settings', () => ({
@@ -199,5 +223,51 @@ describe('git settings page source', () => {
 	it('uses shared GitProviderCards component', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('GitProviderCards');
+	});
+});
+
+describe('git settings SSH key actions', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('generateSshKey generates and stores key pair', async () => {
+		const result = await actions.generateSshKey(null as never);
+		expect(result).toMatchObject({ keyGenerated: true });
+	});
+
+	it('revokeSshKey deletes key settings', async () => {
+		const result = await actions.revokeSshKey(null as never);
+		expect(result).toMatchObject({ keyRevoked: true });
+	});
+});
+
+describe('git settings delegated provider actions', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('forgejo delegates to connectForgejo', async () => {
+		const formData = new FormData();
+		const result = await actions.forgejo({
+			request: { formData: () => Promise.resolve(formData) }
+		} as never);
+		expect(result).toMatchObject({ connected: true });
+	});
+
+	it('saveGithubApp delegates to saveGithubApp', async () => {
+		const formData = new FormData();
+		const result = await actions.saveGithubApp({
+			request: { formData: () => Promise.resolve(formData) }
+		} as never);
+		expect(result).toMatchObject({ savedGithub: true });
+	});
+
+	it('saveGitlabApp delegates to saveGitlabApp', async () => {
+		const formData = new FormData();
+		const result = await actions.saveGitlabApp({
+			request: { formData: () => Promise.resolve(formData) }
+		} as never);
+		expect(result).toMatchObject({ savedGitlab: true });
 	});
 });

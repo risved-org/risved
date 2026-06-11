@@ -49,8 +49,12 @@ vi.mock('$lib/server/dns', () => ({
 
 vi.mock('$lib/server/caddy', () => ({
 	CaddyClient: vi.fn(() => ({
-		addRoute: vi.fn(),
-		removeRoute: vi.fn()
+		addRoute: vi.fn().mockResolvedValue(undefined),
+		removeRoute: vi.fn().mockResolvedValue(undefined)
+	})),
+	createCaddyClient: vi.fn(() => ({
+		addRoute: vi.fn().mockResolvedValue(undefined),
+		removeRoute: vi.fn().mockResolvedValue(undefined)
 	}))
 }));
 
@@ -157,6 +161,123 @@ describe('domains actions', () => {
 
 		expect(result).toMatchObject({ added: true });
 		expect(db.insert).toHaveBeenCalled();
+	});
+
+	it('verify returns 404 when project not found', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		const result = await actions.verify({
+			params: { slug: 'ghost' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.verify>[0]);
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('verify returns 404 when domain not found', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-missing');
+		const result = await actions.verify({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.verify>[0]);
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('verify updates ssl status when DNS resolves', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([{
+				id: 'dom-1', hostname: 'app.example.com',
+				sslStatus: 'pending', verifiedAt: null, projectId: 'proj-1'
+			}]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		const result = await actions.verify({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.verify>[0]);
+		expect(result).toMatchObject({ verified: true, domainId: 'dom-1' });
+		expect(db.update).toHaveBeenCalled();
+	});
+
+	it('primary returns 404 when project not found', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		const result = await actions.primary({
+			params: { slug: 'ghost' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.primary>[0]);
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('primary returns 404 when domain not found', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-missing');
+		const result = await actions.primary({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.primary>[0]);
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('primary sets domain as primary', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([{ id: 'dom-1' }]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		const result = await actions.primary({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.primary>[0]);
+		expect(result).toMatchObject({ primarySet: true, domainId: 'dom-1' });
+		expect(db.update).toHaveBeenCalledTimes(2);
+	});
+
+	it('remove returns 404 when project not found', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		const result = await actions.remove({
+			params: { slug: 'ghost' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.remove>[0]);
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('remove returns 404 when domain not found', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-missing');
+		const result = await actions.remove({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.remove>[0]);
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('remove deletes the domain', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([{ id: 'dom-1', hostname: 'app.example.com' }]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		const result = await actions.remove({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.remove>[0]);
+		expect(result).toMatchObject({ removed: true, domainId: 'dom-1' });
+		expect(db.delete).toHaveBeenCalled();
 	});
 });
 
