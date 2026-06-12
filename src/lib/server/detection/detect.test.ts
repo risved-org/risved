@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { detectFramework } from './index';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { detectFramework, createFsContext } from './index';
 import type { DetectionContext } from './types';
 
 /** Helper to create an in-memory DetectionContext from a file map */
@@ -343,5 +346,58 @@ describe('Framework Detection', () => {
 			expect(result.detected).toBe(false);
 			expect(result.framework).toBeNull();
 		});
+	});
+});
+
+describe('createFsContext', () => {
+	let tempDir: string;
+
+	beforeEach(() => {
+		tempDir = mkdtempSync(join(tmpdir(), 'risved-detect-test-'));
+	});
+
+	afterEach(() => {
+		rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	it('detects an existing file', async () => {
+		writeFileSync(join(tempDir, 'package.json'), '{}');
+		const ctx = createFsContext(tempDir);
+		expect(await ctx.fileExists('package.json')).toBe(true);
+	});
+
+	it('returns false for a missing file', async () => {
+		const ctx = createFsContext(tempDir);
+		expect(await ctx.fileExists('no-such-file.json')).toBe(false);
+	});
+
+	it('reads file content correctly', async () => {
+		writeFileSync(join(tempDir, 'deno.json'), '{"imports":{}}');
+		const ctx = createFsContext(tempDir);
+		expect(await ctx.readFile('deno.json')).toBe('{"imports":{}}');
+	});
+
+	it('returns null when reading a missing file', async () => {
+		const ctx = createFsContext(tempDir);
+		expect(await ctx.readFile('missing.json')).toBeNull();
+	});
+
+	it('detects a framework from the real filesystem', async () => {
+		writeFileSync(join(tempDir, 'svelte.config.js'), 'export default {};');
+		writeFileSync(
+			join(tempDir, 'package.json'),
+			JSON.stringify({ dependencies: { '@sveltejs/kit': '^2.0.0' } })
+		);
+		const ctx = createFsContext(tempDir);
+		const result = await detectFramework(ctx);
+		expect(result.detected).toBe(true);
+		expect(result.framework?.id).toBe('sveltekit');
+	});
+
+	it('handles nested paths inside the root', async () => {
+		mkdirSync(join(tempDir, 'src'));
+		writeFileSync(join(tempDir, 'src', 'main.ts'), 'console.log("hi")');
+		const ctx = createFsContext(tempDir);
+		expect(await ctx.fileExists('src/main.ts')).toBe(true);
 	});
 });

@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { randomBytes, createCipheriv } from 'node:crypto';
 import {
 	encrypt,
 	decrypt,
+	decryptCallbackToken,
 	isEncrypted,
 	safeDecrypt,
 	getEncryptionKey,
@@ -119,6 +121,50 @@ describe('crypto', () => {
 		it('returns original value if decryption fails on base64-like string', () => {
 			const fakeBase64 = Buffer.alloc(40, 0xff).toString('base64');
 			expect(safeDecrypt(fakeBase64, keyPath)).toBe(fakeBase64);
+		});
+	});
+
+	describe('decryptCallbackToken', () => {
+		/** Helper: encrypt using Web Crypto AES-GCM layout (iv + ciphertext + authTag). */
+		function encryptWebCryptoStyle(plaintext: string, hexKey: string): string {
+			const key = Buffer.from(hexKey, 'hex');
+			const iv = randomBytes(12);
+			const cipher = createCipheriv('aes-256-gcm', key, iv);
+			const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+			const authTag = cipher.getAuthTag();
+			return Buffer.concat([iv, ciphertext, authTag]).toString('base64');
+		}
+
+		it('round-trips a token encrypted in Web Crypto format', () => {
+			const secret = randomBytes(32).toString('hex');
+			const token = encryptWebCryptoStyle('{"projectId":"p-1"}', secret);
+			expect(decryptCallbackToken(token, secret)).toBe('{"projectId":"p-1"}');
+		});
+
+		it('handles empty plaintext', () => {
+			const secret = randomBytes(32).toString('hex');
+			const token = encryptWebCryptoStyle('', secret);
+			expect(decryptCallbackToken(token, secret)).toBe('');
+		});
+
+		it('throws when the hex secret has wrong byte length', () => {
+			const shortSecret = randomBytes(16).toString('hex');
+			const token = encryptWebCryptoStyle('data', randomBytes(32).toString('hex'));
+			expect(() => decryptCallbackToken(token, shortSecret)).toThrow('Invalid CALLBACK_SECRET');
+		});
+
+		it('throws when the token is too short', () => {
+			const secret = randomBytes(32).toString('hex');
+			const tooShort = Buffer.alloc(10).toString('base64');
+			expect(() => decryptCallbackToken(tooShort, secret)).toThrow('Invalid callback token');
+		});
+
+		it('throws on tampered auth tag', () => {
+			const secret = randomBytes(32).toString('hex');
+			const token = encryptWebCryptoStyle('secret payload', secret);
+			const buf = Buffer.from(token, 'base64');
+			buf[buf.length - 1] ^= 0xff;
+			expect(() => decryptCallbackToken(buf.toString('base64'), secret)).toThrow();
 		});
 	});
 });
