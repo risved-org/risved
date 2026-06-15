@@ -179,6 +179,93 @@ describe('settings actions', () => {
 		expect(result).toMatchObject({ tokenRevoked: true });
 		expect(setSetting).toHaveBeenCalledWith('api_token', '');
 	});
+
+	it('password changes successfully when auth accepts', async () => {
+		const formData = new FormData();
+		formData.set('currentPassword', 'oldpass12345x');
+		formData.set('newPassword', 'newpass12345abc');
+		formData.set('confirmPassword', 'newpass12345abc');
+
+		const result = await actions.password({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.password>[0]);
+
+		expect(result).toMatchObject({ passwordChanged: true });
+	});
+
+	it('password returns 400 when auth rejects', async () => {
+		const { auth } = await import('$lib/server/auth');
+		(auth.api.changePassword as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+			new Error('Wrong password')
+		);
+
+		const formData = new FormData();
+		formData.set('currentPassword', 'wrongpass123');
+		formData.set('newPassword', 'newpass12345abc');
+		formData.set('confirmPassword', 'newpass12345abc');
+
+		const result = await actions.password({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.password>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('retention saves valid days', async () => {
+		const formData = new FormData();
+		formData.set('retentionDays', '60');
+
+		const result = await actions.retention({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.retention>[0]);
+
+		expect(result).toMatchObject({ retentionSaved: true });
+		expect(setSetting).toHaveBeenCalledWith('log_retention_days', '60');
+	});
+
+	it('retention rejects days above 365', async () => {
+		const formData = new FormData();
+		formData.set('retentionDays', '400');
+
+		const result = await actions.retention({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.retention>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('retention rejects days below 1', async () => {
+		const formData = new FormData();
+		formData.set('retentionDays', '0');
+
+		const result = await actions.retention({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.retention>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('heartbeat saves enabled state', async () => {
+		const formData = new FormData();
+		formData.set('enabled', 'true');
+
+		const result = await actions.heartbeat({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.heartbeat>[0]);
+
+		expect(result).toMatchObject({ heartbeatSaved: true });
+	});
+
+	it('heartbeat saves disabled state', async () => {
+		const formData = new FormData();
+		formData.set('enabled', 'false');
+
+		const result = await actions.heartbeat({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.heartbeat>[0]);
+
+		expect(result).toMatchObject({ heartbeatSaved: true });
+	});
 });
 
 describe('settings page source', () => {
