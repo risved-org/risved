@@ -103,6 +103,26 @@ describe('dockerBuild', () => {
 		expect(calls[0]).not.toContain('--network');
 	});
 
+	it('builds with requested Docker network', async () => {
+		const calls: string[][] = []
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args])
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		}
+
+		const result = await dockerBuild(runner, {
+			contextDir: '/tmp/ctx',
+			imageTag: 'myapp:abc1234',
+			network: 'risved'
+		})
+
+		expect(result.success).toBe(true)
+		expect(calls[0]).toContain('--network')
+		expect(calls[0]).toContain('risved')
+	})
+
 	it('returns error on build failure', async () => {
 		const runner = mockRunner({
 			'docker build': { exitCode: 1, stdout: '', stderr: 'COPY failed' }

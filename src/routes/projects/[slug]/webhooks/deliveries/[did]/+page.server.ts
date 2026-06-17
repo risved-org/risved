@@ -132,7 +132,9 @@ export const actions: Actions = {
 					tier: (project.tier as Tier) ?? undefined,
 					buildCommand: project.buildCommand,
 					startCommand: project.startCommand,
-					releaseCommand: project.releaseCommand
+					releaseCommand: project.releaseCommand,
+					postgresEnabled: project.postgresEnabled,
+					postgresPassword: project.postgresPassword
 				},
 				createCommandRunner()
 			).catch(() => {

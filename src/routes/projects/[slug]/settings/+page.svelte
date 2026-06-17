@@ -24,6 +24,9 @@
 	let revealed = $state<boolean[]>(envRows.map(() => false))
 	let savingEnv = $state(false)
 	let deploying = $state(false)
+	let addingPostgres = $state(false)
+	let confirmRemovePostgres = $state(false)
+	let removingPostgres = $state(false)
 
 	const envKeysValue = $derived(envRows.map((r) => r.key).join('\x1F'))
 	const envValuesValue = $derived(envRows.map((r) => r.value).join('\x1F'))
@@ -99,6 +102,15 @@
 			}
 		}
 		deploying = false
+	}
+
+	function formatDate(dateStr: string | null): string {
+		if (!dateStr) return 'Created recently'
+		return new Intl.DateTimeFormat(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		}).format(new Date(dateStr))
 	}
 
 	/* --- Cron Jobs --- */
@@ -296,6 +308,113 @@
 			</button>
 		</div>
 	{/if}
+</section>
+
+<!-- Postgres -->
+<section data-testid="postgres-section">
+	<h2 class="section-title">Postgres</h2>
+	<article class="postgres-card">
+		{#if !data.postgres}
+			<header class="postgres-empty">
+				<h3>No Postgres database</h3>
+				<p class="muted">This project is not attached to a managed Postgres database.</p>
+			</header>
+			{#if form?.postgresError}
+				<p class="postgres-warning" data-testid="postgres-error">{form.postgresError}</p>
+			{/if}
+			<form
+				method="post"
+				action="?/addPostgres"
+				use:enhance={() => {
+					addingPostgres = true
+					return async ({ update }) => {
+						await update()
+						addingPostgres = false
+					}
+				}}
+			>
+				<button
+					type="submit"
+					class="btn-secondary btn-lg"
+					disabled={addingPostgres}
+					data-testid="add-postgres-btn"
+				>
+					{addingPostgres ? 'Adding…' : 'Add Postgres'}
+				</button>
+			</form>
+		{:else}
+			<header class="postgres-header">
+				<h3>Postgres</h3>
+				<p class="muted">{formatDate(data.postgres.createdAt)}</p>
+			</header>
+			<dl class="postgres-meta">
+				<div>
+					<dt>Database</dt>
+					<dd class="mono">{data.postgres.database}</dd>
+				</div>
+				<div>
+					<dt>User</dt>
+					<dd class="mono">{data.postgres.username}</dd>
+				</div>
+				<div>
+					<dt>Host</dt>
+					<dd class="mono">{data.postgres.host}</dd>
+				</div>
+				<div>
+					<dt>Volume</dt>
+					<dd class="mono">{data.postgres.volumeName}</dd>
+				</div>
+			</dl>
+			<p class="postgres-url mono">{data.postgres.urlPreview}</p>
+			{#if form?.postgresError}
+				<p class="postgres-warning" data-testid="postgres-error">{form.postgresError}</p>
+			{/if}
+			{#if !confirmRemovePostgres}
+				<button
+					type="button"
+					class="btn-danger"
+					onclick={() => (confirmRemovePostgres = true)}
+					data-testid="remove-postgres-btn"
+				>
+					Remove
+				</button>
+			{:else}
+				<form
+					method="post"
+					action="?/removePostgres"
+					use:enhance={() => {
+						removingPostgres = true
+						return async ({ update }) => {
+							await update()
+							removingPostgres = false
+							confirmRemovePostgres = false
+						}
+					}}
+				>
+					<p class="postgres-warning">
+						This will permanently delete the Postgres container and volume. Database data will be lost.
+					</p>
+					<div class="confirm-row">
+						<button
+							type="submit"
+							class="btn-danger-confirm"
+							disabled={removingPostgres}
+							data-testid="confirm-remove-postgres-btn"
+						>
+							{removingPostgres ? 'Removing…' : 'Confirm remove'}
+						</button>
+						<button
+							type="button"
+							class="btn-cancel"
+							onclick={() => (confirmRemovePostgres = false)}
+						>
+							Cancel
+						</button>
+					</div>
+				</form>
+			{/if}
+		{/if}
+	</article>
 </section>
 
 <!-- Scheduled Tasks -->
@@ -686,6 +805,71 @@
 		font-size: .875rem;
 		color: var(--color-failed);
 		margin-left: var(--space-2);
+	}
+
+	/* Postgres */
+	.postgres-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		padding: var(--space-4);
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.postgres-empty,
+	.postgres-header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.postgres-empty h3,
+	.postgres-header h3 {
+		margin: 0;
+		color: var(--color-text-0);
+		font-size: 1.25rem;
+		font-weight: 500;
+	}
+	.postgres-empty p,
+	.postgres-header p {
+		margin: 0;
+	}
+	.postgres-meta {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--space-3);
+		margin: 0;
+	}
+	.postgres-meta div {
+		min-width: 0;
+	}
+	.postgres-meta dt {
+		color: var(--color-text-2);
+		font-size: .75rem;
+		text-transform: uppercase;
+		letter-spacing: 0;
+	}
+	.postgres-meta dd {
+		margin: var(--space-1) 0 0;
+		color: var(--color-text-0);
+		font-size: .875rem;
+		overflow-wrap: anywhere;
+	}
+	.postgres-url {
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-bg-2);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-1);
+		font-size: .75rem;
+		overflow-wrap: anywhere;
+	}
+	.postgres-warning {
+		margin: 0 0 var(--space-3);
+		color: var(--color-failed);
+		font-size: .875rem;
+		line-height: 1.5;
 	}
 
 	.redeploy-banner {

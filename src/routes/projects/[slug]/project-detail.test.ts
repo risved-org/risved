@@ -170,6 +170,15 @@ describe('settings page source', () => {
 		expect(mod.default).toContain('danger-zone')
 	})
 
+	it('has Postgres settings panel with add and remove confirmation', async () => {
+		const mod = await import('./settings/+page.svelte?raw')
+		expect(mod.default).toContain('postgres-section')
+		expect(mod.default).toContain('No Postgres database')
+		expect(mod.default).toContain('Add Postgres')
+		expect(mod.default).toContain('confirm-remove-postgres-btn')
+		expect(mod.default).toContain('Database data will be lost')
+	})
+
 	it('uses Edit as the universal verb for sub-page links', async () => {
 		const mod = await import('./settings/+page.svelte?raw')
 		expect(mod.default).toContain('edit-domains-btn')

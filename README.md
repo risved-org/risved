@@ -65,6 +65,14 @@ Risved auto-detects the framework used in your project and generates the appropr
 | TanStack Start | Node |
 | Generic (Node/Deno) | Auto |
 
+## Managed Postgres
+
+Projects can opt into an adjacent Postgres container from the project settings page. Apps that do not opt in, including apps using SQLite with the default `/app/data` volume, are unchanged.
+
+When enabled, Risved creates one Postgres container and volume owned by the immutable project ID, labels the container with that project ID, and injects database credentials only into that project's build, release, and runtime environment. The app receives `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_*`, and `PG*` variables pointing at the adjacent container on the private `risved` Docker network.
+
+Shared databases are a separate resource model: a future version should let you create a database resource first, then attach one or more apps to it. That relationship should be stored explicitly, not inferred from app or database names.
+
 ## Developing
 
 For local development, you'll need [Node.js 22+](https://nodejs.org/) (or [Bun](https://bun.sh/)) and [Docker](https://www.docker.com/).

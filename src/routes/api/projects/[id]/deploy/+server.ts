@@ -39,7 +39,9 @@ export const POST: RequestHandler = async (event) => {
 		tier: (project.tier as Tier) ?? undefined,
 		buildCommand: project.buildCommand,
 		startCommand: project.startCommand,
-		releaseCommand: project.releaseCommand
+		releaseCommand: project.releaseCommand,
+		postgresEnabled: project.postgresEnabled,
+		postgresPassword: project.postgresPassword
 	}
 
 	/* Create deployment record now so the client can navigate to it immediately */

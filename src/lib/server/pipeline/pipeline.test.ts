@@ -48,6 +48,7 @@ vi.mock('$lib/server/settings', () => ({
 }));
 
 vi.mock('$lib/server/crypto', () => ({
+	encrypt: vi.fn((v: string) => `encrypted:${v}`),
 	safeDecrypt: vi.fn((v: string) => v)
 }));
 
@@ -294,7 +295,7 @@ describe('runPipeline', () => {
 	});
 
 	it('falls back to saved framework when detection fails', async () => {
-		vi.mocked(detectFramework).mockResolvedValueOnce({ detected: false });
+		vi.mocked(detectFramework).mockResolvedValueOnce({ detected: false, framework: null });
 		const result = await runPipeline(
 			makeConfig({ frameworkId: 'hono', tier: 'deno' }),
 			makeSuccessRunner(),
