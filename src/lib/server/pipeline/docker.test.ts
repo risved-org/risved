@@ -5,7 +5,10 @@ import {
 	dockerStop,
 	dockerVolumeRemove,
 	ensureWarmImage,
+	freePort,
+	getContainerLogs,
 	projectVolumeName,
+	toSshUrl,
 	getCommitSha,
 	gitClone,
 	waitForHealthy
@@ -358,5 +361,106 @@ describe('ensureWarmImage', () => {
 		const result = await ensureWarmImage(runner);
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('apt-get failed');
+	});
+});
+
+describe('freePort', () => {
+	it('returns empty array when no containers are using the port', async () => {
+		const runner = mockRunner({
+			'docker ps': { exitCode: 0, stdout: '', stderr: '' }
+		});
+		const ids = await freePort(runner, 3001);
+		expect(ids).toEqual([]);
+	});
+
+	it('returns empty array when docker ps fails', async () => {
+		const runner = mockRunner({
+			'docker ps': { exitCode: 1, stdout: '', stderr: 'error' }
+		});
+		const ids = await freePort(runner, 3001);
+		expect(ids).toEqual([]);
+	});
+
+	it('removes containers found on the port and returns their IDs', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				if (args.includes('-q')) return { exitCode: 0, stdout: 'abc123\ndef456\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const ids = await freePort(runner, 3001);
+		expect(ids).toEqual(['abc123', 'def456']);
+		const rmCalls = calls.filter((c) => c.includes('rm'));
+		expect(rmCalls).toHaveLength(2);
+	});
+});
+
+describe('toSshUrl', () => {
+	it('converts github https url to ssh format', () => {
+		expect(toSshUrl('https://github.com/user/repo.git')).toBe('git@github.com:user/repo.git');
+	});
+
+	it('converts gitlab https url to ssh format', () => {
+		expect(toSshUrl('https://gitlab.com/org/project')).toBe('git@gitlab.com:org/project');
+	});
+
+	it('converts codeberg https url to ssh format', () => {
+		expect(toSshUrl('https://codeberg.org/user/repo.git')).toBe('git@codeberg.org:user/repo.git');
+	});
+
+	it('returns url unchanged when not a recognised https host', () => {
+		expect(toSshUrl('git@github.com:user/repo.git')).toBe('git@github.com:user/repo.git');
+	});
+
+	it('returns url unchanged for arbitrary urls', () => {
+		const url = 'https://my-gitea.internal/user/repo.git';
+		expect(toSshUrl(url)).toBe(url);
+	});
+});
+
+describe('getContainerLogs', () => {
+	it('returns combined stdout and stderr trimmed', async () => {
+		const runner = mockRunner({
+			'docker logs': { exitCode: 0, stdout: 'line1\nline2\n', stderr: 'warn\n' }
+		});
+		const logs = await getContainerLogs(runner, 'my-app');
+		expect(logs).toContain('line1');
+		expect(logs).toContain('warn');
+	});
+
+	it('accepts custom tail count', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				return { exitCode: 0, stdout: 'log output', stderr: '' };
+			}
+		};
+		await getContainerLogs(runner, 'my-app', 50);
+		expect(calls[0]).toContain('50');
+	});
+});
+
+describe('dockerStop error paths', () => {
+	it('returns error when stop fails with unexpected error', async () => {
+		const runner = mockRunner({
+			'docker stop': { exitCode: 1, stdout: '', stderr: 'permission denied' }
+		});
+		const result = await dockerStop(runner, 'my-app');
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('permission denied');
+	});
+
+	it('returns error when rm fails with unexpected error', async () => {
+		const runner = mockRunner({
+			'docker stop': { exitCode: 0, stdout: '', stderr: '' },
+			'docker rm': { exitCode: 1, stdout: '', stderr: 'volume in use' }
+		});
+		const result = await dockerStop(runner, 'my-app');
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('volume in use');
 	});
 });
