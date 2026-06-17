@@ -5,7 +5,7 @@ import { db } from '$lib/server/db';
 import { deployments, projects, domains, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
-import { safeDecrypt } from '$lib/server/crypto';
+import { encrypt, safeDecrypt } from '$lib/server/crypto'
 import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
@@ -23,6 +23,12 @@ import {
 	getContainerLogs,
 	projectVolumeName
 } from './docker';
+import {
+	buildManagedPostgresEnv,
+	ensureManagedPostgres,
+	generatePostgresPassword,
+	managedPostgresConfig
+} from './postgres'
 import { runRelease } from './release';
 import { createLogCollector } from './log';
 import type {
@@ -144,6 +150,8 @@ async function _runPipeline(
 			envMap[row.key] = safeDecrypt(row.value)
 		}
 
+		let buildNetwork: string | undefined
+
 		/* ── Phase 2: Detect ─────────────────────────────── */
 		let frameworkId = config.frameworkId;
 		let tier = config.tier;
@@ -177,6 +185,28 @@ async function _runPipeline(
 			.where(eq(projects.id, config.projectId));
 
 		/* ── Phase 3: Build ──────────────────────────────── */
+		if (config.postgresEnabled) {
+			const postgres = managedPostgresConfig(config.projectId)
+			const password = await resolveManagedPostgresPassword(
+				config.projectId,
+				config.postgresPassword
+			)
+			Object.assign(envMap, buildManagedPostgresEnv(postgres, password))
+			buildNetwork = postgres.network
+
+			emit('build', `Managed Postgres enabled for project ${config.projectId}`)
+			const postgresResult = await ensureManagedPostgres(runner, postgres, password, {
+				onLine: (line) => emit('build', line)
+			})
+			if (!postgresResult.success) {
+				throw new PipelineError(
+					'build',
+					`Failed to prepare managed Postgres: ${postgresResult.error ?? 'unknown error'}`
+				)
+			}
+			emit('build', `Managed Postgres is ready: ${postgres.containerName}`)
+		}
+
 		/* Detect package manager fresh from the checked-out repo — never
 		   cached from onboarding, because the user may have changed
 		   lockfiles since then. Warnings surface in the build log so the
@@ -254,6 +284,7 @@ async function _runPipeline(
 		const buildResult = await dockerBuild(runner, {
 			contextDir: cloneDir,
 			imageTag,
+			network: buildNetwork,
 			onLine: (line) => emit('build', line)
 		});
 		if (!buildResult.success) {
@@ -275,6 +306,7 @@ async function _runPipeline(
 				contextDir: cloneDir,
 				imageTag: releaseImageTag,
 				target: 'build',
+				network: buildNetwork,
 				onLine: (line) => emit('release', line)
 			})
 			if (!releaseBuild.success) {
@@ -467,6 +499,26 @@ async function _runPipeline(
 		/* Cleanup work directory */
 		await rm(workDir, { recursive: true, force: true }).catch(() => {});
 	}
+}
+
+/**
+ * Resolve or create the persistent password for a project's managed Postgres.
+ */
+async function resolveManagedPostgresPassword(
+	projectId: string,
+	storedPassword: string | null | undefined
+): Promise<string> {
+	const existing = storedPassword ? safeDecrypt(storedPassword) : null
+	if (existing) return existing
+
+	const password = generatePostgresPassword()
+	const encryptedPassword = encrypt(password)
+	await db
+		.update(projects)
+		.set({ postgresPassword: encryptedPassword, updatedAt: new Date().toISOString() })
+		.where(eq(projects.id, projectId))
+
+	return password
 }
 
 /**

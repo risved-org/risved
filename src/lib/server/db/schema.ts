@@ -41,6 +41,9 @@ export const projects = sqliteTable('projects', {
 	buildCommand: text('build_command'),
 	startCommand: text('start_command'),
 	releaseCommand: text('release_command'),
+	postgresEnabled: integer('postgres_enabled', { mode: 'boolean' }).notNull().default(false),
+	postgresPassword: text('postgres_password'),
+	postgresCreatedAt: text('postgres_created_at'),
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),

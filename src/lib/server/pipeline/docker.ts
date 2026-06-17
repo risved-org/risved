@@ -67,9 +67,12 @@ export async function dockerBuild(
 	runner: CommandRunner,
 	options: DockerBuildOptions
 ): Promise<{ success: boolean; error?: string }> {
-	const { contextDir, imageTag, target, buildArgs, onLine } = options;
+	const { contextDir, imageTag, target, buildArgs, network, onLine } = options;
 
 	const args = ['build', '--progress=plain', '-t', imageTag]
+	if (network) {
+		args.push('--network', network)
+	}
 	if (target) {
 		args.push('--target', target)
 	}

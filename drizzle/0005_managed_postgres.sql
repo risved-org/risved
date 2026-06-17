@@ -1,0 +1,3 @@
+ALTER TABLE `projects` ADD `postgres_enabled` integer DEFAULT false NOT NULL;
+ALTER TABLE `projects` ADD `postgres_password` text;
+ALTER TABLE `projects` ADD `postgres_created_at` text;

@@ -43,6 +43,10 @@ export interface PipelineConfig {
 	startCommand?: string | null;
 	/** Shell command to run once per deploy before traffic switches. Null/empty skips the phase. */
 	releaseCommand?: string | null;
+	/** Whether this project owns an adjacent managed Postgres container. */
+	postgresEnabled?: boolean | null
+	/** Encrypted managed Postgres password. Generated when missing. */
+	postgresPassword?: string | null
 }
 
 /** Result of a completed pipeline run */

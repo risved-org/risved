@@ -36,6 +36,13 @@
       "when": 1777467123109,
       "tag": "0004_disable_pr_merged_default",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1781708784000,
+      "tag": "0005_managed_postgres",
+      "breakpoints": true
     }
   ]
 }

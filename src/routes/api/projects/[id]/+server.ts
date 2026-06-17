@@ -4,6 +4,7 @@ import { projects, deployments, envVars, domains } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
+import { managedPostgresContainerName, managedPostgresVolumeName } from '$lib/server/pipeline/postgres'
 import { createCaddyClient } from '$lib/server/caddy';
 import { getSetting } from '$lib/server/settings';
 import type { RequestHandler } from './$types';
@@ -106,6 +107,8 @@ export const DELETE: RequestHandler = async (event) => {
 		const runner = createCommandRunner();
 		await dockerStop(runner, project.slug, 10);
 		await dockerVolumeRemove(runner, projectVolumeName(id));
+		await dockerStop(runner, managedPostgresContainerName(id), 10)
+		await dockerVolumeRemove(runner, managedPostgresVolumeName(id))
 	} catch {
 		/* Container may not be running — ignore */
 	}

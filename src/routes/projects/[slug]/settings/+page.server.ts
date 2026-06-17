@@ -1,5 +1,13 @@
 import { error, fail, redirect } from '@sveltejs/kit'
 import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker'
+import {
+	buildManagedPostgresEnv,
+	ensureManagedPostgres,
+	generatePostgresPassword,
+	managedPostgresConfig,
+	managedPostgresContainerName,
+	managedPostgresVolumeName
+} from '$lib/server/pipeline/postgres'
 import { db } from '$lib/server/db'
 import {
 	projects,
@@ -80,6 +88,12 @@ export const load: PageServerLoad = async ({ params }) => {
 			startCommand: project.startCommand ?? '',
 			releaseCommand: project.releaseCommand ?? ''
 		},
+		postgres: project.postgresEnabled
+			? {
+					createdAt: project.postgresCreatedAt,
+					...buildPostgresMetadata(project.id, project.postgresPassword)
+				}
+			: null,
 		envVars: envs.map((e) => ({
 			id: e.id,
 			key: e.key,
@@ -153,6 +167,58 @@ export const actions: Actions = {
 		return { envSaved: true }
 	},
 
+	addPostgres: async ({ params }) => {
+		const { slug } = params
+		const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
+		if (proj.length === 0) return fail(404, { postgresError: 'Project not found' })
+
+		const project = proj[0]
+		const config = managedPostgresConfig(project.id)
+		const password = project.postgresPassword
+			? safeDecrypt(project.postgresPassword)
+			: generatePostgresPassword()
+
+		const result = await ensureManagedPostgres(createCommandRunner(), config, password)
+		if (!result.success) {
+			return fail(500, { postgresError: result.error ?? 'Failed to create Postgres database' })
+		}
+
+		await db
+			.update(projects)
+			.set({
+				postgresEnabled: true,
+				postgresPassword: encrypt(password),
+				postgresCreatedAt: project.postgresCreatedAt ?? new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			})
+			.where(eq(projects.id, project.id))
+
+		return { postgresAdded: true }
+	},
+
+	removePostgres: async ({ params }) => {
+		const { slug } = params
+		const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
+		if (proj.length === 0) return fail(404, { postgresError: 'Project not found' })
+
+		const project = proj[0]
+		const runner = createCommandRunner()
+		try { await dockerStop(runner, managedPostgresContainerName(project.id), 10) } catch { /* best-effort */ }
+		try { await dockerVolumeRemove(runner, managedPostgresVolumeName(project.id)) } catch { /* best-effort */ }
+
+		await db
+			.update(projects)
+			.set({
+				postgresEnabled: false,
+				postgresPassword: null,
+				postgresCreatedAt: null,
+				updatedAt: new Date().toISOString()
+			})
+			.where(eq(projects.id, project.id))
+
+		return { postgresRemoved: true }
+	},
+
 	delete: async ({ params }) => {
 		const { slug } = params
 
@@ -164,6 +230,8 @@ export const actions: Actions = {
 		const runner = createCommandRunner()
 		try { await dockerStop(runner, proj[0].slug, 10) } catch { /* may not be running */ }
 		try { await dockerVolumeRemove(runner, projectVolumeName(projectId)) } catch { /* best-effort */ }
+		try { await dockerStop(runner, managedPostgresContainerName(projectId), 10) } catch { /* best-effort */ }
+		try { await dockerVolumeRemove(runner, managedPostgresVolumeName(projectId)) } catch { /* best-effort */ }
 
 		await getCronScheduler().deleteProjectJobs(projectId)
 		await db.delete(webhookDeliveries).where(eq(webhookDeliveries.projectId, projectId))
@@ -173,5 +241,20 @@ export const actions: Actions = {
 		await db.delete(projects).where(eq(projects.id, projectId))
 
 		redirect(303, '/')
+	}
+}
+
+/** Build non-secret Postgres metadata for the settings panel. */
+function buildPostgresMetadata(projectId: string, encryptedPassword: string | null) {
+	const config = managedPostgresConfig(projectId)
+	const password = encryptedPassword ? safeDecrypt(encryptedPassword) : ''
+	const env = buildManagedPostgresEnv(config, password)
+
+	return {
+		database: config.database,
+		username: config.username,
+		host: config.containerName,
+		volumeName: config.volumeName,
+		urlPreview: env.DATABASE_URL.replace(/:([^:@/]+)@/, ':••••••••@')
 	}
 }
