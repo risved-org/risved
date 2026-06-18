@@ -1,15 +1,23 @@
 # Runbook: Scrub secrets from git history
 
-Two secret-bearing files were committed in `88ab3c6`
-("fix: SSH deploy key invalid format error") and are ancestors on `main`:
+Two secret-bearing files have been tracked across **many** commits in this
+repo's history (a gitleaks full-history scan found `.env` secrets in commits
+dating back to at least 2026-03-11, e.g. `6504077`, `2550016`, `88ab3c6`):
 
 - `.env` — real application secrets (DB URL, auth/callback secrets, OAuth secret)
 - `.risved-encryption.key` — a 32-byte AES-256-GCM data-encryption key used by
   `src/lib/server/crypto.ts`
 
 Untracking them (done in this branch) stops *future* commits but leaves the
-values in every commit reachable from `88ab3c6`. This runbook removes them from
-history.
+values in every historical commit. This runbook removes them from history.
+
+> **Note on the `docker.ts` "private-key" finding.** A full-history scan also
+> flags `src/lib/server/pipeline/docker.ts` (commit `2ea765d`, "use SSH deploy
+> key for private repo cloning"). That is a **false positive**: gitleaks matches
+> a `-----BEGIN … PRIVATE KEY-----` header *string literal* in the key-handling
+> code, not an embedded secret (deploy keys are user-supplied and stored
+> encrypted). No rotation needed; it can be suppressed via `.gitleaksignore`
+> using the printed fingerprint if you run full-history audits.
 
 > **Order of operations:** rotate the secrets FIRST (step 0). History rewriting
 > does not make the leaked values safe — anyone who cloned/fetched, or any cache

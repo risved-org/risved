@@ -14,12 +14,8 @@ paths = [
   '''\.env\.test$''',
 ]
 
-# TEMPORARY baseline: the secrets in commit 88ab3c6 (the committed .env and
-# .risved-encryption.key) are known and being remediated via history scrub +
-# secret rotation (see docs/runbooks/scrub-env-from-history.md). Allowlisting
-# this single historical commit keeps CI from going permanently red on the
-# known leak while still catching any NEW secret in any other commit.
-# REMOVE this entry once the history scrub has completed.
-commits = [
-  "88ab3c609379204fbbe032ec3d678e7d39220b3f",
-]
+# NOTE: the CI workflow scans only the NEW commits introduced by each push / PR
+# (not full history), so the pre-existing secrets in this repo's history do not
+# block CI. Those are removed separately via the history scrub
+# (docs/runbooks/scrub-env-from-history.md). A one-off full-history audit can be
+# run locally with:  gitleaks git . --config .gitleaks.toml --redact -v
