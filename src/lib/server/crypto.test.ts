@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createCipheriv, randomBytes } from 'node:crypto';
 import {
 	encrypt,
 	decrypt,
+	decryptCallbackToken,
 	isEncrypted,
 	safeDecrypt,
 	getEncryptionKey,
@@ -119,6 +121,37 @@ describe('crypto', () => {
 		it('returns original value if decryption fails on base64-like string', () => {
 			const fakeBase64 = Buffer.alloc(40, 0xff).toString('base64');
 			expect(safeDecrypt(fakeBase64, keyPath)).toBe(fakeBase64);
+		});
+	});
+
+	describe('decryptCallbackToken', () => {
+		const secret = randomBytes(32).toString('hex');
+
+		function encryptWebCryptoStyle(plaintext: string, hexSecret: string): string {
+			const key = Buffer.from(hexSecret, 'hex');
+			const iv = randomBytes(12);
+			const cipher = createCipheriv('aes-256-gcm', key, iv);
+			const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+			const authTag = cipher.getAuthTag();
+			// Web Crypto format: iv[12] + ciphertext[n] + authTag[16]
+			return Buffer.concat([iv, ciphertext, authTag]).toString('base64');
+		}
+
+		it('decrypts a Web Crypto AES-256-GCM token', () => {
+			const plaintext = '{"userId":"user-123","projectId":"proj-abc"}';
+			const token = encryptWebCryptoStyle(plaintext, secret);
+			expect(decryptCallbackToken(token, secret)).toBe(plaintext);
+		});
+
+		it('throws for invalid CALLBACK_SECRET length', () => {
+			expect(() => decryptCallbackToken('validbase64==', 'tooshort')).toThrow(
+				'Invalid CALLBACK_SECRET'
+			);
+		});
+
+		it('throws for a token that is too short', () => {
+			const shortToken = Buffer.alloc(10).toString('base64');
+			expect(() => decryptCallbackToken(shortToken, secret)).toThrow('too short');
 		});
 	});
 });

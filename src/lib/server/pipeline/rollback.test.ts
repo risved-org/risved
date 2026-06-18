@@ -27,6 +27,7 @@ vi.mock('$lib/server/settings', () => ({
 import { runRollback } from './rollback';
 import type { RollbackConfig } from './rollback';
 import type { CommandRunner, LogEntry } from './types';
+import { getSetting } from '$lib/server/settings';
 
 function makeConfig(overrides?: Partial<RollbackConfig>): RollbackConfig {
 	return {
@@ -211,5 +212,98 @@ describe('runRollback', () => {
 		const runIdx = calls.findIndex((c) => c.includes('docker run'));
 		expect(rmIdx).toBeGreaterThanOrEqual(0);
 		expect(runIdx).toBeGreaterThan(rmIdx);
+	});
+
+	it('emits freed-port log when freePort releases a container', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('docker ps') && joined.includes('--filter')) {
+					return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+				}
+				if (joined.includes('docker run')) {
+					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				}
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const logs: LogEntry[] = [];
+		const result = await runRollback(makeConfig(), runner, {
+			onLog: (entry) => logs.push(entry),
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		const freedLog = logs.find((l) => l.message.includes('occupying port'));
+		expect(freedLog).toBeTruthy();
+	});
+
+	it('emits warning when caddy route update fails', async () => {
+		const caddy = makeCaddy();
+		caddy.addRoute.mockResolvedValueOnce({ success: false, error: 'caddy unreachable' });
+
+		const logs: LogEntry[] = [];
+		const result = await runRollback(makeConfig(), makeSuccessRunner(), {
+			onLog: (entry) => logs.push(entry),
+			caddy: caddy as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		const warnLog = logs.find((l) => l.phase === 'route' && l.level === 'warn');
+		expect(warnLog?.message).toContain('route update failed');
+	});
+
+	it('configures alt route when hostname differs from deployment domain', async () => {
+		vi.mocked(getSetting).mockResolvedValueOnce('panel.example.com');
+
+		const caddy = makeCaddy();
+		const logs: LogEntry[] = [];
+		const result = await runRollback(
+			makeConfig({ domain: 'app.otherdomain.com' }),
+			makeSuccessRunner(),
+			{
+				onLog: (entry) => logs.push(entry),
+				caddy: caddy as never,
+				fetchFn: makeHealthyFetch()
+			}
+		);
+
+		expect(result.success).toBe(true);
+		expect(caddy.addRoute).toHaveBeenCalledWith({
+			hostname: 'my-app.panel.example.com',
+			port: 3001
+		});
+		const altLog = logs.find((l) => l.message.includes('Alt route configured'));
+		expect(altLog).toBeTruthy();
+	});
+
+	it('emits warning when alt route fails', async () => {
+		vi.mocked(getSetting).mockResolvedValueOnce('panel.example.com');
+
+		const caddy = makeCaddy();
+		// First addRoute (primary domain) succeeds, second (alt domain) fails
+		caddy.addRoute
+			.mockResolvedValueOnce({ success: true })
+			.mockResolvedValueOnce({ success: false, error: 'alt caddy error' });
+
+		const logs: LogEntry[] = [];
+		const result = await runRollback(
+			makeConfig({ domain: 'app.otherdomain.com' }),
+			makeSuccessRunner(),
+			{
+				onLog: (entry) => logs.push(entry),
+				caddy: caddy as never,
+				fetchFn: makeHealthyFetch()
+			}
+		);
+
+		expect(result.success).toBe(true);
+		const altWarnLog = logs.find(
+			(l) => l.phase === 'route' && l.level === 'warn' && l.message.includes('alt route failed')
+		);
+		expect(altWarnLog).toBeTruthy();
 	});
 });
