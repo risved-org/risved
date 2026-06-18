@@ -30,6 +30,12 @@ export const GET: RequestHandler = async (event) => {
 
 	const deployment = rows[0];
 	const isTerminal = ['live', 'failed', 'stopped'].includes(deployment.status);
+	const deploymentData = (row: typeof deployment) =>
+		JSON.stringify({
+			status: row.status,
+			commitSha: row.commitSha,
+			finishedAt: row.finishedAt
+		})
 
 	/* For terminal deployments, return all logs at once and close */
 	if (isTerminal) {
@@ -42,6 +48,7 @@ export const GET: RequestHandler = async (event) => {
 		const stream = new ReadableStream({
 			start(controller) {
 				const encoder = new TextEncoder();
+				controller.enqueue(encoder.encode(`event: deployment\ndata: ${deploymentData(deployment)}\n\n`))
 				for (const log of logs) {
 					const data = JSON.stringify({
 						timestamp: log.timestamp,
@@ -68,6 +75,7 @@ export const GET: RequestHandler = async (event) => {
 	/* For in-progress deployments, poll for new logs */
 	let lastId = 0;
 	let closed = false;
+	let lastDeploymentData = ''
 
 	const stream = new ReadableStream({
 		async start(controller) {
@@ -97,6 +105,16 @@ export const GET: RequestHandler = async (event) => {
 					.from(deployments)
 					.where(eq(deployments.id, did))
 					.limit(1);
+
+				if (current[0]) {
+					const nextDeploymentData = deploymentData(current[0])
+					if (nextDeploymentData !== lastDeploymentData) {
+						controller.enqueue(
+							encoder.encode(`event: deployment\ndata: ${nextDeploymentData}\n\n`)
+						)
+						lastDeploymentData = nextDeploymentData
+					}
+				}
 
 				if (
 					current.length === 0 ||
