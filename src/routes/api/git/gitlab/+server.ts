@@ -1,4 +1,5 @@
 import { json, redirect } from '@sveltejs/kit'
+import { dev } from '$app/environment'
 import { env } from '$env/dynamic/private'
 import { db } from '$lib/server/db'
 import { gitConnections } from '$lib/server/db/schema'
@@ -42,7 +43,7 @@ export const GET: RequestHandler = async (event) => {
 			event.cookies.set('gitlab_oauth_redirect', returnTo, {
 				path: '/',
 				httpOnly: true,
-				secure: false,
+				secure: !dev,
 				maxAge: 600
 			})
 		}
@@ -55,7 +56,7 @@ export const GET: RequestHandler = async (event) => {
 			event.cookies.set('gitlab_oauth_state', state, {
 				path: '/',
 				httpOnly: true,
-				secure: false,
+				secure: !dev,
 				maxAge: 600
 			})
 
