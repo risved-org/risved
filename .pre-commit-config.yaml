@@ -1,0 +1,29 @@
+# Pre-commit guards. Install once per clone:
+#   pipx install pre-commit   # or: brew install pre-commit
+#   pre-commit install
+# Run manually against everything:
+#   pre-commit run --all-files
+#
+# NOTE: pre-commit hooks are a local safety net only. They are not shared via
+# git and can be bypassed with `git commit --no-verify`. The enforcement
+# boundary is the CI workflow (.github/workflows/secret-scan.yml), which cannot
+# be bypassed and should be a required status check on the default branch.
+repos:
+  # Content-aware secret scanner — catches secret-shaped strings anywhere,
+  # not just in .env files.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # Dumb-but-bulletproof filename guard. Blocks committing dotenv files and raw
+  # key material regardless of content, while allowing the intended templates.
+  - repo: local
+    hooks:
+      - id: block-secret-files
+        name: block .env and key files
+        entry: scripts/block-secret-files.sh
+        language: script
+        pass_filenames: true
+        files: '(^|/)(\.env($|\..*)|.*\.key)$'
+        exclude: '(^|/)\.env\.(example|test)$'
