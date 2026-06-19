@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('$lib/server/db', () => ({ db: {} }));
+
 import { buildPreviewDomain } from './index';
 
 describe('buildPreviewDomain', () => {
