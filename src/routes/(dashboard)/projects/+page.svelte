@@ -2,7 +2,23 @@
 	import { resolve } from '$app/paths'
 	import TimeAgo from '$lib/components/TimeAgo.svelte'
 
-	let { data } = $props()
+	type ProjectCard = {
+		id: string
+		name: string
+		slug: string
+		framework: string | null
+		frameworkId: string | null
+		domain: string | null
+		status: string
+		commitSha: string | null
+		lastDeployedAt: string | null
+		buildStatus: string | null
+		buildCommitSha: string | null
+		containerHealthy: boolean | null
+		totalRestarts: number
+	}
+
+	let { data }: { data: { projects: ProjectCard[] } } = $props()
 
 	function statusLabel(status: string): string {
 		if (status === 'live') return 'Live'
@@ -60,6 +76,21 @@
 						{/if}
 					</span>
 
+					{#if project.buildStatus}
+						<span class="card-build mono">
+							<span
+								class:badge-failed={project.buildStatus === 'failed'}
+								class:badge-building={project.buildStatus !== 'failed'}
+								class="badge-sm"
+							>
+								{statusLabel(project.buildStatus)}
+							</span>
+							<span>
+								{project.buildCommitSha ? project.buildCommitSha.slice(0, 7) : 'Unknown commit'}
+							</span>
+						</span>
+					{/if}
+
 					<footer class="card-footer">
 						{#if project.domain}
 							<a
@@ -67,6 +98,7 @@
 								href="https://{project.domain}"
 								target="_blank"
 								rel="noopener"
+								onclick={(event) => event.stopPropagation()}
 							>
 								{project.domain}
 							</a>
@@ -161,6 +193,7 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
+		z-index: 1;
 	}
 
 	.card-link:hover {
@@ -169,8 +202,11 @@
 
 	.card-header,
 	.card-meta,
+	.card-build,
 	.card-footer {
 		position: relative;
+		z-index: 2;
+		pointer-events: none;
 	}
 
 	/* Card header: name + actions */
@@ -201,20 +237,34 @@
 		flex-wrap: wrap;
 	}
 
+	.card-build {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: .75rem;
+		color: var(--color-text-2);
+	}
+
 	/* Footer: domain + deploy info */
 	.card-footer {
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
 		gap: 2px;
 		margin-top: auto;
 	}
 
 	.card-domain {
+		position: relative;
+		z-index: 3;
+		display: inline-block;
+		max-width: 100%;
 		font-size: .875rem;
 		color: var(--color-accent);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		pointer-events: auto;
 	}
 
 	.card-domain:visited {

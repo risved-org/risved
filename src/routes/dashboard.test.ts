@@ -123,6 +123,44 @@ describe('dashboard load', () => {
 		expect(p.domain).toBe('myapp.example.com');
 	});
 
+	it('keeps live production status when the latest build failed', async () => {
+		setupDbMocks(
+			[
+				{
+					id: 'p1',
+					name: 'My App',
+					slug: 'my-app',
+					frameworkId: 'sveltekit',
+					domain: null,
+					createdAt: '2026-03-10T00:00:00Z'
+				}
+			],
+			[
+				{
+					projectId: 'p1',
+					status: 'failed',
+					commitSha: 'bad1234',
+					createdAt: '2026-03-12T00:00:00Z'
+				},
+				{
+					projectId: 'p1',
+					status: 'live',
+					commitSha: 'good567',
+					createdAt: '2026-03-11T00:00:00Z'
+				}
+			],
+			[]
+		);
+
+		const result = await callLoad();
+		const p = result.projects[0];
+		expect(p.status).toBe('live');
+		expect(p.commitSha).toBe('good567');
+		expect(p.lastDeployedAt).toBe('2026-03-11T00:00:00Z');
+		expect(p.buildStatus).toBe('failed');
+		expect(p.buildCommitSha).toBe('bad1234');
+	});
+
 	it('defaults status to stopped when no deployments', async () => {
 		setupDbMocks(
 			[
@@ -203,6 +241,21 @@ describe('dashboard page source', () => {
 		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
 		expect(mod.default).toContain("from '$app/paths'");
 		expect(mod.default).toContain("resolve(`/projects/${project.slug}`)");
+	});
+
+	it('keeps the project card link separate from the site link', async () => {
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
+		expect(mod.default).toContain('card-link');
+		expect(mod.default).toContain('card-domain');
+		expect(mod.default).toContain('onclick={(event) => event.stopPropagation()}');
+		expect(mod.default).toContain('align-items: flex-start');
+	});
+
+	it('shows latest build notices on project cards', async () => {
+		const mod = await import('./(dashboard)/projects/+page.svelte?raw');
+		expect(mod.default).toContain('project.buildStatus');
+		expect(mod.default).toContain('card-build');
+		expect(mod.default).toContain('project.buildCommitSha');
 	});
 
 	it('uses mono class and CSS custom properties', async () => {
