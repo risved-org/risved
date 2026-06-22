@@ -1,4 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('$lib/server/db', () => ({
+	db: { select: vi.fn(), insert: vi.fn(), update: vi.fn() }
+}));
+vi.mock('$lib/server/db/schema', () => ({
+	previewDeployments: {}, deployments: {}
+}));
+vi.mock('$lib/server/caddy', () => ({
+	createCaddyClient: vi.fn()
+}));
+vi.mock('$lib/server/pipeline', () => ({
+	runPipeline: vi.fn()
+}));
+vi.mock('$lib/server/pipeline/docker', () => ({
+	createCommandRunner: vi.fn(), dockerStop: vi.fn()
+}));
+vi.mock('$lib/server/settings', () => ({
+	getSetting: vi.fn()
+}));
+
 import { buildPreviewDomain } from './index';
 
 describe('buildPreviewDomain', () => {
