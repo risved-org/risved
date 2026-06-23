@@ -276,6 +276,7 @@ describe('settings actions', () => {
 	});
 
 	it('heartbeat saves enabled state', async () => {
+		env.RISVED_MODE = 'cloud';
 		const formData = new FormData();
 		formData.set('enabled', 'true');
 
@@ -287,6 +288,7 @@ describe('settings actions', () => {
 	});
 
 	it('heartbeat saves disabled state', async () => {
+		env.RISVED_MODE = 'cloud';
 		const formData = new FormData();
 		formData.set('enabled', 'false');
 
@@ -295,6 +297,21 @@ describe('settings actions', () => {
 		} as unknown as Parameters<typeof actions.heartbeat>[0]);
 
 		expect(result).toMatchObject({ heartbeatSaved: true });
+	});
+
+	it('heartbeat rejects on non-cloud servers', async () => {
+		delete env.RISVED_MODE;
+		const formData = new FormData();
+		formData.set('enabled', 'true');
+
+		const result = await actions.heartbeat({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.heartbeat>[0]);
+
+		expect(result).toMatchObject({
+			status: 404,
+			data: { heartbeatError: 'Operational reporting is only available on Cloud servers' }
+		});
 	});
 });
 
