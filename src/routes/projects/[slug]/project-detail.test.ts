@@ -74,6 +74,42 @@ describe('project overview load', () => {
 
 		expect(db.select).toHaveBeenCalled()
 	})
+
+	it('returns deployments when project is found', async () => {
+		const project = { id: 'proj-1', slug: 'test-app' }
+		const dep = {
+			id: 'dep-1',
+			commitSha: 'abc1234',
+			status: 'live',
+			triggerType: 'push',
+			imageTag: 'my-app:abc1234',
+			createdAt: new Date(),
+			finishedAt: null
+		}
+
+		dbAny.__limitMock.mockResolvedValueOnce([project])
+		dbAny.__orderByMock.mockReturnValueOnce({
+			limit: vi.fn().mockResolvedValue([dep])
+		})
+
+		const result = await load({ params: { slug: 'test-app' } } as Parameters<typeof load>[0])
+		expect(result.deployments).toHaveLength(1)
+		expect(result.deployments[0].id).toBe('dep-1')
+		expect(result.deployments[0].commitSha).toBe('abc1234')
+	})
+
+	it('deduplicates deployments by id', async () => {
+		const project = { id: 'proj-1', slug: 'test-app' }
+		const dep = { id: 'dep-1', commitSha: 'abc', status: 'live', triggerType: 'push', imageTag: 'img:1', createdAt: new Date(), finishedAt: null }
+
+		dbAny.__limitMock.mockResolvedValueOnce([project])
+		dbAny.__orderByMock.mockReturnValueOnce({
+			limit: vi.fn().mockResolvedValue([dep, dep])
+		})
+
+		const result = await load({ params: { slug: 'test-app' } } as Parameters<typeof load>[0])
+		expect(result.deployments).toHaveLength(1)
+	})
 })
 
 describe('settings delete action', () => {
