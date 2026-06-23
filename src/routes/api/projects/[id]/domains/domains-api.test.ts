@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+/* ── Hoisted mock handles ─────────────────────────────────────────── */
+
+const { removeRouteMock } = vi.hoisted(() => {
+	const removeRouteMock = vi.fn().mockResolvedValue(undefined);
+	return { removeRouteMock };
+});
+
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
 const mockDb = {
@@ -41,8 +48,12 @@ vi.mock('$lib/server/api-utils', () => ({
 vi.mock('$lib/server/caddy', () => ({
 	CaddyClient: vi.fn().mockImplementation(() => ({
 		addRoute: vi.fn().mockResolvedValue({ success: true }),
-		removeRoute: vi.fn().mockResolvedValue({ success: true })
-	}))
+		removeRoute: removeRouteMock
+	})),
+	createCaddyClient: vi.fn().mockReturnValue({
+		addRoute: vi.fn().mockResolvedValue({ success: true }),
+		removeRoute: removeRouteMock
+	})
 }));
 
 vi.mock('$lib/server/dns', () => ({
@@ -237,6 +248,24 @@ describe('DELETE /api/projects/:id/domains/:did', () => {
 		);
 
 		expect(res.status).toBe(404);
+	});
+
+	it('skips www-redirect removal when hostname already starts with www.', async () => {
+		setupSelectChain([{ id: 'd-2', hostname: 'www.example.com' }]);
+
+		mockDb.delete.mockReturnValue({
+			where: vi.fn().mockResolvedValue(undefined)
+		});
+
+		const { DELETE } = await import('./[did]/+server');
+		const res = await DELETE(
+			makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'd-2' } })
+		);
+
+		expect(res.status).toBe(200);
+		/* removeRoute should be called exactly once (hostname only, no www. duplicate) */
+		expect(removeRouteMock).toHaveBeenCalledTimes(1);
+		expect(removeRouteMock).toHaveBeenCalledWith('www.example.com');
 	});
 });
 

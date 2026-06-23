@@ -59,6 +59,52 @@ function makeEvent(overrides: {
 	} as never;
 }
 
+/* ── Tests: GET deployments list ──────────────────────────────────── */
+
+describe('GET /api/projects/:id/deployments', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it('returns deployment list for a project', async () => {
+		const deploymentRows = [
+			{ id: 'd-1', projectId: 'p-1', status: 'live', createdAt: '2026-01-01' },
+			{ id: 'd-2', projectId: 'p-1', status: 'stopped', createdAt: '2025-12-01' }
+		];
+
+		mockDb.select
+			.mockImplementationOnce(() => ({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockResolvedValue([{ id: 'p-1' }])
+					})
+				})
+			}))
+			.mockImplementationOnce(() => ({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						orderBy: vi.fn().mockResolvedValue(deploymentRows)
+					})
+				})
+			}));
+
+		const { GET } = await import('./+server');
+		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data).toHaveLength(2);
+		expect(data[0].id).toBe('d-1');
+	});
+
+	it('returns 404 when project not found', async () => {
+		setupSelectChain([]);
+
+		const { GET } = await import('./+server');
+		const res = await GET(makeEvent({ params: { id: 'nope' } }));
+
+		expect(res.status).toBe(404);
+	});
+});
+
 /* ── Tests: Stop endpoint ─────────────────────────────────────────── */
 
 describe('POST /api/projects/:id/deployments/:did/stop', () => {
