@@ -34,7 +34,9 @@ import {
 	parseStatsOutput,
 	toBucket,
 	getProjectMetrics,
-	getServerMetrics
+	getServerMetrics,
+	getMetricsCollector,
+	_resetMetricsCollector
 } from './index';
 
 const mockDb = db as unknown as {
@@ -290,5 +292,63 @@ describe('getServerMetrics', () => {
 
 		const metrics = await getServerMetrics(24);
 		expect(metrics).toEqual([]);
+	});
+
+	it('sorts multiple distinct buckets in ascending order', async () => {
+		setupQueryMock([
+			{
+				bucket: '2026-03-13T12:00:00.000Z',
+				cpuPercent: 200,
+				memoryMb: 128,
+				memoryLimitMb: 1024,
+				sampleCount: 1
+			},
+			{
+				bucket: '2026-03-13T10:00:00.000Z',
+				cpuPercent: 400,
+				memoryMb: 256,
+				memoryLimitMb: 2048,
+				sampleCount: 2
+			}
+		]);
+
+		const metrics = await getServerMetrics(24);
+		expect(metrics).toHaveLength(2);
+		expect(metrics[0].bucket).toBe('2026-03-13T10:00:00.000Z');
+		expect(metrics[1].bucket).toBe('2026-03-13T12:00:00.000Z');
+	});
+});
+
+describe('getMetricsCollector / _resetMetricsCollector', () => {
+	beforeEach(() => {
+		vi.resetAllMocks();
+		_resetMetricsCollector();
+	});
+
+	afterEach(() => {
+		_resetMetricsCollector();
+	});
+
+	it('returns a MetricsCollector instance', () => {
+		const collector = getMetricsCollector();
+		expect(collector).toBeInstanceOf(MetricsCollector);
+	});
+
+	it('returns the same singleton on subsequent calls', () => {
+		const c1 = getMetricsCollector();
+		const c2 = getMetricsCollector();
+		expect(c1).toBe(c2);
+	});
+
+	it('returns a new instance after reset', () => {
+		const c1 = getMetricsCollector();
+		_resetMetricsCollector();
+		const c2 = getMetricsCollector();
+		expect(c1).not.toBe(c2);
+	});
+
+	it('_resetMetricsCollector is safe when no instance exists', () => {
+		_resetMetricsCollector(); // already null from beforeEach
+		expect(() => _resetMetricsCollector()).not.toThrow();
 	});
 });
