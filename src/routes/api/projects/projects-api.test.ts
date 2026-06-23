@@ -251,6 +251,81 @@ describe('PUT /api/projects/:id', () => {
 
 		expect(res.status).toBe(404);
 	});
+
+	it('returns 400 for invalid JSON body', async () => {
+		setupSelectChain([{ id: 'p-1' }]);
+
+		const { PUT } = await import('./[id]/+server');
+		const event = makeEvent({ method: 'PUT', params: { id: 'p-1' } });
+		(event as unknown as { request: { json: () => Promise<null> } }).request = {
+			json: () => Promise.resolve(null)
+		} as never;
+		const res = await PUT(event);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for empty name string', async () => {
+		setupSelectChain([{ id: 'p-1' }]);
+
+		const { PUT } = await import('./[id]/+server');
+		const res = await PUT(
+			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { name: '' } })
+		);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 for empty branch string', async () => {
+		setupSelectChain([{ id: 'p-1' }]);
+
+		const { PUT } = await import('./[id]/+server');
+		const res = await PUT(
+			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { branch: '' } })
+		);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('sets frameworkId to null when framework_id is non-string', async () => {
+		const project = { id: 'p-1', slug: 'my-app', branch: 'main', frameworkId: 'sveltekit' };
+		setupSelectChain([project]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi.fn().mockResolvedValue([{ ...project, frameworkId: null }])
+				})
+			})
+		});
+
+		const { PUT } = await import('./[id]/+server');
+		const res = await PUT(
+			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { framework_id: 123 } })
+		);
+
+		expect(res.status).toBe(200);
+	});
+
+	it('sets domain to null when domain value is non-string', async () => {
+		const project = { id: 'p-1', slug: 'my-app', branch: 'main', domain: 'example.com' };
+		setupSelectChain([project]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi.fn().mockResolvedValue([{ ...project, domain: null }])
+				})
+			})
+		});
+
+		const { PUT } = await import('./[id]/+server');
+		const res = await PUT(
+			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { domain: 0 } })
+		);
+
+		expect(res.status).toBe(200);
+	});
 });
 
 describe('DELETE /api/projects/:id', () => {
@@ -279,6 +354,22 @@ describe('DELETE /api/projects/:id', () => {
 		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'nope' } }));
 
 		expect(res.status).toBe(404);
+	});
+
+	it('deletes project without a domain without touching Caddy', async () => {
+		const project = { id: 'p-1', slug: 'no-domain', domain: null };
+		setupSelectChain([project]);
+
+		mockDb.delete.mockReturnValue({
+			where: vi.fn().mockResolvedValue(undefined)
+		});
+
+		const { DELETE } = await import('./[id]/+server');
+		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1' } }));
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.success).toBe(true);
 	});
 });
 

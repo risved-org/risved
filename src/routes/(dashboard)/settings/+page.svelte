@@ -26,9 +26,7 @@
 	// svelte-ignore state_referenced_locally
 	let hostname = $state(data.hostname ?? '');
 	// svelte-ignore state_referenced_locally
-	let timezone = $state(
-		data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-	);
+	let timezone = $state(data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
 	// svelte-ignore state_referenced_locally
 	let email = $state(data.user?.email ?? '');
 	let currentPassword = $state('');
@@ -90,60 +88,70 @@
 	let passkeySuccess = $state<string | null>(null);
 	let passkeyName = $state('');
 
-	let showHeartbeatSaved = $state(false)
-	let showGeneralSaved = $state(false)
-	let showEmailSaved = $state(false)
-	let showPasswordChanged = $state(false)
-	let showRetentionSaved = $state(false)
+	let showHeartbeatSaved = $state(false);
+	let showGeneralSaved = $state(false);
+	let showEmailSaved = $state(false);
+	let showPasswordChanged = $state(false);
+	let showRetentionSaved = $state(false);
 
 	$effect(() => {
 		if (form?.generalSaved) {
-			showGeneralSaved = true
-			setTimeout(() => { showGeneralSaved = false }, 3000)
+			showGeneralSaved = true;
+			setTimeout(() => {
+				showGeneralSaved = false;
+			}, 3000);
 		}
-	})
+	});
 	$effect(() => {
 		if (form?.emailSaved) {
-			showEmailSaved = true
-			setTimeout(() => { showEmailSaved = false }, 3000)
+			showEmailSaved = true;
+			setTimeout(() => {
+				showEmailSaved = false;
+			}, 3000);
 		}
-	})
+	});
 	$effect(() => {
 		if (form?.passwordChanged) {
-			showPasswordChanged = true
-			setTimeout(() => { showPasswordChanged = false }, 3000)
+			showPasswordChanged = true;
+			setTimeout(() => {
+				showPasswordChanged = false;
+			}, 3000);
 		}
-	})
+	});
 	$effect(() => {
 		if (form?.retentionSaved) {
-			showRetentionSaved = true
-			setTimeout(() => { showRetentionSaved = false }, 3000)
+			showRetentionSaved = true;
+			setTimeout(() => {
+				showRetentionSaved = false;
+			}, 3000);
 		}
-	})
+	});
 	async function toggleHeartbeat() {
-		if (heartbeatSaving) return
-		const next = !heartbeatEnabled
-		heartbeatSaving = true
-		const previous = heartbeatEnabled
-		heartbeatEnabled = next
+		if (heartbeatSaving) return;
+		const next = !heartbeatEnabled;
+		heartbeatSaving = true;
+		const previous = heartbeatEnabled;
+		heartbeatEnabled = next;
 		try {
-			const formData = new FormData()
-			formData.append('enabled', next ? 'true' : 'false')
-			const res = await fetch('?/heartbeat', { method: 'POST', body: formData })
-			if (!res.ok) throw new Error('Toggle failed')
-			showHeartbeatSaved = true
-			setTimeout(() => { showHeartbeatSaved = false }, 3000)
+			const formData = new FormData();
+			formData.append('enabled', next ? 'true' : 'false');
+			const res = await fetch('?/heartbeat', { method: 'POST', body: formData });
+			if (!res.ok) throw new Error('Toggle failed');
+			showHeartbeatSaved = true;
+			setTimeout(() => {
+				showHeartbeatSaved = false;
+			}, 3000);
 		} catch {
-			heartbeatEnabled = previous
+			heartbeatEnabled = previous;
 		} finally {
-			heartbeatSaving = false
+			heartbeatSaving = false;
 		}
 	}
 
 	onMount(() => {
-		loadPasskeys()
-		loadDiskUsage()
-	})
+		loadPasskeys();
+		loadDiskUsage();
+	});
 
 	async function loadPasskeys() {
 		passkeysLoading = true;
@@ -167,7 +175,9 @@
 				passkeyError = error.message || 'Failed to register passkey';
 			} else {
 				passkeySuccess = 'Passkey registered';
-				setTimeout(() => { passkeySuccess = null }, 3000);
+				setTimeout(() => {
+					passkeySuccess = null;
+				}, 3000);
 				passkeyName = '';
 				await loadPasskeys();
 			}
@@ -210,7 +220,9 @@
 			if (res.ok) {
 				const d = await res.json();
 				pruneResult = `Reclaimed: ${d.result.spaceReclaimed}`;
-				setTimeout(() => { pruneResult = null }, 3000);
+				setTimeout(() => {
+					pruneResult = null;
+				}, 3000);
 				await loadDiskUsage();
 			}
 		} finally {
@@ -230,73 +242,80 @@
 			if (res.ok) {
 				const d = await res.json();
 				cleanupResult = `Removed ${d.result.deploymentsRemoved} deployments, ${d.result.buildLogsRemoved} logs`;
-				setTimeout(() => { cleanupResult = null }, 3000);
+				setTimeout(() => {
+					cleanupResult = null;
+				}, 3000);
 			}
 		} finally {
 			cleanupRunning = false;
 		}
 	}
 
-	let showUpToDate = $state(false)
+	let showUpToDate = $state(false);
 
 	async function checkForUpdates() {
-		updateChecking = true
-		updateError = null
-		showUpToDate = false
+		updateChecking = true;
+		updateError = null;
+		showUpToDate = false;
 		try {
-			const res = await fetch(resolve('/api/system/update/check'), { method: 'POST' })
+			const res = await fetch(resolve('/api/system/update/check'), { method: 'POST' });
 			if (res.ok) {
-				updateInfo = await res.json()
+				updateInfo = await res.json();
 				if (!updateInfo?.updateAvailable) {
-					showUpToDate = true
-					setTimeout(() => { showUpToDate = false }, 3000)
+					showUpToDate = true;
+					setTimeout(() => {
+						showUpToDate = false;
+					}, 3000);
 				}
 			} else {
-				const body = await res.json().catch(() => ({}))
-				updateError = body.error || 'Failed to check for updates'
+				const body = await res.json().catch(() => ({}));
+				updateError = body.error || 'Failed to check for updates';
 			}
 		} catch {
-			updateError = 'Could not reach update server'
+			updateError = 'Could not reach update server';
 		} finally {
-			updateChecking = false
+			updateChecking = false;
 		}
 	}
 
 	async function triggerUpdate() {
-		if (!updateInfo?.updateAvailable || !updateInfo.latestVersion) return
-		if (!confirm(`Update Risved to ${updateInfo.latestVersion}? The dashboard will briefly restart.`)) return
+		if (!updateInfo?.updateAvailable || !updateInfo.latestVersion) return;
+		if (
+			!confirm(`Update Risved to ${updateInfo.latestVersion}? The dashboard will briefly restart.`)
+		)
+			return;
 
-		updateStep = 'Checking...'
-		updateError = null
+		updateStep = 'Checking...';
+		updateError = null;
 
 		try {
-			const res = await fetch(resolve('/api/system/update'), { method: 'POST' })
-			const body = await res.json()
+			const res = await fetch(resolve('/api/system/update'), { method: 'POST' });
+			const body = await res.json();
 
 			if (!res.ok) {
-				updateError = body.error || 'Update failed'
-				updateStep = null
-				return
+				updateError = body.error || 'Update failed';
+				updateStep = null;
+				return;
 			}
 
-			updateStep = 'Updating Risved...'
+			updateStep = 'Updating Risved...';
 
 			/* Poll until the new version responds or timeout */
-			const targetVersion = body.targetVersion
-			let attempts = 0
-			const maxAttempts = 60
+			const targetVersion = body.targetVersion;
+			let attempts = 0;
+			const maxAttempts = 60;
 
 			const poll = setInterval(async () => {
-				attempts++
+				attempts++;
 				try {
-					const checkRes = await fetch(resolve('/api/system/update'))
+					const checkRes = await fetch(resolve('/api/system/update'));
 					if (checkRes.ok) {
-						const info = await checkRes.json()
+						const info = await checkRes.json();
 						if (info.currentVersion === targetVersion) {
-							clearInterval(poll)
-							updateStep = null
-							updateInfo = info
-							return
+							clearInterval(poll);
+							updateStep = null;
+							updateInfo = info;
+							return;
 						}
 					}
 				} catch {
@@ -304,14 +323,15 @@
 				}
 
 				if (attempts >= maxAttempts) {
-					clearInterval(poll)
-					updateStep = null
-					updateError = 'Update timed out. Try refreshing the page — the update may still be in progress.'
+					clearInterval(poll);
+					updateStep = null;
+					updateError =
+						'Update timed out. Try refreshing the page — the update may still be in progress.';
 				}
-			}, 3000)
+			}, 3000);
 		} catch {
-			updateError = 'Failed to start update'
-			updateStep = null
+			updateError = 'Failed to start update';
+			updateStep = null;
 		}
 	}
 
@@ -344,11 +364,14 @@
 							{#if conn.avatarUrl}
 								<img src={conn.avatarUrl} alt="" class="account-avatar" />
 							{:else}
-								<span class="provider-icon {conn.provider}">{providerIcon[conn.provider] ?? '?'}</span>
+								<span class="provider-icon {conn.provider}"
+									>{providerIcon[conn.provider] ?? '?'}</span
+								>
 							{/if}
 							<div class="account-info">
 								<span class="account-name">{conn.accountName}</span>
-								<span class="account-provider">{providerLabel[conn.provider] ?? conn.provider}</span>
+								<span class="account-provider">{providerLabel[conn.provider] ?? conn.provider}</span
+								>
 							</div>
 						</li>
 					{/each}
@@ -356,7 +379,11 @@
 			{:else}
 				<p class="card-desc">No git providers connected.</p>
 			{/if}
-			<a href={resolve('/settings/git')} class="btn-secondary btn-lg" data-testid="git-settings-link">
+			<a
+				href={resolve('/settings/git')}
+				class="btn-secondary btn-lg"
+				data-testid="git-settings-link"
+			>
 				Git settings
 			</a>
 		</div>
@@ -379,7 +406,11 @@
 					<span class="form-label">Apps</span>
 					<code class="url-value mono">*.{data.domainConfig.baseDomain}</code>
 				</div>
-				<p class="form-hint">Each project is reachable by default at <code class="mono">&lt;slug&gt;.{data.domainConfig.baseDomain}</code>.</p>
+				<p class="form-hint">
+					Each project is reachable by default at <code class="mono"
+						>&lt;slug&gt;.{data.domainConfig.baseDomain}</code
+					>.
+				</p>
 			</div>
 		</section>
 	{/if}
@@ -409,7 +440,9 @@
 						class="form-input"
 						data-testid="display-name-input"
 					/>
-					<p class="form-hint">A friendly name for this instance. Shown in the dashboard nav bar.</p>
+					<p class="form-hint">
+						A friendly name for this instance. Shown in the dashboard nav bar.
+					</p>
 				</label>
 
 				<label class="form-group">
@@ -806,7 +839,7 @@
 			{#if updateInfo?.updateAvailable && updateInfo.releaseNotes}
 				<button
 					class="btn-link"
-					onclick={() => showReleaseNotes = !showReleaseNotes}
+					onclick={() => (showReleaseNotes = !showReleaseNotes)}
 					data-testid="toggle-release-notes"
 				>
 					{showReleaseNotes ? 'Hide' : 'View'} release notes
@@ -943,61 +976,70 @@
 	</section>
 
 	<!-- Operational Reporting -->
-	<section class="section" data-testid="heartbeat-section">
-		<h2 class="section-title">Operational reporting</h2>
-		<div class="form-card">
-			<p class="form-hint">
-				Send anonymous operational metadata to Risved every 5 minutes.
-				This powers live status in your Cloud dashboard.
-			</p>
-			<p class="form-hint">
-				Includes: version, uptime, project count, last deploy time, aggregate usage metrics.
-			</p>
-			<p class="form-hint">
-				Does NOT include: project names, domain names, log contents, or any project data.
-			</p>
-			<div class="form-actions">
-				<label class="toggle-label">
-					<button
-						type="button"
-						class="toggle-btn"
-						class:toggle-on={heartbeatEnabled}
-						disabled={heartbeatSaving}
-						onclick={toggleHeartbeat}
-						data-testid="heartbeat-toggle"
-						aria-label={heartbeatEnabled ? 'Disable operational reporting' : 'Enable operational reporting'}
-					>
-						<span class="toggle-knob"></span>
-					</button>
-					<span class="toggle-text">{heartbeatEnabled ? 'Enabled' : 'Disabled'}</span>
-				</label>
-				{#if showHeartbeatSaved}
-					<span class="save-success" data-testid="heartbeat-saved">Saved</span>
+	{#if data.isCloud}
+		<section class="section" data-testid="heartbeat-section">
+			<h2 class="section-title">Operational reporting</h2>
+			<div class="form-card">
+				<p class="form-hint">
+					Send anonymous operational metadata to Risved every 5 minutes. This powers live status in
+					your Cloud dashboard.
+				</p>
+				<p class="form-hint">
+					Includes: version, uptime, project count, last deploy time, aggregate usage metrics.
+				</p>
+				<p class="form-hint">
+					Does NOT include: project names, domain names, log contents, or any project data.
+				</p>
+				<div class="form-actions">
+					<label class="toggle-label">
+						<button
+							type="button"
+							class="toggle-btn"
+							class:toggle-on={heartbeatEnabled}
+							disabled={heartbeatSaving}
+							onclick={toggleHeartbeat}
+							data-testid="heartbeat-toggle"
+							aria-label={heartbeatEnabled
+								? 'Disable operational reporting'
+								: 'Enable operational reporting'}
+						>
+							<span class="toggle-knob"></span>
+						</button>
+						<span class="toggle-text">{heartbeatEnabled ? 'Enabled' : 'Disabled'}</span>
+					</label>
+					{#if showHeartbeatSaved}
+						<span class="save-success" data-testid="heartbeat-saved">Saved</span>
+					{/if}
+				</div>
+				{#if heartbeatEnabled && data.heartbeatInfo?.lastPing}
+					<p class="form-hint">
+						Last ping: <TimeAgo value={data.heartbeatInfo.lastPing} includeTime />
+					</p>
 				{/if}
 			</div>
-			{#if heartbeatEnabled && data.heartbeatInfo?.lastPing}
-				<p class="form-hint">
-					Last ping: <TimeAgo value={data.heartbeatInfo.lastPing} includeTime />
-				</p>
-			{/if}
-		</div>
-	</section>
+		</section>
+	{/if}
 
 	<!-- Census Reporting -->
 	<section class="section" data-testid="census-section">
 		<h2 class="section-title">Census reporting</h2>
 		<div class="form-card">
 			<p class="form-hint">
-				Risved sends a minimal daily ping to risved.com for install census and version tracking. No domains, IPs, project data, or user data is included.
+				Risved sends a minimal daily ping to risved.com for install census and version tracking. No
+				domains, IPs, project data, or user data is included.
 			</p>
 			{#if data.censusInfo}
 				<div class="census-payload" data-testid="census-payload">
 					<span class="form-label">Payload sent</span>
-					<pre class="census-json mono">{JSON.stringify({
-	instance_id: data.censusInfo.instanceId,
-	version: data.censusInfo.version,
-	timestamp: new Date().toISOString()
-}, null, 2)}</pre>
+					<pre class="census-json mono">{JSON.stringify(
+							{
+								instance_id: data.censusInfo.instanceId,
+								version: data.censusInfo.version,
+								timestamp: new Date().toISOString()
+							},
+							null,
+							2
+						)}</pre>
 				</div>
 				{#if data.censusInfo.lastPing}
 					<p class="form-hint">
@@ -1019,7 +1061,7 @@
 	}
 
 	.back-link {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -1040,7 +1082,7 @@
 	}
 
 	.card-desc {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 
@@ -1078,7 +1120,7 @@
 		width: 2rem;
 		height: 2rem;
 		border-radius: var(--radius-md);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		font-weight: 700;
 		flex-shrink: 0;
@@ -1111,7 +1153,7 @@
 	}
 
 	.account-provider {
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		color: var(--color-text-2);
 	}
@@ -1123,7 +1165,7 @@
 	}
 
 	.url-value {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-0);
 		word-break: break-all;
 	}
@@ -1147,7 +1189,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		cursor: pointer;
 		flex-shrink: 0;
 	}
@@ -1157,7 +1199,7 @@
 	}
 
 	.form-error {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-failed);
 	}
 	/* Token display */
@@ -1167,7 +1209,7 @@
 		gap: var(--space-2);
 	}
 	.token-warning {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-building);
 		font-weight: 500;
 	}
@@ -1232,14 +1274,16 @@
 		height: 18px;
 		border-radius: 50%;
 		background: var(--color-text-1);
-		transition: transform 0.2s, background 0.2s;
+		transition:
+			transform 0.2s,
+			background 0.2s;
 	}
 	.toggle-on .toggle-knob {
 		background: var(--color-bg-1);
 		transform: translateX(20px);
 	}
 	.toggle-text {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-1);
 	}
 
@@ -1249,7 +1293,7 @@
 		background: var(--color-bg-0);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		line-height: 1.6;
 		white-space: pre;
 		overflow-x: auto;
@@ -1273,7 +1317,7 @@
 		column-gap: var(--space-3);
 		align-items: center;
 		padding: var(--space-1) 0;
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 	.disk-total {
 		border-top: 1px solid var(--color-border);
@@ -1292,12 +1336,12 @@
 		color: var(--color-text-0);
 	}
 	.btn-prune {
-		padding: .125rem var(--space-1);
+		padding: 0.125rem var(--space-1);
 		background: transparent;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		cursor: pointer;
 		justify-self: end;
@@ -1382,7 +1426,9 @@
 		animation: spin 0.8s linear infinite;
 	}
 	@keyframes spin {
-		to { transform: rotate(360deg); }
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	/* Passkey styles */
@@ -1415,7 +1461,7 @@
 		font-weight: 500;
 	}
 	.passkey-date {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 	.passkey-register {

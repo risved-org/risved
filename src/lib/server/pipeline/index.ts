@@ -143,6 +143,13 @@ async function _runPipeline(
 		commitSha = await getCommitSha(runner, cloneDir);
 		emit('clone', `Cloned at commit ${commitSha ?? 'unknown'}`);
 
+		if (commitSha) {
+			await db
+				.update(deployments)
+				.set({ commitSha })
+				.where(eq(deployments.id, deploymentId))
+		}
+
 		/* Resolve env vars (started in parallel with clone) */
 		const projectEnvVars = await envVarsPromise
 		const envMap: Record<string, string> = {}

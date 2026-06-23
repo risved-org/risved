@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockDb } = vi.hoisted(() => ({
-	mockDb: { select: vi.fn() }
-}))
+vi.mock('$lib/server/db', () => {
+	const selectMock = vi.fn()
+	return { db: { select: selectMock, __selectMock: selectMock } }
+})
 
-vi.mock('$lib/server/db', () => ({ db: mockDb }))
+vi.mock('drizzle-orm', () => ({
+	eq: vi.fn(() => 'eq_fn'),
+	desc: vi.fn(() => 'desc_fn')
+}))
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: 'projects_table',
@@ -12,197 +16,181 @@ vi.mock('$lib/server/db/schema', () => ({
 	deployments: 'deployments_table'
 }))
 
-vi.mock('drizzle-orm', () => ({
-	eq: vi.fn(() => 'eq_fn'),
-	desc: vi.fn(() => 'desc_fn')
-}))
-
-const mockHealthMonitor = { get: vi.fn().mockReturnValue(null) }
-
-vi.mock('$lib/server/health', () => ({
-	getHealthMonitor: vi.fn(() => mockHealthMonitor)
-}))
-
-import { load } from './+layout.server'
-
-type LoadEvent = Parameters<typeof load>[0]
-
-function makeEvent(slug: string): LoadEvent {
-	return { params: { slug } } as LoadEvent
-}
-
-function setupSelectChain(rows: unknown[]) {
-	const chain = {
-		from: vi.fn().mockReturnValue({
-			where: vi.fn().mockReturnValue({
-				limit: vi.fn().mockResolvedValue(rows),
-				orderBy: vi.fn().mockResolvedValue(rows)
-			}),
-			orderBy: vi.fn().mockResolvedValue(rows)
-		})
-	}
-	mockDb.select.mockReturnValue(chain)
-	return chain
-}
-
-beforeEach(() => {
-	vi.clearAllMocks()
-	mockHealthMonitor.get.mockReturnValue(null)
+vi.mock('$lib/server/health', () => {
+	const mockGet = vi.fn()
+	return { getHealthMonitor: vi.fn().mockReturnValue({ get: mockGet, __mockGet: mockGet }) }
 })
 
-describe('[slug] layout load', () => {
-	it('throws 404 when project not found', async () => {
-		setupSelectChain([])
+import { db } from '$lib/server/db'
+import { getHealthMonitor } from '$lib/server/health'
+import { load } from './+layout.server'
 
-		await expect(load(makeEvent('ghost'))).rejects.toMatchObject({ status: 404 })
+const dbAny = db as unknown as { __selectMock: ReturnType<typeof vi.fn> }
+
+function healthGet() {
+	return (getHealthMonitor() as unknown as { __mockGet: ReturnType<typeof vi.fn> }).__mockGet
+}
+
+function setupSelects(
+	projectRows: unknown[],
+	domainRows: unknown[],
+	deploymentRows: unknown[]
+) {
+	dbAny.__selectMock
+		.mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue(projectRows)
+				})
+			})
+		})
+		.mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockResolvedValue(domainRows)
+			})
+		})
+		.mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					orderBy: vi.fn().mockReturnValue({
+						limit: vi.fn().mockResolvedValue(deploymentRows)
+					})
+				})
+			})
+		})
+}
+
+function makeEvent(slug: string) {
+	return { params: { slug } } as Parameters<typeof load>[0]
+}
+
+const baseProject = {
+	id: 'p-1',
+	name: 'Test App',
+	slug: 'test-app',
+	repoUrl: 'https://github.com/org/repo',
+	branch: 'main',
+	frameworkId: null,
+	domain: null,
+	port: 3000
+}
+
+describe('project slug layout load', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		dbAny.__selectMock.mockReset()
+	})
+
+	it('throws 404 when project not found', async () => {
+		setupSelects([], [], [])
+		await expect(load(makeEvent('nonexistent'))).rejects.toMatchObject({ status: 404 })
 	})
 
 	it('returns project data with stopped status when no deployments', async () => {
-		const project = {
-			id: 'p1', name: 'My App', slug: 'my-app', repoUrl: 'https://github.com/a/b',
-			branch: 'main', frameworkId: 'sveltekit', domain: null, port: 3001,
-			buildCommand: null, startCommand: null, releaseCommand: null,
-			gitConnectionId: null, previewLimit: 3
-		}
+		setupSelects([baseProject], [], [])
+		healthGet().mockReturnValue(null)
 
-		mockDb.select
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([project]) })
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockResolvedValue([])
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({
-						orderBy: vi.fn().mockReturnValue({
-							limit: vi.fn().mockResolvedValue([])
-						})
-					})
-				})
-			})
-
-		const result = await load(makeEvent('my-app'))
-		expect(result.project.name).toBe('My App')
+		const result = await load(makeEvent('test-app'))
+		expect(result.project.name).toBe('Test App')
 		expect(result.project.status).toBe('stopped')
-		expect(result.project.framework).toBe('SvelteKit')
-		expect(result.containerHealth).toBeNull()
 	})
 
-	it('shows live status when latest deployment is live', async () => {
-		const project = {
-			id: 'p2', name: 'Live App', slug: 'live-app', repoUrl: 'https://github.com/a/c',
-			branch: 'main', frameworkId: null, domain: 'live.example.com', port: 3002,
-			buildCommand: null, startCommand: null, releaseCommand: null,
-			gitConnectionId: null, previewLimit: 3
-		}
-		const deployment = { status: 'live', commitSha: 'deadbeef', createdAt: '2026-01-01T00:00:00Z' }
+	it('returns live status from latest deployment', async () => {
+		const dep = { status: 'live', commitSha: 'abc123', createdAt: '2026-01-01T00:00:00Z' }
+		setupSelects([baseProject], [], [dep])
+		healthGet().mockReturnValue(null)
 
-		mockDb.select
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([project]) })
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockResolvedValue([])
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({
-						orderBy: vi.fn().mockReturnValue({
-							limit: vi.fn().mockResolvedValue([deployment])
-						})
-					})
-				})
-			})
-
-		const result = await load(makeEvent('live-app'))
+		const result = await load(makeEvent('test-app'))
 		expect(result.project.status).toBe('live')
-		expect(result.project.lastCommitSha).toBe('deadbeef')
 	})
 
-	it('shows live status when building but old deployment is live', async () => {
-		const project = {
-			id: 'p3', name: 'Building App', slug: 'building-app', repoUrl: 'https://github.com/a/d',
-			branch: 'main', frameworkId: null, domain: null, port: 3003,
-			buildCommand: null, startCommand: null, releaseCommand: null,
-			gitConnectionId: null, previewLimit: 3
-		}
-		const deployments = [
-			{ status: 'building', commitSha: 'new', createdAt: '2026-01-02T00:00:00Z' },
-			{ status: 'live', commitSha: 'old', createdAt: '2026-01-01T00:00:00Z' }
+	it('shows live when latest is in-progress but a previous deployment is live', async () => {
+		const deps = [
+			{ status: 'building', commitSha: 'def', createdAt: '2026-01-02T00:00:00Z' },
+			{ status: 'live', commitSha: 'abc', createdAt: '2026-01-01T00:00:00Z' }
 		]
+		setupSelects([baseProject], [], deps)
+		healthGet().mockReturnValue(null)
 
-		mockDb.select
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([project]) })
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockResolvedValue([])
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({
-						orderBy: vi.fn().mockReturnValue({
-							limit: vi.fn().mockResolvedValue(deployments)
-						})
-					})
-				})
-			})
-
-		const result = await load(makeEvent('building-app'))
+		const result = await load(makeEvent('test-app'))
 		expect(result.project.status).toBe('live')
 	})
 
-	it('returns container health when monitor has data', async () => {
-		const project = {
-			id: 'p4', name: 'Healthy', slug: 'healthy', repoUrl: 'https://github.com/a/e',
-			branch: 'main', frameworkId: null, domain: null, port: 3004,
-			buildCommand: null, startCommand: null, releaseCommand: null,
-			gitConnectionId: null, previewLimit: 3
-		}
+	it('uses primary domain from domains table', async () => {
+		const doms = [
+			{ id: 'd1', hostname: 'other.example.com', isPrimary: false },
+			{ id: 'd2', hostname: 'primary.example.com', isPrimary: true }
+		]
+		setupSelects([{ ...baseProject, domain: 'fallback.example.com' }], doms, [])
+		healthGet().mockReturnValue(null)
 
-		mockHealthMonitor.get.mockReturnValue({
+		const result = await load(makeEvent('test-app'))
+		expect(result.project.domain).toBe('primary.example.com')
+	})
+
+	it('falls back to project.domain when no domains in table', async () => {
+		setupSelects([{ ...baseProject, domain: 'fallback.example.com' }], [], [])
+		healthGet().mockReturnValue(null)
+
+		const result = await load(makeEvent('test-app'))
+		expect(result.project.domain).toBe('fallback.example.com')
+	})
+
+	it('returns null domain when neither source provides one', async () => {
+		setupSelects([baseProject], [], [])
+		healthGet().mockReturnValue(null)
+
+		const result = await load(makeEvent('test-app'))
+		expect(result.project.domain).toBeNull()
+	})
+
+	it('maps sveltekit frameworkId to readable name', async () => {
+		setupSelects([{ ...baseProject, frameworkId: 'sveltekit' }], [], [])
+		healthGet().mockReturnValue(null)
+
+		const result = await load(makeEvent('test-app'))
+		expect(result.project.framework).toBe('SvelteKit')
+	})
+
+	it('returns null framework when frameworkId is null', async () => {
+		setupSelects([baseProject], [], [])
+		healthGet().mockReturnValue(null)
+
+		const result = await load(makeEvent('test-app'))
+		expect(result.project.framework).toBeNull()
+	})
+
+	it('returns containerHealth when monitor has data', async () => {
+		setupSelects([baseProject], [], [])
+		healthGet().mockReturnValue({
 			healthy: true,
 			consecutiveFailures: 0,
 			lastCheckAt: '2026-01-01T00:00:00Z',
 			lastRestartAt: null,
-			totalRestarts: 0
+			totalRestarts: 2
 		})
 
-		mockDb.select
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([project]) })
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockResolvedValue([])
-				})
-			})
-			.mockReturnValueOnce({
-				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockReturnValue({
-						orderBy: vi.fn().mockReturnValue({
-							limit: vi.fn().mockResolvedValue([])
-						})
-					})
-				})
-			})
+		const result = await load(makeEvent('test-app'))
+		expect(result.containerHealth).not.toBeNull()
+		expect(result.containerHealth?.healthy).toBe(true)
+		expect(result.containerHealth?.totalRestarts).toBe(2)
+	})
 
-		const result = await load(makeEvent('healthy'))
-		expect(result.containerHealth).toMatchObject({ healthy: true, consecutiveFailures: 0 })
+	it('returns null containerHealth when monitor has no entry', async () => {
+		setupSelects([baseProject], [], [])
+		healthGet().mockReturnValue(null)
+
+		const result = await load(makeEvent('test-app'))
+		expect(result.containerHealth).toBeNull()
+	})
+
+	it('sets lastCommitSha from live deployment', async () => {
+		const dep = { status: 'live', commitSha: 'abc', createdAt: '2026-03-01T00:00:00Z' }
+		setupSelects([baseProject], [], [dep])
+		healthGet().mockReturnValue(null)
+
+		const result = await load(makeEvent('test-app'))
+		expect(result.project.lastCommitSha).toBe('abc')
+		expect(result.project.lastDeployedAt).toBe('2026-03-01T00:00:00Z')
 	})
 })

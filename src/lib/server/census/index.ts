@@ -1,49 +1,54 @@
-import { getSetting, setSetting } from '$lib/server/settings'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { getSetting, setSetting } from '$lib/server/settings';
+import { env } from '$env/dynamic/private';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const CENSUS_URL = 'https://risved.com/api/census'
-const INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
+const CENSUS_URL = 'https://risved.com/api/census';
+const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * CensusReporter sends a minimal daily ping to risved.com
  * containing only: instance UUID, version, and timestamp.
  */
 export class CensusReporter {
-	private timer: ReturnType<typeof setInterval> | null = null
-	private censusUrl: string
+	private timer: ReturnType<typeof setInterval> | null = null;
+	private censusUrl: string;
 
 	constructor(config: { censusUrl?: string } = {}) {
-		this.censusUrl = config.censusUrl ?? CENSUS_URL
+		this.censusUrl = config.censusUrl ?? env.RISVED_CENSUS_ENDPOINT ?? CENSUS_URL;
 	}
 
 	start(): void {
-		if (this.timer) return
-		console.log('[census] Census reporting is enabled, sending to risved.com daily')
-		this.timer = setInterval(() => this.ping(), INTERVAL_MS)
+		if (this.timer) return;
+		console.log('[census] Census reporting is enabled, sending to risved.com daily');
+		this.timer = setInterval(() => this.ping(), INTERVAL_MS);
 		/* Run initial ping after 15 seconds to let the DB settle */
-		setTimeout(() => this.ping(), 15_000)
+		setTimeout(() => this.ping(), 15_000);
 	}
 
 	stop(): void {
 		if (this.timer) {
-			clearInterval(this.timer)
-			this.timer = null
+			clearInterval(this.timer);
+			this.timer = null;
 		}
 	}
 
 	isRunning(): boolean {
-		return this.timer !== null
+		return this.timer !== null;
 	}
 
 	/** Get or create the instance UUID. Persists in the settings table. */
 	async getInstanceId(): Promise<string> {
-		const existing = await getSetting('census_instance_id')
-		if (existing) return existing
+		const existing = await getSetting('census_instance_id');
+		if (existing) return existing;
 
-		const id = crypto.randomUUID()
-		await setSetting('census_instance_id', id)
-		return id
+		const id =
+			env.RISVED_INSTANCE_ID && UUID_RE.test(env.RISVED_INSTANCE_ID)
+				? env.RISVED_INSTANCE_ID
+				: crypto.randomUUID();
+		await setSetting('census_instance_id', id);
+		return id;
 	}
 
 	/** Read the current version from package.json. */
@@ -51,71 +56,71 @@ export class CensusReporter {
 		const candidates = [
 			resolve('/opt/risved', 'package.json'),
 			resolve(process.cwd(), 'package.json')
-		]
+		];
 		for (const pkgPath of candidates) {
 			try {
-				const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
-				if (pkg.version) return pkg.version
+				const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+				if (pkg.version) return pkg.version;
 			} catch {
 				/* try next candidate */
 			}
 		}
-		return '0.0.1'
+		return '0.0.1';
 	}
 
 	/** Build the census payload. */
 	async buildPayload(): Promise<{ instance_id: string; version: string; timestamp: string }> {
-		const instanceId = await this.getInstanceId()
-		const version = this.getVersion()
-		const timestamp = new Date().toISOString()
+		const instanceId = await this.getInstanceId();
+		const version = this.getVersion();
+		const timestamp = new Date().toISOString();
 
 		return {
 			instance_id: instanceId,
 			version,
 			timestamp
-		}
+		};
 	}
 
 	/** Send the census ping. Silently swallows errors. */
 	async ping(): Promise<boolean> {
 		try {
-			const payload = await this.buildPayload()
+			const payload = await this.buildPayload();
 
 			const res = await fetch(this.censusUrl, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload),
 				signal: AbortSignal.timeout(10_000)
-			})
+			});
 
-			await setSetting('census_last_ping', payload.timestamp)
-			return res.ok
+			await setSetting('census_last_ping', payload.timestamp);
+			return res.ok;
 		} catch {
 			/* Census failures are silent — never block the control plane */
-			return false
+			return false;
 		}
 	}
 
 	/** Get census info for the settings page. */
 	async getInfo(): Promise<{
-		instanceId: string
-		version: string
-		lastPing: string | null
+		instanceId: string;
+		version: string;
+		lastPing: string | null;
 	}> {
-		const instanceId = await this.getInstanceId()
-		const version = this.getVersion()
-		const lastPing = await getSetting('census_last_ping')
+		const instanceId = await this.getInstanceId();
+		const version = this.getVersion();
+		const lastPing = await getSetting('census_last_ping');
 
-		return { instanceId, version, lastPing }
+		return { instanceId, version, lastPing };
 	}
 }
 
 /* Singleton */
-let instance: CensusReporter | null = null
+let instance: CensusReporter | null = null;
 
 export function getCensusReporter(config?: { censusUrl?: string }): CensusReporter {
 	if (!instance) {
-		instance = new CensusReporter(config)
+		instance = new CensusReporter(config);
 	}
-	return instance
+	return instance;
 }

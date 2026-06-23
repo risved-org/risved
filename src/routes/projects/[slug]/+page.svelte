@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation'
 	import { resolve } from '$app/paths'
+	import { onMount } from 'svelte'
 	import type { PageData } from './$types'
 
 	let { data }: { data: PageData } = $props()
+	type Deployment = (typeof data.deployments)[number]
+
+	// svelte-ignore state_referenced_locally
+	let deployments = $state<Deployment[]>(data.deployments)
 
 	function timeAgo(dateStr: string | null): string {
 		if (!dateStr) return '–'
@@ -25,6 +30,7 @@
 	}
 
 	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
+	const DEPLOYMENT_POLL_MS = 2000
 
 	function statusClass(status: string): string {
 		if (status === 'live') return 'dot-live'
@@ -50,6 +56,30 @@
 	}
 
 	let rollingBack = $state<string | null>(null)
+
+	async function refreshDeployments() {
+		const res = await fetch(`/api/projects/${data.project.id}/deployments`)
+		if (!res.ok) return
+
+		const rows: Deployment[] = await res.json()
+		deployments = rows.slice(0, 5).map((dep) => ({
+			id: dep.id,
+			commitSha: dep.commitSha,
+			status: dep.status,
+			triggerType: dep.triggerType,
+			imageTag: dep.imageTag,
+			createdAt: dep.createdAt,
+			finishedAt: dep.finishedAt
+		}))
+	}
+
+	onMount(() => {
+		const timer = window.setInterval(refreshDeployments, DEPLOYMENT_POLL_MS)
+
+		return () => {
+			window.clearInterval(timer)
+		}
+	})
 
 	async function handleRedeploy() {
 		const res = await fetch(`/api/projects/${data.project.id}/deploy`, { method: 'POST' })
@@ -127,11 +157,11 @@
 			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-secondary btn-md">View all</a>
 		</nav>
 	</header>
-	{#if data.deployments.length === 0}
+	{#if deployments.length === 0}
 		<p class="empty-text">No deployments yet.</p>
 	{:else}
 		<ul class="deploy-list">
-			{#each data.deployments as dep, i (dep.id)}
+			{#each deployments as dep, i (dep.id)}
 				<li>
 					<a
 						href={resolve(`/projects/${data.project.slug}/deployments/${dep.id}`)}
@@ -145,7 +175,7 @@
 							{#if dep.triggerType === 'rollback'}
 								<span class="badge-md badge-accent" data-testid="rollback-badge">Rollback</span>
 							{/if}
-							{#if dep.status === 'live' && i === data.deployments.findIndex((d) => d.status === 'live')}
+							{#if dep.status === 'live' && i === deployments.findIndex((d) => d.status === 'live')}
 								<span class="badge-md badge-live">Current</span>
 							{/if}
 						</span>
