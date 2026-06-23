@@ -28,6 +28,10 @@ vi.mock('$lib/server/heartbeat', () => ({
 	getHeartbeatReporter: () => ({ getInfo: vi.fn().mockResolvedValue(null), setEnabled: vi.fn() })
 }));
 
+vi.mock('$env/dynamic/private', () => ({
+	env: {}
+}));
+
 vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn().mockResolvedValue(null),
 	setSetting: vi.fn().mockResolvedValue(undefined)
@@ -42,11 +46,13 @@ vi.mock('$lib/server/auth', () => ({
 }));
 
 import { getSetting, setSetting } from '$lib/server/settings';
+import { env } from '$env/dynamic/private';
 import { load, actions } from '../(dashboard)/settings/+page.server';
 
 describe('settings load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		delete env.RISVED_MODE;
 	});
 
 	it('returns null user when not authenticated', async () => {
@@ -81,6 +87,30 @@ describe('settings load', () => {
 		expect(result.hostname).toBe('risved.example.com');
 		expect(result.timezone).toBe('America/New_York');
 		expect(result.apiToken).toBeNull();
+	});
+
+	it('hides heartbeat controls for self-host installs', async () => {
+		const result = (await load({
+			locals: { user: { id: 'u-1', email: 'admin@test.com', name: 'Admin' } }
+		} as unknown as Parameters<typeof load>[0])) as {
+			isCloud: boolean;
+			heartbeatInfo: unknown;
+		};
+
+		expect(result.isCloud).toBe(false);
+		expect(result.heartbeatInfo).toBeNull();
+	});
+
+	it('returns heartbeat controls for Cloud installs', async () => {
+		env.RISVED_MODE = 'cloud';
+
+		const result = (await load({
+			locals: { user: { id: 'u-1', email: 'admin@test.com', name: 'Admin' } }
+		} as unknown as Parameters<typeof load>[0])) as {
+			isCloud: boolean;
+		};
+
+		expect(result.isCloud).toBe(true);
 	});
 
 	it('masks API token in load', async () => {

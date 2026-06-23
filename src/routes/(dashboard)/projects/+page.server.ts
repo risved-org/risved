@@ -32,10 +32,10 @@ export const load: PageServerLoad = async () => {
 
 	/* Build lookup maps */
 	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
-	const latestDeployMap = new Map<
-		string,
-		{ status: string; commitSha: string | null; createdAt: string }
-	>()
+	const BUILD_NOTICE_STATUSES = new Set([...IN_PROGRESS, 'failed'])
+	type DeploymentSummary = { status: string; commitSha: string | null; createdAt: string }
+	const latestDeployMap = new Map<string, DeploymentSummary>()
+	const liveDeployMap = new Map<string, DeploymentSummary>()
 	for (const dep of allDeployments) {
 		if (!latestDeployMap.has(dep.projectId)) {
 			latestDeployMap.set(dep.projectId, {
@@ -44,11 +44,12 @@ export const load: PageServerLoad = async () => {
 				createdAt: dep.createdAt
 			})
 		}
-		/* If latest deployment is in-progress but there's a previous live deployment,
-		   show the project as live — the old container is still serving traffic */
-		const existing = latestDeployMap.get(dep.projectId)!
-		if (IN_PROGRESS.has(existing.status) && dep.status === 'live') {
-			existing.status = 'live'
+		if (dep.status === 'live' && !liveDeployMap.has(dep.projectId)) {
+			liveDeployMap.set(dep.projectId, {
+				status: dep.status,
+				commitSha: dep.commitSha,
+				createdAt: dep.createdAt
+			})
 		}
 	}
 
@@ -59,7 +60,13 @@ export const load: PageServerLoad = async () => {
 	const healthMap = new Map(monitor.getAll().map((h) => [h.projectId, h]))
 
 	const projectList = allProjects.map((p) => {
-		const dep = latestDeployMap.get(p.id)
+		const latestDeployment = latestDeployMap.get(p.id)
+		const liveDeployment = liveDeployMap.get(p.id)
+		const productionDeployment = liveDeployment ?? latestDeployment
+		const buildNotice =
+			latestDeployment && BUILD_NOTICE_STATUSES.has(latestDeployment.status)
+				? latestDeployment
+				: null
 		const containerHealth = healthMap.get(p.id)
 		return {
 			id: p.id,
@@ -68,9 +75,11 @@ export const load: PageServerLoad = async () => {
 			framework: p.frameworkId ? (_FRAMEWORK_NAMES[p.frameworkId] ?? p.frameworkId) : null,
 			frameworkId: p.frameworkId,
 			domain: domainMap.get(p.id) ?? p.domain ?? null,
-			status: dep?.status ?? 'stopped',
-			commitSha: dep?.commitSha ?? null,
-			lastDeployedAt: dep?.createdAt ?? null,
+			status: productionDeployment?.status ?? 'stopped',
+			commitSha: productionDeployment?.commitSha ?? null,
+			lastDeployedAt: productionDeployment?.createdAt ?? null,
+			buildStatus: buildNotice?.status ?? null,
+			buildCommitSha: buildNotice?.commitSha ?? null,
 			containerHealthy: containerHealth?.healthy ?? null,
 			totalRestarts: containerHealth?.totalRestarts ?? 0
 		}
