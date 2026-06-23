@@ -201,6 +201,11 @@ describe('Install Script', () => {
 			expect(script).toContain('/var/run/docker.sock');
 		});
 
+		it('passes Cloud provisioning env file into the control plane when present', () => {
+			expect(script).toContain('/etc/risved-cloud.env');
+			expect(script).toContain('--env-file /etc/risved-cloud.env');
+		});
+
 		it('uses restart unless-stopped for containers', () => {
 			expect(script).toContain('--restart unless-stopped');
 		});

@@ -485,10 +485,12 @@ async function cmdUpdate(targetVersion) {
 		/* Run migrations */
 		process.stdout.write(`${BLUE}▸${RESET} Running migrations... `);
 		try {
-			execSync('bunx drizzle-kit migrate', { cwd: installDir, stdio: 'pipe', timeout: 30000 });
+			execSync('bun run db:migrate', { cwd: installDir, stdio: 'pipe', timeout: 30000 });
 			console.log(`${GREEN}done${RESET}`);
-		} catch {
-			console.log(`${YELLOW}skipped${RESET}`);
+		} catch (e) {
+			console.log(`${RED}failed${RESET}`);
+			err(e.message || 'Database migration failed');
+			process.exit(1);
 		}
 
 		/* Update version in DB */

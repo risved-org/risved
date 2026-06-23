@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createCipheriv, randomBytes } from 'node:crypto';
 import {
 	encrypt,
 	decrypt,
-	decryptCallbackToken,
 	isEncrypted,
 	safeDecrypt,
 	getEncryptionKey,
+	decryptCallbackToken,
 	_resetKeyCache
 } from './crypto';
 
@@ -124,34 +124,50 @@ describe('crypto', () => {
 		});
 	});
 
-	describe('decryptCallbackToken', () => {
-		const secret = randomBytes(32).toString('hex');
+	describe('getEncryptionKey error paths', () => {
+		it('throws when key file exists but has wrong length', () => {
+			writeFileSync(keyPath, 'too-short-key');
+			expect(() => getEncryptionKey(keyPath)).toThrow('Invalid key length');
+		});
+	});
 
-		function encryptWebCryptoStyle(plaintext: string, hexSecret: string): string {
-			const key = Buffer.from(hexSecret, 'hex');
+	describe('decryptCallbackToken', () => {
+		const validSecret = randomBytes(32).toString('hex');
+
+		function makeToken(plaintext: string): string {
+			const key = Buffer.from(validSecret, 'hex');
 			const iv = randomBytes(12);
 			const cipher = createCipheriv('aes-256-gcm', key, iv);
-			const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+			const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
 			const authTag = cipher.getAuthTag();
-			// Web Crypto format: iv[12] + ciphertext[n] + authTag[16]
-			return Buffer.concat([iv, ciphertext, authTag]).toString('base64');
+			/* Web Crypto format: iv + ciphertext + authTag */
+			return Buffer.concat([iv, encrypted, authTag]).toString('base64');
 		}
 
-		it('decrypts a Web Crypto AES-256-GCM token', () => {
-			const plaintext = '{"userId":"user-123","projectId":"proj-abc"}';
-			const token = encryptWebCryptoStyle(plaintext, secret);
-			expect(decryptCallbackToken(token, secret)).toBe(plaintext);
+		it('decrypts a valid callback token round-trip', () => {
+			const token = makeToken('hello world');
+			expect(decryptCallbackToken(token, validSecret)).toBe('hello world');
 		});
 
-		it('throws for invalid CALLBACK_SECRET length', () => {
-			expect(() => decryptCallbackToken('validbase64==', 'tooshort')).toThrow(
-				'Invalid CALLBACK_SECRET'
-			);
+		it('throws on invalid secret length', () => {
+			expect(() => decryptCallbackToken('abc', 'deadbeef')).toThrow('Invalid CALLBACK_SECRET');
 		});
 
-		it('throws for a token that is too short', () => {
+		it('throws on too-short token', () => {
 			const shortToken = Buffer.alloc(10).toString('base64');
-			expect(() => decryptCallbackToken(shortToken, secret)).toThrow('too short');
+			expect(() => decryptCallbackToken(shortToken, validSecret)).toThrow('Invalid callback token: too short');
+		});
+
+		it('throws on tampered authTag', () => {
+			const token = makeToken('secret data');
+			const buf = Buffer.from(token, 'base64');
+			buf[buf.length - 1] ^= 0xff;
+			expect(() => decryptCallbackToken(buf.toString('base64'), validSecret)).toThrow();
+		});
+
+		it('handles empty plaintext', () => {
+			const token = makeToken('');
+			expect(decryptCallbackToken(token, validSecret)).toBe('');
 		});
 	});
 });

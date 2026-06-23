@@ -291,10 +291,16 @@ start_risved() {
   local callback_secret
   callback_secret=$(cat "$callback_secret_file")
 
+  local env_file_args=()
+  if [ -f /etc/risved-cloud.env ]; then
+    env_file_args+=(--env-file /etc/risved-cloud.env)
+  fi
+
   docker run -d \
     --name "$container_name" \
     --network "$RISVED_DOCKER_NETWORK" \
     --restart unless-stopped \
+    "${env_file_args[@]}" \
     -p "${RISVED_PORT}:3000" \
     -e "DATABASE_URL=file:data/risved.db" \
     -e "BETTER_AUTH_SECRET=${auth_secret}" \

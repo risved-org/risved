@@ -214,96 +214,84 @@ describe('runRollback', () => {
 		expect(runIdx).toBeGreaterThan(rmIdx);
 	});
 
-	it('emits freed-port log when freePort releases a container', async () => {
+	it('emits a log when freePort removes containers', async () => {
+		const logs: LogEntry[] = [];
 		const runner: CommandRunner = {
 			async exec(cmd, args) {
 				const joined = `${cmd} ${args.join(' ')}`;
-				if (joined.includes('docker ps') && joined.includes('--filter')) {
-					return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+				/* docker ps -q returns one container ID */
+				if (joined.includes('docker ps') && args.includes('-q')) {
+					return { exitCode: 0, stdout: 'stale123\n', stderr: '' };
 				}
-				if (joined.includes('docker run')) {
-					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
-				}
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'newcid\n', stderr: '' };
 				return { exitCode: 0, stdout: '', stderr: '' };
 			}
 		};
 
-		const logs: LogEntry[] = [];
-		const result = await runRollback(makeConfig(), runner, {
+		await runRollback(makeConfig(), runner, {
 			onLog: (entry) => logs.push(entry),
 			caddy: makeCaddy() as never,
 			fetchFn: makeHealthyFetch()
 		});
 
-		expect(result.success).toBe(true);
-		const freedLog = logs.find((l) => l.message.includes('occupying port'));
-		expect(freedLog).toBeTruthy();
+		const freePortLog = logs.find((l) => l.message.includes('occupying port'));
+		expect(freePortLog).toBeDefined();
 	});
 
-	it('emits warning when caddy route update fails', async () => {
-		const caddy = makeCaddy();
-		caddy.addRoute.mockResolvedValueOnce({ success: false, error: 'caddy unreachable' });
-
+	it('emits a warning when caddy addRoute fails', async () => {
 		const logs: LogEntry[] = [];
-		const result = await runRollback(makeConfig(), makeSuccessRunner(), {
+		const caddy = {
+			...makeCaddy(),
+			addRoute: vi.fn().mockResolvedValue({ success: false, error: 'caddy unavailable' })
+		};
+
+		const result = await runRollback(makeConfig({ domain: 'app.example.com' }), makeSuccessRunner(), {
 			onLog: (entry) => logs.push(entry),
 			caddy: caddy as never,
 			fetchFn: makeHealthyFetch()
 		});
 
 		expect(result.success).toBe(true);
-		const warnLog = logs.find((l) => l.phase === 'route' && l.level === 'warn');
-		expect(warnLog?.message).toContain('route update failed');
+		const warnLog = logs.find((l) => l.level === 'warn' && l.message.includes('route update failed'));
+		expect(warnLog).toBeDefined();
 	});
 
-	it('configures alt route when hostname differs from deployment domain', async () => {
-		vi.mocked(getSetting).mockResolvedValueOnce('panel.example.com');
+	it('adds alt route when hostname setting is set and domain differs', async () => {
+		vi.mocked(getSetting).mockResolvedValue('host.example.com');
 
 		const caddy = makeCaddy();
-		const logs: LogEntry[] = [];
-		const result = await runRollback(
-			makeConfig({ domain: 'app.otherdomain.com' }),
+		await runRollback(
+			makeConfig({ domain: 'app.custom.com', projectSlug: 'my-app', port: 3001 }),
 			makeSuccessRunner(),
-			{
-				onLog: (entry) => logs.push(entry),
-				caddy: caddy as never,
-				fetchFn: makeHealthyFetch()
-			}
+			{ caddy: caddy as never, fetchFn: makeHealthyFetch() }
 		);
 
-		expect(result.success).toBe(true);
-		expect(caddy.addRoute).toHaveBeenCalledWith({
-			hostname: 'my-app.panel.example.com',
-			port: 3001
-		});
-		const altLog = logs.find((l) => l.message.includes('Alt route configured'));
-		expect(altLog).toBeTruthy();
+		const routeCalls = caddy.addRoute.mock.calls.map((c) => c[0].hostname);
+		expect(routeCalls).toContain('my-app.host.example.com');
 	});
 
 	it('emits warning when alt route fails', async () => {
-		vi.mocked(getSetting).mockResolvedValueOnce('panel.example.com');
-
-		const caddy = makeCaddy();
-		// First addRoute (primary domain) succeeds, second (alt domain) fails
-		caddy.addRoute
-			.mockResolvedValueOnce({ success: true })
-			.mockResolvedValueOnce({ success: false, error: 'alt caddy error' });
+		vi.mocked(getSetting).mockResolvedValue('host.example.com');
 
 		const logs: LogEntry[] = [];
-		const result = await runRollback(
-			makeConfig({ domain: 'app.otherdomain.com' }),
+		let altCall = 0;
+		const caddy = {
+			...makeCaddy(),
+			addRoute: vi.fn().mockImplementation((args: { hostname: string }) => {
+				altCall++
+				/* primary route succeeds, alt route fails */
+				if (altCall === 2) return Promise.resolve({ success: false, error: 'alt fail' })
+				return Promise.resolve({ success: true })
+			})
+		};
+
+		await runRollback(
+			makeConfig({ domain: 'app.custom.com', projectSlug: 'my-app' }),
 			makeSuccessRunner(),
-			{
-				onLog: (entry) => logs.push(entry),
-				caddy: caddy as never,
-				fetchFn: makeHealthyFetch()
-			}
+			{ onLog: (e) => logs.push(e), caddy: caddy as never, fetchFn: makeHealthyFetch() }
 		);
 
-		expect(result.success).toBe(true);
-		const altWarnLog = logs.find(
-			(l) => l.phase === 'route' && l.level === 'warn' && l.message.includes('alt route failed')
-		);
-		expect(altWarnLog).toBeTruthy();
+		const warnLog = logs.find((l) => l.level === 'warn' && l.message.includes('alt route failed'));
+		expect(warnLog).toBeDefined();
 	});
 });

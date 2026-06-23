@@ -28,6 +28,10 @@ vi.mock('$lib/server/heartbeat', () => ({
 	getHeartbeatReporter: () => ({ getInfo: vi.fn().mockResolvedValue(null), setEnabled: vi.fn() })
 }));
 
+vi.mock('$env/dynamic/private', () => ({
+	env: {}
+}));
+
 vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn().mockResolvedValue(null),
 	setSetting: vi.fn().mockResolvedValue(undefined)
@@ -42,11 +46,13 @@ vi.mock('$lib/server/auth', () => ({
 }));
 
 import { getSetting, setSetting } from '$lib/server/settings';
+import { env } from '$env/dynamic/private';
 import { load, actions } from '../(dashboard)/settings/+page.server';
 
 describe('settings load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		delete env.RISVED_MODE;
 	});
 
 	it('returns null user when not authenticated', async () => {
@@ -81,6 +87,30 @@ describe('settings load', () => {
 		expect(result.hostname).toBe('risved.example.com');
 		expect(result.timezone).toBe('America/New_York');
 		expect(result.apiToken).toBeNull();
+	});
+
+	it('hides heartbeat controls for self-host installs', async () => {
+		const result = (await load({
+			locals: { user: { id: 'u-1', email: 'admin@test.com', name: 'Admin' } }
+		} as unknown as Parameters<typeof load>[0])) as {
+			isCloud: boolean;
+			heartbeatInfo: unknown;
+		};
+
+		expect(result.isCloud).toBe(false);
+		expect(result.heartbeatInfo).toBeNull();
+	});
+
+	it('returns heartbeat controls for Cloud installs', async () => {
+		env.RISVED_MODE = 'cloud';
+
+		const result = (await load({
+			locals: { user: { id: 'u-1', email: 'admin@test.com', name: 'Admin' } }
+		} as unknown as Parameters<typeof load>[0])) as {
+			isCloud: boolean;
+		};
+
+		expect(result.isCloud).toBe(true);
 	});
 
 	it('masks API token in load', async () => {
@@ -178,6 +208,110 @@ describe('settings actions', () => {
 
 		expect(result).toMatchObject({ tokenRevoked: true });
 		expect(setSetting).toHaveBeenCalledWith('api_token', '');
+	});
+
+	it('password changes successfully when auth accepts', async () => {
+		const formData = new FormData();
+		formData.set('currentPassword', 'oldpass12345x');
+		formData.set('newPassword', 'newpass12345abc');
+		formData.set('confirmPassword', 'newpass12345abc');
+
+		const result = await actions.password({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.password>[0]);
+
+		expect(result).toMatchObject({ passwordChanged: true });
+	});
+
+	it('password returns 400 when auth rejects', async () => {
+		const { auth } = await import('$lib/server/auth');
+		(auth.api.changePassword as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+			new Error('Wrong password')
+		);
+
+		const formData = new FormData();
+		formData.set('currentPassword', 'wrongpass123');
+		formData.set('newPassword', 'newpass12345abc');
+		formData.set('confirmPassword', 'newpass12345abc');
+
+		const result = await actions.password({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.password>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('retention saves valid days', async () => {
+		const formData = new FormData();
+		formData.set('retentionDays', '60');
+
+		const result = await actions.retention({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.retention>[0]);
+
+		expect(result).toMatchObject({ retentionSaved: true });
+		expect(setSetting).toHaveBeenCalledWith('log_retention_days', '60');
+	});
+
+	it('retention rejects days above 365', async () => {
+		const formData = new FormData();
+		formData.set('retentionDays', '400');
+
+		const result = await actions.retention({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.retention>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('retention rejects days below 1', async () => {
+		const formData = new FormData();
+		formData.set('retentionDays', '0');
+
+		const result = await actions.retention({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.retention>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('heartbeat saves enabled state', async () => {
+		env.RISVED_MODE = 'cloud';
+		const formData = new FormData();
+		formData.set('enabled', 'true');
+
+		const result = await actions.heartbeat({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.heartbeat>[0]);
+
+		expect(result).toMatchObject({ heartbeatSaved: true });
+	});
+
+	it('heartbeat saves disabled state', async () => {
+		env.RISVED_MODE = 'cloud';
+		const formData = new FormData();
+		formData.set('enabled', 'false');
+
+		const result = await actions.heartbeat({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.heartbeat>[0]);
+
+		expect(result).toMatchObject({ heartbeatSaved: true });
+	});
+
+	it('heartbeat rejects on non-cloud servers', async () => {
+		delete env.RISVED_MODE;
+		const formData = new FormData();
+		formData.set('enabled', 'true');
+
+		const result = await actions.heartbeat({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.heartbeat>[0]);
+
+		expect(result).toMatchObject({
+			status: 404,
+			data: { heartbeatError: 'Operational reporting is only available on Cloud servers' }
+		});
 	});
 });
 

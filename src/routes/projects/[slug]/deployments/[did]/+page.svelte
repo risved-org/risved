@@ -13,10 +13,20 @@
 		message: string;
 	}
 
+	interface DeploymentUpdate {
+		status?: string
+		commitSha?: string | null
+		finishedAt?: string | null
+	}
+
 	// svelte-ignore state_referenced_locally
 	let logs = $state<LogLine[]>(data.logs);
 	// svelte-ignore state_referenced_locally
 	let status = $state(data.deployment.status);
+	// svelte-ignore state_referenced_locally
+	let commitSha = $state(data.deployment.commitSha)
+	// svelte-ignore state_referenced_locally
+	let finishedAt = $state(data.deployment.finishedAt)
 	// svelte-ignore state_referenced_locally
 	let isTerminal = $state(data.isTerminal);
 	let elapsed = $state('');
@@ -65,9 +75,7 @@
 	function updateElapsed() {
 		const start = data.deployment.startedAt ?? data.deployment.createdAt;
 		if (!start) return;
-		const end = isTerminal
-			? (data.deployment.finishedAt ?? new Date().toISOString())
-			: new Date().toISOString();
+		const end = isTerminal ? (finishedAt ?? new Date().toISOString()) : new Date().toISOString()
 		const seconds = Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000);
 		const mins = Math.floor(seconds / 60);
 		const secs = seconds % 60;
@@ -104,6 +112,11 @@
 		return msg.startsWith('$ ') || msg.startsWith('> ');
 	}
 
+	function syncCommitFromLog(message: string) {
+		const match = message.match(/^Cloned at commit ([0-9a-f]{7,40})$/i)
+		if (match) commitSha = match[1]
+	}
+
 	onMount(() => {
 		updateElapsed();
 
@@ -119,11 +132,23 @@
 				try {
 					const log: LogLine = JSON.parse(event.data);
 					logs = [...logs, log];
+					syncCommitFromLog(log.message)
 					requestAnimationFrame(scrollToBottom);
 				} catch {
 					/* ignore parse errors */
 				}
 			};
+
+			eventSource.addEventListener('deployment', (event) => {
+				try {
+					const update: DeploymentUpdate = JSON.parse((event as MessageEvent).data)
+					if (update.status) status = update.status
+					if (update.commitSha) commitSha = update.commitSha
+					if (update.finishedAt) finishedAt = update.finishedAt
+				} catch {
+					/* ignore parse errors */
+				}
+			})
 
 			eventSource.addEventListener('done', (event) => {
 				status = (event as MessageEvent).data ?? 'unknown';
@@ -202,14 +227,10 @@
 				{status}
 			</span>
 		</div>
-		{#if data.deployment.commitSha}
-			<div class="meta-item">
-				<span class="meta-label">Commit</span>
-				<span class="meta-value mono" data-testid="commit-sha"
-					>{data.deployment.commitSha.slice(0, 7)}</span
-				>
-			</div>
-		{/if}
+		<div class="meta-item">
+			<span class="meta-label">Commit</span>
+			<span class="meta-value mono" data-testid="commit-sha">{commitSha?.slice(0, 7) ?? '–'}</span>
+		</div>
 		<div class="meta-item">
 			<span class="meta-label">Elapsed</span>
 			<span class="meta-value mono" data-testid="elapsed-time">{elapsed || '–'}</span>
