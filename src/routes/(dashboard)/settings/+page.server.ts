@@ -7,12 +7,21 @@ import { auth } from '$lib/server/auth';
 import { getUpdateChecker } from '$lib/server/update';
 import { getCensusReporter } from '$lib/server/census';
 import { getHeartbeatReporter } from '$lib/server/heartbeat';
+import { env } from '$env/dynamic/private';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const currentUser = locals.user;
 	if (!currentUser) {
-		return { user: null, displayName: null, hostname: null, timezone: null, apiToken: null, retentionDays: 30, connections: [] };
+		return {
+			user: null,
+			displayName: null,
+			hostname: null,
+			timezone: null,
+			apiToken: null,
+			retentionDays: 30,
+			connections: []
+		};
 	}
 
 	const displayName = await getSetting('display_name');
@@ -40,7 +49,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const updateInfo = await getUpdateChecker().getCachedUpdateInfo();
 	const censusInfo = await getCensusReporter().getInfo();
-	const heartbeatInfo = await getHeartbeatReporter().getInfo();
+	const isCloud = env.RISVED_MODE === 'cloud';
+	const heartbeatInfo = isCloud ? await getHeartbeatReporter().getInfo() : null;
 
 	return {
 		user: {
@@ -56,6 +66,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		connections,
 		domainConfig,
 		updateInfo,
+		isCloud,
 		censusInfo,
 		heartbeatInfo
 	};
@@ -167,6 +178,12 @@ export const actions: Actions = {
 
 	/** Toggle operational heartbeat reporting. */
 	heartbeat: async ({ request }) => {
+		if (env.RISVED_MODE !== 'cloud') {
+			return fail(404, {
+				heartbeatError: 'Operational reporting is only available on Cloud servers'
+			});
+		}
+
 		const formData = await request.formData();
 		const enabled = formData.get('enabled') === 'true';
 		await getHeartbeatReporter().setEnabled(enabled);

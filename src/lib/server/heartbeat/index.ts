@@ -60,6 +60,8 @@ export class HeartbeatReporter {
 	}
 
 	async isEnabled(): Promise<boolean> {
+		if (env.RISVED_MODE !== 'cloud') return false;
+
 		const setting = await getSetting('operational_heartbeat');
 		if (setting) return setting === 'true';
 
@@ -72,6 +74,12 @@ export class HeartbeatReporter {
 	}
 
 	async setEnabled(enabled: boolean): Promise<void> {
+		if (env.RISVED_MODE !== 'cloud') {
+			await setSetting('operational_heartbeat', 'false');
+			this.stop();
+			return;
+		}
+
 		await setSetting('operational_heartbeat', enabled ? 'true' : 'false');
 		if (enabled && !this.timer) {
 			console.log('[heartbeat] Operational reporting enabled');

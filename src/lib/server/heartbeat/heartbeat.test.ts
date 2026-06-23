@@ -60,6 +60,7 @@ describe('HeartbeatReporter', () => {
 
 	beforeEach(() => {
 		store.clear();
+		delete env.RISVED_MODE;
 		delete env.RISVED_INSTANCE_ID;
 		delete env.RISVED_HEARTBEAT_ENDPOINT;
 		delete env.RISVED_HEARTBEAT_SECRET;
@@ -77,16 +78,24 @@ describe('HeartbeatReporter', () => {
 		});
 
 		it('returns true when setting is true', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'true');
 			expect(await reporter.isEnabled()).toBe(true);
 		});
 
 		it('returns false when setting is false', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'false');
 			expect(await reporter.isEnabled()).toBe(false);
 		});
 
+		it('ignores enabled settings for self-host installs', async () => {
+			store.set('operational_heartbeat', 'true');
+			expect(await reporter.isEnabled()).toBe(false);
+		});
+
 		it('auto-enables Cloud heartbeat when identity and secret are configured', async () => {
+			env.RISVED_MODE = 'cloud';
 			env.RISVED_INSTANCE_ID = '11111111-2222-3333-4444-555555555555';
 			env.RISVED_HEARTBEAT_SECRET = 'cloud-secret';
 
@@ -97,6 +106,7 @@ describe('HeartbeatReporter', () => {
 
 	describe('setEnabled', () => {
 		it('enables heartbeat and starts timer', async () => {
+			env.RISVED_MODE = 'cloud';
 			expect(reporter.isRunning()).toBe(false);
 			await reporter.setEnabled(true);
 			expect(store.get('operational_heartbeat')).toBe('true');
@@ -104,11 +114,18 @@ describe('HeartbeatReporter', () => {
 		});
 
 		it('disables heartbeat and stops timer', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'true');
 			await reporter.start();
 			expect(reporter.isRunning()).toBe(true);
 
 			await reporter.setEnabled(false);
+			expect(store.get('operational_heartbeat')).toBe('false');
+			expect(reporter.isRunning()).toBe(false);
+		});
+
+		it('does not enable heartbeat for self-host installs', async () => {
+			await reporter.setEnabled(true);
 			expect(store.get('operational_heartbeat')).toBe('false');
 			expect(reporter.isRunning()).toBe(false);
 		});
@@ -121,12 +138,14 @@ describe('HeartbeatReporter', () => {
 		});
 
 		it('starts when enabled', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'true');
 			await reporter.start();
 			expect(reporter.isRunning()).toBe(true);
 		});
 
 		it('does not double-start', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'true');
 			await reporter.start();
 			await reporter.start();
@@ -296,6 +315,7 @@ describe('HeartbeatReporter', () => {
 
 	describe('beat', () => {
 		it('uses the configured Cloud heartbeat endpoint by default', async () => {
+			env.RISVED_MODE = 'cloud';
 			env.RISVED_HEARTBEAT_ENDPOINT = 'https://cloud.example.com/api/heartbeat';
 			store.set('operational_heartbeat', 'true');
 			reporter = new HeartbeatReporter();
@@ -332,6 +352,7 @@ describe('HeartbeatReporter', () => {
 		});
 
 		it('sends POST with signature header when enabled', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'true');
 
 			const { db } = await import('$lib/server/db');
@@ -372,6 +393,7 @@ describe('HeartbeatReporter', () => {
 		});
 
 		it('returns false on network error', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'true');
 
 			const { db } = await import('$lib/server/db');
@@ -403,6 +425,7 @@ describe('HeartbeatReporter', () => {
 		});
 
 		it('returns enabled state when on', async () => {
+			env.RISVED_MODE = 'cloud';
 			store.set('operational_heartbeat', 'true');
 			store.set('heartbeat_last_ping', '2026-04-18T14:00:00.000Z');
 			const info = await reporter.getInfo();
