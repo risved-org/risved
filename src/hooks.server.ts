@@ -49,7 +49,7 @@ if (!building) {
 	process.on('SIGTERM', shutdown)
 }
 
-const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks'];
+const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks', '/api/git'];
 
 function isPublicPath(pathname: string): boolean {
 	return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
