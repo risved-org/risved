@@ -142,6 +142,18 @@ describe('parseStatsOutput', () => {
 		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
 		expect(stats).toHaveLength(0);
 	});
+
+	it('handles KiB memory units', () => {
+		const output = 'app|1.00%|2048KiB / 1GiB\n';
+		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
+		expect(stats[0].memoryMb).toBe(2); // 2048/1024 = 2 MB
+	});
+
+	it('returns 0 for unrecognised memory units (bytes)', () => {
+		const output = 'app|1.00%|512B / 1GiB\n';
+		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
+		expect(stats[0].memoryMb).toBe(0);
+	});
 });
 
 describe('MetricsCollector', () => {
@@ -223,6 +235,32 @@ describe('MetricsCollector', () => {
 
 			// Should not throw
 			await expect(collector.collect()).resolves.toBeUndefined();
+		});
+
+		it('excludes projects without a port from the container map', async () => {
+			const execFn = vi.fn();
+			collector = new MetricsCollector({ execFn });
+
+			setupCollectMocks(
+				[{ id: 'p-1', slug: 'myapp', port: null }],
+				[{ projectId: 'p-1', status: 'live', createdAt: '2026-01-01' }]
+			);
+
+			await collector.collect();
+			expect(execFn).not.toHaveBeenCalled();
+		});
+
+		it('excludes projects whose latest deployment is not live', async () => {
+			const execFn = vi.fn();
+			collector = new MetricsCollector({ execFn });
+
+			setupCollectMocks(
+				[{ id: 'p-1', slug: 'myapp', port: 3001 }],
+				[{ projectId: 'p-1', status: 'building', createdAt: '2026-01-01' }]
+			);
+
+			await collector.collect();
+			expect(execFn).not.toHaveBeenCalled();
 		});
 	});
 });
