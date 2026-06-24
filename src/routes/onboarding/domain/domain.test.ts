@@ -9,6 +9,10 @@ vi.mock('$lib/server/settings', () => ({
 	setSetting: vi.fn()
 }));
 
+vi.mock('$lib/server/caddy/control-plane', () => ({
+	ensureControlPlaneRoutes: vi.fn().mockResolvedValue(undefined)
+}));
+
 import { isFirstRun } from '$lib/server/auth-utils';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { actions, load } from './+page.server';

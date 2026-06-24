@@ -47,6 +47,10 @@ vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn().mockResolvedValue(null)
 }));
 
+vi.mock('../git-token', () => ({
+	resolveCloneToken: vi.fn().mockResolvedValue(null)
+}));
+
 vi.mock('$lib/server/crypto', () => ({
 	encrypt: vi.fn((v: string) => `encrypted:${v}`),
 	safeDecrypt: vi.fn((v: string) => v)
@@ -77,6 +81,9 @@ vi.mock('node:fs/promises', () => ({
 
 import { runPipeline } from './index';
 import { detectFramework } from '../detection';
+import { resolveCloneToken } from '../git-token';
+import { getSetting } from '$lib/server/settings';
+import { db } from '$lib/server/db';
 import type { CommandRunner, PipelineConfig } from './types';
 import type { LogEntry } from './types';
 
@@ -118,6 +125,7 @@ function makeCaddy() {
 		ensureServer: vi.fn().mockResolvedValue({ success: true }),
 		addWildcardRoute: vi.fn().mockResolvedValue({ success: true }),
 		removeWildcardRoute: vi.fn().mockResolvedValue({ success: true }),
+		addRedirectRoute: vi.fn().mockResolvedValue({ success: true }),
 		listRoutes: vi.fn().mockResolvedValue([]),
 		updateRoute: vi.fn().mockResolvedValue({ success: true })
 	};
@@ -446,5 +454,90 @@ describe('runPipeline', () => {
 			expect(entry.level).toBeTruthy();
 			expect(entry.message).toBeTruthy();
 		}
+	});
+
+	it('injects HTTPS token into clone URL when gitConnectionId is provided', async () => {
+		vi.mocked(resolveCloneToken).mockResolvedValueOnce('ghp_test_token');
+
+		const cloneUrls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (args.includes('clone')) {
+					// args[1] is the URL
+					const urlArg = args.find((a) => a.startsWith('https://'));
+					if (urlArg) cloneUrls.push(urlArg);
+				}
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ gitConnectionId: 'conn-1' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(resolveCloneToken).toHaveBeenCalledWith('conn-1');
+		expect(cloneUrls.some((u) => u.includes('x-access-token') && u.includes('ghp_test_token'))).toBe(true);
+	});
+
+	it('configures routes for custom domains and adds www redirect', async () => {
+		const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> };
+
+		// Override db.select so the domains query returns custom domains
+		mockDb.select
+			// First call: envVars query (returns empty)
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockResolvedValue([])
+				})
+			})
+			// Second call: domains query (returns two custom domains)
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockResolvedValue([
+						{ hostname: 'custom.example.com' },
+						{ hostname: 'www.custom.example.com' }
+					])
+				})
+			});
+
+		const caddy = makeCaddy();
+		const result = await runPipeline(makeConfig(), makeSuccessRunner(), {
+			caddy: caddy as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		expect(caddy.addRoute).toHaveBeenCalledWith(
+			expect.objectContaining({ hostname: 'custom.example.com' })
+		);
+		expect(caddy.addRoute).toHaveBeenCalledWith(
+			expect.objectContaining({ hostname: 'www.custom.example.com' })
+		);
+	});
+
+	it('configures alt control-plane route when hostname is set', async () => {
+		// getSetting is called twice: first for ssh_deploy_private_key, then for hostname
+		vi.mocked(getSetting)
+			.mockResolvedValueOnce(null) // ssh key
+			.mockResolvedValueOnce('panel.example.com'); // hostname
+
+		const caddy = makeCaddy();
+		const result = await runPipeline(
+			makeConfig({ domain: 'app.otherdomain.com' }),
+			makeSuccessRunner(),
+			{ caddy: caddy as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(caddy.addRoute).toHaveBeenCalledWith({
+			hostname: 'my-app.panel.example.com',
+			port: 3001
+		});
 	});
 });

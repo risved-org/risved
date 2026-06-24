@@ -34,7 +34,9 @@ import {
 	parseStatsOutput,
 	toBucket,
 	getProjectMetrics,
-	getServerMetrics
+	getServerMetrics,
+	getMetricsCollector,
+	_resetMetricsCollector
 } from './index';
 
 const mockDb = db as unknown as {
@@ -140,6 +142,18 @@ describe('parseStatsOutput', () => {
 		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
 		expect(stats).toHaveLength(0);
 	});
+
+	it('handles KiB memory units', () => {
+		const output = 'app|1.00%|2048KiB / 1GiB\n';
+		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
+		expect(stats[0].memoryMb).toBe(2); // 2048/1024 = 2 MB
+	});
+
+	it('returns 0 for unrecognised memory units (bytes)', () => {
+		const output = 'app|1.00%|512B / 1GiB\n';
+		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
+		expect(stats[0].memoryMb).toBe(0);
+	});
 });
 
 describe('MetricsCollector', () => {
@@ -222,6 +236,32 @@ describe('MetricsCollector', () => {
 			// Should not throw
 			await expect(collector.collect()).resolves.toBeUndefined();
 		});
+
+		it('excludes projects without a port from the container map', async () => {
+			const execFn = vi.fn();
+			collector = new MetricsCollector({ execFn });
+
+			setupCollectMocks(
+				[{ id: 'p-1', slug: 'myapp', port: null }],
+				[{ projectId: 'p-1', status: 'live', createdAt: '2026-01-01' }]
+			);
+
+			await collector.collect();
+			expect(execFn).not.toHaveBeenCalled();
+		});
+
+		it('excludes projects whose latest deployment is not live', async () => {
+			const execFn = vi.fn();
+			collector = new MetricsCollector({ execFn });
+
+			setupCollectMocks(
+				[{ id: 'p-1', slug: 'myapp', port: 3001 }],
+				[{ projectId: 'p-1', status: 'building', createdAt: '2026-01-01' }]
+			);
+
+			await collector.collect();
+			expect(execFn).not.toHaveBeenCalled();
+		});
 	});
 });
 
@@ -290,5 +330,63 @@ describe('getServerMetrics', () => {
 
 		const metrics = await getServerMetrics(24);
 		expect(metrics).toEqual([]);
+	});
+
+	it('sorts multiple distinct buckets in ascending order', async () => {
+		setupQueryMock([
+			{
+				bucket: '2026-03-13T12:00:00.000Z',
+				cpuPercent: 200,
+				memoryMb: 128,
+				memoryLimitMb: 1024,
+				sampleCount: 1
+			},
+			{
+				bucket: '2026-03-13T10:00:00.000Z',
+				cpuPercent: 400,
+				memoryMb: 256,
+				memoryLimitMb: 2048,
+				sampleCount: 2
+			}
+		]);
+
+		const metrics = await getServerMetrics(24);
+		expect(metrics).toHaveLength(2);
+		expect(metrics[0].bucket).toBe('2026-03-13T10:00:00.000Z');
+		expect(metrics[1].bucket).toBe('2026-03-13T12:00:00.000Z');
+	});
+});
+
+describe('getMetricsCollector / _resetMetricsCollector', () => {
+	beforeEach(() => {
+		vi.resetAllMocks();
+		_resetMetricsCollector();
+	});
+
+	afterEach(() => {
+		_resetMetricsCollector();
+	});
+
+	it('returns a MetricsCollector instance', () => {
+		const collector = getMetricsCollector();
+		expect(collector).toBeInstanceOf(MetricsCollector);
+	});
+
+	it('returns the same singleton on subsequent calls', () => {
+		const c1 = getMetricsCollector();
+		const c2 = getMetricsCollector();
+		expect(c1).toBe(c2);
+	});
+
+	it('returns a new instance after reset', () => {
+		const c1 = getMetricsCollector();
+		_resetMetricsCollector();
+		const c2 = getMetricsCollector();
+		expect(c1).not.toBe(c2);
+	});
+
+	it('_resetMetricsCollector is safe when no instance exists', () => {
+		_resetMetricsCollector(); // already null from beforeEach
+		expect(() => _resetMetricsCollector()).not.toThrow();
 	});
 });
