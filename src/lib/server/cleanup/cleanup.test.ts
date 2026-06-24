@@ -7,12 +7,13 @@ vi.mock('$lib/server/db', () => ({
 }));
 
 vi.mock('$lib/server/db/schema', () => ({
-	deployments: { id: 'id', createdAt: 'created_at' },
+	deployments: { id: 'id', projectId: 'project_id', status: 'status', createdAt: 'created_at' },
 	buildLogs: { deploymentId: 'deployment_id' },
 	cronRuns: { startedAt: 'started_at' }
 }));
 
 vi.mock('drizzle-orm', () => ({
+	isNotNull: vi.fn((col) => ({ op: 'isNotNull', col })),
 	lt: vi.fn((_col, val) => ({ op: 'lt', val })),
 	inArray: vi.fn((_col, vals) => ({ op: 'inArray', vals }))
 }));
@@ -23,6 +24,7 @@ vi.mock('$lib/server/settings', () => ({
 
 import { db } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
+import { inArray } from 'drizzle-orm';
 import { CleanupManager, getCleanupManager, parseDockerSize, formatBytes } from './index';
 
 const mockDb = db as unknown as {
@@ -30,18 +32,52 @@ const mockDb = db as unknown as {
 	delete: ReturnType<typeof vi.fn>;
 };
 const mockGetSetting = getSetting as ReturnType<typeof vi.fn>;
+const mockInArray = inArray as ReturnType<typeof vi.fn>;
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
-function setupDbMocks(oldDeployments: { id: string }[] = []) {
-	mockDb.select.mockReturnValue({
+type MockDeployment = {
+	id: string;
+	projectId: string;
+	status: string;
+	createdAt: string;
+};
+
+function createSelectQuery(rows: MockDeployment[]) {
+	return {
 		from: vi.fn().mockReturnValue({
-			where: vi.fn().mockResolvedValue(oldDeployments)
+			where: vi.fn().mockResolvedValue(rows)
 		})
-	});
+	};
+}
+
+function setupDbMocks(oldDeployments: MockDeployment[] = [], allDeployments: MockDeployment[] = []) {
+	mockDb.select.mockReset();
+	mockDb.delete.mockReset();
+	mockInArray.mockClear();
+
+	mockDb.select
+		.mockReturnValueOnce(createSelectQuery(oldDeployments))
+		.mockReturnValueOnce(createSelectQuery(allDeployments));
 
 	mockDb.delete.mockReturnValue({
 		where: vi.fn().mockResolvedValue({ changes: oldDeployments.length })
+	});
+}
+
+function mockDeployment(
+	id: string,
+	projectId = 'p-1',
+	createdAt = '2025-01-01T00:00:00.000Z',
+	status = 'failed'
+) {
+	return { id, projectId, status, createdAt };
+}
+
+function mockDeploymentRange(count: number, projectId = 'p-1') {
+	return Array.from({ length: count }, (_, index) => {
+		const day = String(index + 1).padStart(2, '0');
+		return mockDeployment(`deploy-${index + 1}`, projectId, `2025-01-${day}T00:00:00.000Z`);
 	});
 }
 
@@ -84,15 +120,61 @@ describe('CleanupManager', () => {
 		expect(result.buildLogsRemoved).toBe(0);
 	});
 
-	it('runCleanup deletes old deployments and build logs', async () => {
+	it('runCleanup prunes logs for old deployments outside retained history', async () => {
 		mockGetSetting.mockResolvedValue('7');
-		setupDbMocks([{ id: 'deploy-1' }, { id: 'deploy-2' }]);
+		const oldDeployments = mockDeploymentRange(18);
+		setupDbMocks(oldDeployments, oldDeployments);
 
 		const result = await manager.runCleanup();
 
-		expect(result.deploymentsRemoved).toBe(2);
-		/* 3 deletes: cronRuns cleanup + buildLogs + deployments */
-		expect(mockDb.delete).toHaveBeenCalledTimes(3);
+		expect(result.deploymentsRemoved).toBe(0);
+		expect(result.buildLogsRemoved).toBe(2);
+		expect(mockInArray).toHaveBeenCalledWith('deployment_id', ['deploy-1', 'deploy-2']);
+		/* 2 deletes: cronRuns cleanup + buildLogs */
+		expect(mockDb.delete).toHaveBeenCalledTimes(2);
+	});
+
+	it('runCleanup preserves the latest 16 deployments per project', async () => {
+		mockGetSetting.mockResolvedValue('7');
+		const oldDeployments = mockDeploymentRange(20);
+		setupDbMocks(oldDeployments, oldDeployments);
+
+		const result = await manager.runCleanup();
+
+		expect(result.deploymentsRemoved).toBe(0);
+		expect(result.buildLogsRemoved).toBe(4);
+		expect(mockInArray).toHaveBeenCalledWith('deployment_id', [
+			'deploy-1',
+			'deploy-2',
+			'deploy-3',
+			'deploy-4'
+		]);
+		expect(mockDb.delete).toHaveBeenCalledTimes(2);
+	});
+
+	it('runCleanup preserves the newest live deployment beyond the latest 16', async () => {
+		mockGetSetting.mockResolvedValue('7');
+		const oldDeployments = [
+			mockDeployment('old-live', 'p-1', '2025-01-01T00:00:00.000Z', 'live'),
+			mockDeployment('old-failed-1', 'p-1', '2025-01-02T00:00:00.000Z'),
+			mockDeployment('old-failed-2', 'p-1', '2025-01-03T00:00:00.000Z'),
+			...mockDeploymentRange(16, 'p-1').map((deployment, index) => ({
+				...deployment,
+				id: `recent-${index + 1}`,
+				createdAt: `2025-01-${String(index + 4).padStart(2, '0')}T00:00:00.000Z`
+			}))
+		];
+		setupDbMocks(oldDeployments, oldDeployments);
+
+		const result = await manager.runCleanup();
+
+		expect(result.deploymentsRemoved).toBe(0);
+		expect(result.buildLogsRemoved).toBe(2);
+		expect(mockInArray).toHaveBeenCalledWith('deployment_id', [
+			'old-failed-1',
+			'old-failed-2'
+		]);
+		expect(mockDb.delete).toHaveBeenCalledTimes(2);
 	});
 
 	it('uses default retention when setting is invalid', async () => {
