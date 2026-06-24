@@ -1,0 +1,155 @@
+.crons-page {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-5);
+	max-width: 40rem;
+	width: 100%;
+	margin: 0 auto;
+}
+
+.crons-page .sub-breadcrumb {
+	margin-bottom: calc(-1 * var(--space-3));
+}
+
+.crons-page .breadcrumb-link {
+	font-size: .875rem;
+	color: var(--color-text-2);
+}
+
+.crons-page .breadcrumb-link:hover {
+	color: var(--color-text-0);
+	text-decoration: none;
+}
+
+.crons-page header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	flex-wrap: wrap;
+}
+
+.crons-page .error-message,
+.crons-page .empty-text {
+	padding: var(--space-3);
+	background: var(--color-bg-1);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	color: var(--color-text-2);
+	font-size: .875rem;
+}
+
+.crons-page .error-message {
+	color: var(--color-failed);
+}
+
+.crons-page ul {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	list-style: none;
+}
+
+.crons-page li,
+.crons-page .cron-form {
+	background: var(--color-bg-1);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+}
+
+.crons-page article,
+.crons-page .cron-form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-4);
+}
+
+.crons-page article h2 {
+	font-size: 1.25rem;
+}
+
+.crons-page nav {
+	display: flex;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+}
+
+.crons-page label {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	color: var(--color-text-1);
+	font-size: .875rem;
+	font-weight: 500;
+}
+
+.crons-page article header label {
+	flex-direction: row;
+	align-items: center;
+}
+
+.crons-page input,
+.crons-page select {
+	width: 100%;
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-bg-2);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	color: var(--color-text-0);
+	outline: none;
+}
+
+.crons-page input[type='checkbox'] {
+	width: 1rem;
+	height: 1rem;
+	padding: 0;
+	accent-color: var(--color-accent);
+}
+
+.crons-page input:focus,
+.crons-page select:focus {
+	border-color: var(--color-accent);
+	box-shadow: 0 0 0 .125rem color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.crons-page dl {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-3);
+}
+
+.crons-page dt {
+	color: var(--color-text-2);
+	font-size: .75rem;
+	text-transform: uppercase;
+	letter-spacing: 0;
+}
+
+.crons-page dd {
+	margin-top: var(--space-1);
+	overflow-wrap: anywhere;
+	color: var(--color-text-0);
+	font-size: .875rem;
+}
+
+.crons-page footer {
+	display: flex;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+}
+
+.crons-page .success {
+	color: var(--color-live);
+}
+
+.crons-page .failed,
+.crons-page .timeout {
+	color: var(--color-failed);
+}
+
+@media (max-width: 42rem) {
+	.crons-page dl {
+		grid-template-columns: 1fr;
+	}
+}
