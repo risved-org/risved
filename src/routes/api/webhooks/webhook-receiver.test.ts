@@ -370,4 +370,101 @@ describe('POST /api/webhooks/:projectId', () => {
 		const data = await res.json();
 		expect(data.action).toBe('triggered deployment');
 	});
+
+	it('returns 400 for invalid JSON body', async () => {
+		setupSelectChain([makeProject()]);
+
+		const rawPayload = 'not-json{';
+		const sig = hmac(rawPayload, SECRET);
+		const event = {
+			request: new Request('http://localhost/api/webhooks/p-1', {
+				method: 'POST',
+				headers: new Headers({
+					'Content-Type': 'application/json',
+					'x-github-event': 'push',
+					'x-hub-signature-256': `sha256=${sig}`
+				}),
+				body: rawPayload
+			}),
+			params: { projectId: 'p-1' },
+			locals: {},
+			url: new URL('http://localhost/api/webhooks/p-1')
+		} as never;
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(event);
+		expect(res.status).toBe(400);
+	});
+
+	it('skips PR open when no PR number in payload', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: true })]);
+
+		const payload = JSON.stringify({
+			action: 'opened',
+			pull_request: {
+				head: { ref: 'feat-branch', sha: 'sha1' },
+				base: { ref: 'main' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('no PR number');
+	});
+
+	it('skips PR close cleanup when no PR number in payload', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: true, previewAutoDelete: true })]);
+
+		const payload = JSON.stringify({
+			action: 'closed',
+			pull_request: {
+				merged: false,
+				head: { ref: 'feat', sha: 'sha2' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('no PR number');
+	});
+
+	it('skips deployment when project has no port', async () => {
+		setupSelectChain([makeProject({ port: null })]);
+
+		const payload = JSON.stringify({
+			ref: 'refs/heads/main',
+			after: 'abc',
+			sender: { login: 'user' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'push',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('no port allocated');
+	});
 });

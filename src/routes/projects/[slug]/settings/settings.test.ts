@@ -59,6 +59,25 @@ vi.mock('$lib/server/pipeline/docker', () => ({
 	projectVolumeName: vi.fn((id: string) => `vol-${id}`)
 }))
 
+vi.mock('$lib/server/pipeline/postgres', () => ({
+	buildManagedPostgresEnv: vi.fn().mockReturnValue({
+		DATABASE_URL: 'postgres://user:pass@pg-host:5432/db'
+	}),
+	ensureManagedPostgres: vi.fn().mockResolvedValue({ success: true }),
+	generatePostgresPassword: vi.fn().mockReturnValue('gen-pass-123'),
+	managedPostgresConfig: vi.fn().mockReturnValue({
+		projectId: 'proj-1',
+		containerName: 'pg-proj-1',
+		volumeName: 'pgvol-proj-1',
+		database: 'proj1',
+		username: 'proj1',
+		network: 'risved',
+		image: 'postgres:17-alpine'
+	}),
+	managedPostgresContainerName: vi.fn((id: string) => `pg-${id}`),
+	managedPostgresVolumeName: vi.fn((id: string) => `pgvol-${id}`)
+}))
+
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
 import { db } from '$lib/server/db'
@@ -294,5 +313,130 @@ describe('settings saveEnv action', () => {
 		expect(result).toMatchObject({ envSaved: true })
 		expect(dbAny.delete).toHaveBeenCalled()
 		expect(dbAny.insert).not.toHaveBeenCalled()
+	})
+})
+
+describe('settings addPostgres action', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		limitMock.mockResolvedValue([])
+		whereMock.mockReturnValue({ limit: limitMock, orderBy: orderByMock })
+		dbAny.select.mockReturnValue({ from: vi.fn().mockReturnValue({ where: whereMock }) })
+	})
+
+	it('returns 404 when project not found', async () => {
+		limitMock.mockResolvedValueOnce([])
+		const result = await actions.addPostgres(makeFormEvent({ slug: 'ghost' }))
+		expect(result).toMatchObject({ status: 404 })
+	})
+
+	it('adds postgres and returns postgresAdded', async () => {
+		const { ensureManagedPostgres } = await import('$lib/server/pipeline/postgres')
+		;(ensureManagedPostgres as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ success: true })
+		limitMock.mockResolvedValueOnce([{ ...sampleProject, postgresPassword: null, postgresCreatedAt: null, postgresEnabled: false }])
+		const result = await actions.addPostgres(makeFormEvent({ slug: 'test-app' }))
+		expect(result).toMatchObject({ postgresAdded: true })
+		expect(dbAny.update).toHaveBeenCalled()
+	})
+
+	it('returns 500 when ensureManagedPostgres fails', async () => {
+		const { ensureManagedPostgres } = await import('$lib/server/pipeline/postgres')
+		;(ensureManagedPostgres as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ success: false, error: 'docker error' })
+		limitMock.mockResolvedValueOnce([{ ...sampleProject, postgresPassword: null, postgresCreatedAt: null, postgresEnabled: false }])
+		const result = await actions.addPostgres(makeFormEvent({ slug: 'test-app' }))
+		expect(result).toMatchObject({ status: 500 })
+	})
+
+	it('decrypts existing password instead of generating new one', async () => {
+		const { ensureManagedPostgres, generatePostgresPassword } = await import('$lib/server/pipeline/postgres')
+		;(ensureManagedPostgres as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ success: true })
+		limitMock.mockResolvedValueOnce([{ ...sampleProject, postgresPassword: 'enc:existing-pass', postgresCreatedAt: null, postgresEnabled: false }])
+		await actions.addPostgres(makeFormEvent({ slug: 'test-app' }))
+		expect(generatePostgresPassword).not.toHaveBeenCalled()
+	})
+})
+
+describe('settings removePostgres action', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		limitMock.mockResolvedValue([])
+		whereMock.mockReturnValue({ limit: limitMock, orderBy: orderByMock })
+		dbAny.select.mockReturnValue({ from: vi.fn().mockReturnValue({ where: whereMock }) })
+	})
+
+	it('returns 404 when project not found', async () => {
+		limitMock.mockResolvedValueOnce([])
+		const result = await actions.removePostgres(makeFormEvent({ slug: 'ghost' }))
+		expect(result).toMatchObject({ status: 404 })
+	})
+
+	it('stops and removes postgres, returns postgresRemoved', async () => {
+		const { dockerStop, dockerVolumeRemove } = await import('$lib/server/pipeline/docker')
+		limitMock.mockResolvedValueOnce([{ ...sampleProject, postgresEnabled: true }])
+		const result = await actions.removePostgres(makeFormEvent({ slug: 'test-app' }))
+		expect(result).toMatchObject({ postgresRemoved: true })
+		expect(dockerStop).toHaveBeenCalled()
+		expect(dockerVolumeRemove).toHaveBeenCalled()
+		expect(dbAny.update).toHaveBeenCalled()
+	})
+})
+
+describe('settings delete action', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		limitMock.mockResolvedValue([])
+		whereMock.mockReturnValue({ limit: limitMock, orderBy: orderByMock })
+		dbAny.select.mockReturnValue({ from: vi.fn().mockReturnValue({ where: whereMock }) })
+	})
+
+	it('returns 404 when project not found', async () => {
+		limitMock.mockResolvedValueOnce([])
+		const result = await actions.delete(makeFormEvent({ slug: 'ghost' }))
+		expect(result).toMatchObject({ status: 404 })
+	})
+
+	it('deletes all project resources and redirects to /', async () => {
+		limitMock.mockResolvedValueOnce([sampleProject])
+		await expect(
+			actions.delete(makeFormEvent({ slug: 'test-app' }))
+		).rejects.toMatchObject({ status: 303, location: '/' })
+		expect(dbAny.delete).toHaveBeenCalled()
+	})
+})
+
+describe('settings load with postgres enabled', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		limitMock.mockResolvedValue([])
+		orderByMock.mockReturnValue({ limit: vi.fn().mockResolvedValue([]) })
+		whereMock.mockReturnValue({ limit: limitMock, orderBy: orderByMock })
+		dbAny.select.mockReturnValue({
+			from: vi.fn().mockReturnValue({ where: whereMock, orderBy: orderByMock })
+		})
+	})
+
+	it('returns postgres metadata when project has postgres enabled', async () => {
+		const projectWithPostgres = {
+			...sampleProject,
+			postgresEnabled: true,
+			postgresPassword: 'enc:pg-pass',
+			postgresCreatedAt: '2026-01-01T00:00:00Z'
+		}
+		setupLoadMocks(projectWithPostgres as typeof sampleProject)
+
+		const result = (await load({ params: { slug: 'test-app' } } as never)) as {
+			postgres: { database: string; username: string; host: string; urlPreview: string } | null
+		}
+		expect(result.postgres).not.toBeNull()
+		expect(result.postgres?.database).toBe('proj1')
+	})
+
+	it('returns null postgres when project has postgres disabled', async () => {
+		setupLoadMocks({ ...sampleProject, postgresEnabled: false } as typeof sampleProject)
+
+		const result = (await load({ params: { slug: 'test-app' } } as never)) as {
+			postgres: null
+		}
+		expect(result.postgres).toBeNull()
 	})
 })

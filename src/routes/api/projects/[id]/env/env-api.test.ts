@@ -389,3 +389,146 @@ describe('DELETE /api/projects/:id/env/:eid', () => {
 		expect(res.status).toBe(404);
 	});
 });
+
+/* ── Tests: PUT /api/projects/:id/env/:eid — additional branches ─── */
+
+describe('PUT /api/projects/:id/env/:eid — edge cases', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it('returns 400 for invalid JSON body', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const event = {
+			request: new Request('http://localhost/', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: 'not-json{'
+			}),
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' },
+			url: new URL('http://localhost/')
+		} as never;
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(event);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 when value is not a string', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const event = {
+			request: new Request('http://localhost/', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ value: 9999 })
+			}),
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' },
+			url: new URL('http://localhost/')
+		} as never;
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(event);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('updates only is_secret without touching value', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const setFn = vi.fn().mockReturnValue({
+			where: vi.fn().mockReturnValue({
+				returning: vi.fn().mockResolvedValue([
+					{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: true }
+				])
+			})
+		});
+		mockDb.update.mockReturnValue({ set: setFn });
+
+		const event = {
+			request: new Request('http://localhost/', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ is_secret: true })
+			}),
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' },
+			url: new URL('http://localhost/')
+		} as never;
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(event);
+
+		expect(res.status).toBe(200);
+		const setArgs = setFn.mock.calls[0]?.[0] as Record<string, unknown>;
+		expect(setArgs?.isSecret).toBe(true);
+		expect(setArgs?.value).toBeUndefined();
+	});
+
+	it('masks secret value with short plain text', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'API', value: 'enc:3000', isSecret: false }]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi.fn().mockResolvedValue([
+						{ id: 'e-1', key: 'API', value: 'enc:ab', isSecret: true }
+					])
+				})
+			})
+		});
+
+		const event = {
+			request: new Request('http://localhost/', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ value: 'ab', is_secret: true })
+			}),
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' },
+			url: new URL('http://localhost/')
+		} as never;
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(event);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.value).toBe('••••');
+	});
+
+	it('masks secret value with long plain text showing first 4 chars', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'API', value: 'enc:3000', isSecret: false }]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi.fn().mockResolvedValue([
+						{ id: 'e-1', key: 'API', value: 'enc:sk-abcdef123', isSecret: true }
+					])
+				})
+			})
+		});
+
+		const event = {
+			request: new Request('http://localhost/', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ value: 'sk-abcdef123', is_secret: true })
+			}),
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' },
+			url: new URL('http://localhost/')
+		} as never;
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(event);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.value).toMatch(/^sk-a/);
+		expect(data.value).toContain('••••');
+	});
+});
