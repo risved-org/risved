@@ -225,7 +225,12 @@
 							/>
 						</label>
 
-						{#if searching}
+						{#if selectedRepo}
+							<div class="selected-banner">
+								<span class="selected-name">{selectedRepo.fullName}</span>
+								<button type="button" class="btn-clear" onclick={clearSelection}>Clear</button>
+							</div>
+						{:else if searching}
 							<p class="search-status">Loading repositories…</p>
 						{:else if repos.length === 0 && selectedConnectionId}
 							<p class="search-status">No repositories found.</p>
@@ -255,13 +260,6 @@
 										</div>
 									</button>
 								{/each}
-							</div>
-						{/if}
-
-						{#if selectedRepo}
-							<div class="selected-banner">
-								<span class="selected-name">{selectedRepo.fullName}</span>
-								<button type="button" class="btn-clear" onclick={clearSelection}>Clear</button>
 							</div>
 						{/if}
 					</div>

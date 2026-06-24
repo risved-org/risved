@@ -30,6 +30,7 @@ export const load: PageServerLoad = async () => {
 
 	if (config.mode === 'ip') {
 		await setSetting('dns_verified', 'true');
+		await setSetting('dns_verification_skipped', 'false');
 		redirect(303, '/onboarding/git');
 	}
 
@@ -39,7 +40,11 @@ export const load: PageServerLoad = async () => {
 
 	/* Surface the last DNS check so returning to this page shows prior results
 	   instead of forcing a re-check */
-	let lastCheck: { results: { name: string; type: string; resolved: boolean }[]; allResolved: boolean; checkedAt: string } | null = null;
+	let lastCheck: {
+		results: { name: string; type: string; resolved: boolean }[];
+		allResolved: boolean;
+		checkedAt: string;
+	} | null = null;
 	try {
 		const raw = await getSetting('dns_check_results');
 		if (raw) lastCheck = JSON.parse(raw);
@@ -78,6 +83,7 @@ export const actions: Actions = {
 
 		if (allResolved) {
 			await setSetting('dns_verified', 'true');
+			await setSetting('dns_verification_skipped', 'false');
 		}
 
 		const summary = results.map((r) => ({
@@ -100,7 +106,8 @@ export const actions: Actions = {
 	},
 
 	skip: async () => {
-		await setSetting('dns_verified', 'true')
-		redirect(303, '/onboarding/git')
+		await setSetting('dns_verified', 'true');
+		await setSetting('dns_verification_skipped', 'true');
+		redirect(303, '/onboarding/git');
 	}
 };

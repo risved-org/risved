@@ -75,6 +75,7 @@ describe('verify load', () => {
 			location: '/onboarding/git'
 		});
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'false');
 	});
 
 	it('returns records and config for subdomain mode', async () => {
@@ -181,9 +182,7 @@ describe('verify check action', () => {
 
 		await actions.check(makeActionEvent('check'));
 
-		const persistCall = vi
-			.mocked(setSetting)
-			.mock.calls.find((c) => c[0] === 'dns_check_results');
+		const persistCall = vi.mocked(setSetting).mock.calls.find((c) => c[0] === 'dns_check_results');
 		expect(persistCall).toBeTruthy();
 		const saved = JSON.parse(persistCall![1]);
 		expect(saved.allResolved).toBe(true);
@@ -206,6 +205,7 @@ describe('verify check action', () => {
 		const result = await actions.check(makeActionEvent('check'));
 		expect(result).toMatchObject({ allResolved: true });
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'false');
 	});
 });
 
@@ -220,6 +220,7 @@ describe('verify skip action', () => {
 			location: '/onboarding/git'
 		});
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'true');
 	});
 });
 

@@ -124,11 +124,45 @@ describe('success dashboard action', () => {
 	});
 
 	it('sets onboarding complete and redirects to dashboard', async () => {
+		vi.mocked(getSetting).mockResolvedValue(null);
+
 		await expect(actions.dashboard(makeActionEvent())).rejects.toMatchObject({
 			status: 303,
 			location: '/'
 		});
 		expect(setSetting).toHaveBeenCalledWith('onboarding_complete', 'true');
+	});
+
+	it('redirects to configured dashboard domain after DNS is verified', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'dns_verified') return 'true';
+			if (key === 'dns_verification_skipped') return 'false';
+			if (key === 'domain_config') {
+				return JSON.stringify({ mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' });
+			}
+			return null;
+		});
+
+		await expect(actions.dashboard(makeActionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: 'https://risved.example.com'
+		});
+	});
+
+	it('stays on current origin when DNS verification was skipped', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'dns_verified') return 'true';
+			if (key === 'dns_verification_skipped') return 'true';
+			if (key === 'domain_config') {
+				return JSON.stringify({ mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' });
+			}
+			return null;
+		});
+
+		await expect(actions.dashboard(makeActionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: '/'
+		});
 	});
 });
 

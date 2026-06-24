@@ -304,7 +304,8 @@ start_risved() {
     -p "${RISVED_PORT}:3000" \
     -e "DATABASE_URL=file:data/risved.db" \
     -e "BETTER_AUTH_SECRET=${auth_secret}" \
-    -e "ORIGIN=http://$(format_ip_url "$(detect_server_ip)"):${RISVED_PORT}" \
+    -e "PROTOCOL_HEADER=x-forwarded-proto" \
+    -e "HOST_HEADER=x-forwarded-host" \
     -e "CALLBACK_SECRET=${callback_secret}" \
     -e "CADDY_ADMIN_URL=http://risved-caddy:2019" \
     -v "$RISVED_DATA_DIR/data:/app/data" \
@@ -312,6 +313,36 @@ start_risved() {
     "ghcr.io/risved-org/risved:${RISVED_VERSION#v}" >/dev/null 2>&1 || true
 
   ok "Risved control plane started"
+}
+
+configure_initial_control_plane_route() {
+  local payload
+  payload=$(cat <<'JSON'
+{
+  "listen": [":80"],
+  "routes": [
+    {
+      "@id": "route-risved-control-ip",
+      "handle": [
+        {
+          "handler": "reverse_proxy",
+          "upstreams": [{ "dial": "risved-control:3000" }]
+        }
+      ]
+    }
+  ]
+}
+JSON
+)
+
+  if curl -fsS -X PUT \
+    -H 'Content-Type: application/json' \
+    --data "$payload" \
+    http://localhost:2019/config/apps/http/servers/risved_ip >/dev/null 2>&1; then
+    ok "Configured initial IP access route"
+  else
+    warn "Could not configure initial IP access route; check Caddy before onboarding"
+  fi
 }
 
 detect_server_ip() {
@@ -408,6 +439,7 @@ main() {
   setup_network
   start_caddy
   start_risved
+  configure_initial_control_plane_route
 
   local server_ip
   server_ip=$(detect_server_ip)
@@ -415,7 +447,7 @@ main() {
   printf "\n"
   printf "${GREEN}${BOLD}  ✓ Risved installed successfully!${RESET}\n\n"
   printf "  Open your browser to complete setup:\n\n"
-  printf "    ${BOLD}http://$(format_ip_url "$server_ip"):${RISVED_PORT}${RESET}\n\n"
+  printf "    ${BOLD}http://$(format_ip_url "$server_ip")${RESET}\n\n"
   printf "  ${DIM}This will guide you through creating your admin\n"
   printf "  account, configuring your domain, and deploying\n"
   printf "  your first app.${RESET}\n\n"

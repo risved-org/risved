@@ -62,6 +62,7 @@ describe('Install Script', () => {
 				'setup_builder_cron',
 				'start_caddy',
 				'start_risved',
+				'configure_initial_control_plane_route',
 				'detect_server_ip',
 				'main'
 			];
@@ -206,8 +207,21 @@ describe('Install Script', () => {
 			expect(script).toContain('--env-file /etc/risved-cloud.env');
 		});
 
+		it('lets the control plane derive origin from Caddy proxy headers', () => {
+			expect(script).toContain('-e "PROTOCOL_HEADER=x-forwarded-proto"');
+			expect(script).toContain('-e "HOST_HEADER=x-forwarded-host"');
+			expect(script).not.toContain('-e "ORIGIN=');
+		});
+
 		it('uses restart unless-stopped for containers', () => {
 			expect(script).toContain('--restart unless-stopped');
+		});
+
+		it('configures an initial HTTP route for IP onboarding', () => {
+			expect(script).toContain('configure_initial_control_plane_route');
+			expect(script).toContain('route-risved-control-ip');
+			expect(script).toContain('risved-control:3000');
+			expect(script).toContain('/config/apps/http/servers/risved_ip');
 		});
 	});
 
