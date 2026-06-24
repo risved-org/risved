@@ -29,6 +29,8 @@ export interface PipelineConfig {
 	projectSlug: string;
 	repoUrl: string;
 	branch: string;
+	/** Optional commit/ref to checkout after cloning, used for rebuilding historical deployments. */
+	checkoutRef?: string | null;
 	/** Git connection ID for HTTPS token auth (private repos) */
 	gitConnectionId?: string | null;
 	port: number;

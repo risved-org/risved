@@ -6,6 +6,7 @@
 
 	let statusFilter = $state('all')
 	let rollingBack = $state<string | null>(null)
+	let rebuilding = $state<string | null>(null)
 
 	function timeAgo(dateStr: string | null): string {
 		if (!dateStr) return '–'
@@ -89,6 +90,25 @@
 			rollingBack = null
 		}
 	}
+
+	async function handleRebuild(e: Event, depId: string) {
+		e.preventDefault()
+		e.stopPropagation()
+		rebuilding = depId
+		try {
+			const res = await fetch(`/api/projects/${data.project.id}/deployments/${depId}/rebuild`, {
+				method: 'POST'
+			})
+			const body = await res.json().catch(() => null)
+			if (res.ok && body?.deploymentId) {
+				window.location.href = resolve(`/projects/${data.project.slug}/deployments/${body.deploymentId}`)
+				return
+			}
+			window.location.reload()
+		} finally {
+			rebuilding = null
+		}
+	}
 </script>
 
 <h1 class="page-title">Deployments</h1>
@@ -128,6 +148,8 @@
 								{deployLabel(dep.status)}
 								{#if dep.triggerType === 'rollback'}
 									<span class="badge-md badge-accent">Rollback</span>
+								{:else if dep.triggerType === 'rebuild'}
+									<span class="badge-md badge-accent">Rebuild</span>
 								{/if}
 							</span>
 							<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
@@ -139,6 +161,14 @@
 										onclick={(e) => handleRollback(e, dep.id)}
 									>
 										{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
+									</button>
+								{:else if dep.commitSha}
+									<button
+										class="btn-rebuild"
+										disabled={rebuilding === dep.id}
+										onclick={(e) => handleRebuild(e, dep.id)}
+									>
+										{rebuilding === dep.id ? 'Rebuilding…' : 'Rebuild'}
 									</button>
 								{:else}
 									<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
@@ -187,11 +217,31 @@
 										{deployLabel(dep.status)}
 										{#if dep.triggerType === 'rollback'}
 											<span class="badge-md badge-accent">Rollback</span>
+										{:else if dep.triggerType === 'rebuild'}
+											<span class="badge-md badge-accent">Rebuild</span>
 										{/if}
 									</span>
 									<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
 									<span class="deploy-actions">
-										<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
+										{#if (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
+											<button
+												class="btn-rollback"
+												disabled={rollingBack === dep.id}
+												onclick={(e) => handleRollback(e, dep.id)}
+											>
+												{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
+											</button>
+										{:else if dep.commitSha}
+											<button
+												class="btn-rebuild"
+												disabled={rebuilding === dep.id}
+												onclick={(e) => handleRebuild(e, dep.id)}
+											>
+												{rebuilding === dep.id ? 'Rebuilding…' : 'Rebuild'}
+											</button>
+										{:else}
+											<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
+										{/if}
 									</span>
 								</a>
 							</li>

@@ -51,6 +51,37 @@ describe('gitClone', () => {
 		]);
 	});
 
+	it('checks out a rebuild ref after a full branch clone', async () => {
+		const calls: { cmd: string; args: string[]; cwd?: string }[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args, options) {
+				calls.push({ cmd, args, cwd: options?.cwd });
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			undefined,
+			'abc1234'
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls[0]).toEqual({
+			cmd: 'git',
+			args: ['clone', '--branch', 'main', 'https://github.com/user/repo.git', '/tmp/dest'],
+			cwd: undefined
+		});
+		expect(calls[1]).toEqual({
+			cmd: 'git',
+			args: ['checkout', '--detach', 'abc1234'],
+			cwd: '/tmp/dest'
+		});
+	});
+
 	it('returns error on failure', async () => {
 		const runner = mockRunner({
 			'git clone': { exitCode: 128, stdout: '', stderr: 'fatal: repository not found' }

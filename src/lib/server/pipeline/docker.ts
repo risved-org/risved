@@ -201,7 +201,8 @@ export async function gitClone(
 	repoUrl: string,
 	branch: string,
 	destDir: string,
-	sshPrivateKeyB64?: string
+	sshPrivateKeyB64?: string,
+	checkoutRef?: string | null
 ): Promise<{ success: boolean; error?: string }> {
 	let keyFile: string | undefined
 	let cloneUrl = repoUrl
@@ -221,15 +222,26 @@ export async function gitClone(
 			? { GIT_SSH_COMMAND: `ssh -i ${keyFile} -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes` }
 			: undefined
 
-		const result = await runner.exec(
-			'git',
-			['clone', '--depth', '1', '--single-branch', '--branch', branch, cloneUrl, destDir],
-			{ env }
-		)
+		const cloneArgs = checkoutRef
+			? ['clone', '--branch', branch, cloneUrl, destDir]
+			: ['clone', '--depth', '1', '--single-branch', '--branch', branch, cloneUrl, destDir]
+
+		const result = await runner.exec('git', cloneArgs, { env })
 
 		if (result.exitCode !== 0) {
 			return { success: false, error: result.stderr || result.stdout }
 		}
+
+		if (checkoutRef) {
+			const checkoutResult = await runner.exec('git', ['checkout', '--detach', checkoutRef], {
+				cwd: destDir,
+				env
+			})
+			if (checkoutResult.exitCode !== 0) {
+				return { success: false, error: checkoutResult.stderr || checkoutResult.stdout }
+			}
+		}
+
 		return { success: true }
 	} finally {
 		if (keyFile) {
