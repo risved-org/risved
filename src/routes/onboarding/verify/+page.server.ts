@@ -37,11 +37,22 @@ export const load: PageServerLoad = async () => {
 	const records = generateDnsRecords(config.mode, config.baseDomain, config.prefix, serverIps);
 	const dnsVerified = (await getSetting('dns_verified')) === 'true';
 
+	/* Surface the last DNS check so returning to this page shows prior results
+	   instead of forcing a re-check */
+	let lastCheck: { results: { name: string; type: string; resolved: boolean }[]; allResolved: boolean; checkedAt: string } | null = null;
+	try {
+		const raw = await getSetting('dns_check_results');
+		if (raw) lastCheck = JSON.parse(raw);
+	} catch {
+		/* ignore corrupt data */
+	}
+
 	return {
 		domainConfig: config,
 		serverIps,
 		records,
-		dnsVerified
+		dnsVerified,
+		lastCheck
 	};
 };
 
@@ -69,12 +80,20 @@ export const actions: Actions = {
 			await setSetting('dns_verified', 'true');
 		}
 
+		const summary = results.map((r) => ({
+			name: r.record.name,
+			type: r.record.type,
+			resolved: r.resolved
+		}));
+
+		/* Persist so the results survive navigating away and back */
+		await setSetting(
+			'dns_check_results',
+			JSON.stringify({ results: summary, allResolved, checkedAt: new Date().toISOString() })
+		);
+
 		return {
-			results: results.map((r) => ({
-				name: r.record.name,
-				type: r.record.type,
-				resolved: r.resolved
-			})),
+			results: summary,
 			allResolved,
 			serverIps
 		};

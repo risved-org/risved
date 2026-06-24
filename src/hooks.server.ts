@@ -3,7 +3,7 @@ import { building } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth';
 import { isFirstRun } from '$lib/server/auth-utils';
-import { isOnboardingComplete } from '$lib/server/settings';
+import { isOnboardingComplete, getOnboardingResumePath } from '$lib/server/settings';
 import { getHealthMonitor } from '$lib/server/health';
 import { getMetricsCollector } from '$lib/server/metrics';
 import { getCleanupManager } from '$lib/server/cleanup';
@@ -12,6 +12,7 @@ import { getUpdateChecker } from '$lib/server/update';
 import { getCensusReporter } from '$lib/server/census';
 import { getHeartbeatReporter } from '$lib/server/heartbeat';
 import { restoreAllRoutes } from '$lib/server/caddy/control-plane';
+import { reconcileSchema } from '$lib/server/db/reconcile';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import type { Handle } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
@@ -19,6 +20,7 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 
 /* Start health monitor and metrics collector on server boot (not during build) */
 if (!building) {
+	reconcileSchema().catch(e => console.error('[db] Schema reconcile failed:', e))
 	getHealthMonitor().start()
 	getMetricsCollector().start()
 	getCleanupManager().start()
@@ -99,7 +101,7 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	}
 
 	if (!onboardingDone && !isPublicPath(pathname)) {
-		redirect(303, '/onboarding/domain')
+		redirect(303, await getOnboardingResumePath())
 	}
 
 	if (onboardingDone && pathname.startsWith('/onboarding')) {
