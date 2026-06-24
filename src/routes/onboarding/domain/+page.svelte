@@ -16,7 +16,7 @@
 	// svelte-ignore state_referenced_locally
 	let baseDomain = $state(form?.baseDomain ?? data.domainConfig?.baseDomain ?? '');
 	// svelte-ignore state_referenced_locally
-	let prefix = $state(form?.prefix ?? data.domainConfig?.prefix ?? 'risved');
+	let prefix = $state(form?.prefix ?? data.domainConfig?.prefix ?? 'custom');
 	let submitting = $state(false);
 
 	const prefixOptions = ['risved', 'deploy', 'apps'];

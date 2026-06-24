@@ -237,6 +237,10 @@
 		flex-wrap: wrap;
 	}
 
+	.card-meta > .badge-muted:first-child {
+		padding-left: 0;
+	}
+
 	.card-build {
 		display: flex;
 		align-items: center;

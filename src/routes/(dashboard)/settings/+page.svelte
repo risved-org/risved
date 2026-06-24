@@ -451,7 +451,7 @@
 						type="text"
 						name="hostname"
 						bind:value={hostname}
-						placeholder="risved.example.com"
+						placeholder="custom.example.com"
 						class="form-input mono"
 						data-testid="hostname-input"
 					/>

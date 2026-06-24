@@ -47,14 +47,14 @@ test.describe('Onboarding: Domain Setup', () => {
 
 		const preview = page.locator('.url-preview');
 		await expect(preview).toBeVisible();
-		await expect(preview.locator('.preview-url').first()).toContainText('risved.example.com');
+		await expect(preview.locator('.preview-url').first()).toContainText('custom.example.com');
 
 		await page.screenshot({ path: '.agent/screenshots/TASK-3-2.png', fullPage: true });
 	});
 
 	test('prefix picker updates URL preview', async ({ page }) => {
 		await page.locator('input#baseDomain').fill('example.com');
-		await expect(page.locator('.preview-url').first()).toContainText('risved.example.com');
+		await expect(page.locator('.preview-url').first()).toContainText('custom.example.com');
 
 		/* Click prefix button and wait for the custom input to update */
 		await page.getByRole('button', { name: 'deploy' }).click();

@@ -201,7 +201,7 @@ describe('domain page source', () => {
 
 	it('has prefix picker with preset options', async () => {
 		const mod = await import('./+page.svelte?raw');
-		expect(mod.default).toContain('risved');
+		expect(mod.default).toContain("const prefixOptions = ['risved', 'deploy', 'apps']");
 		expect(mod.default).toContain('deploy');
 		expect(mod.default).toContain('apps');
 	});
