@@ -30,3 +30,18 @@ export async function isOnboardingComplete(): Promise<boolean> {
 	const value = await getSetting('onboarding_complete');
 	return value === 'true';
 }
+
+/**
+ * Resolve where to resume onboarding, based on the furthest step the user has
+ * completed. Each step is inferred from the setting it writes on completion, so
+ * a user bounced back into onboarding lands on the next unfinished step rather
+ * than always restarting at the domain step:
+ *   - DNS verified (verify done, via Continue or Skip) → Git
+ *   - domain configured (domain done)                  → Verify
+ *   - nothing yet                                       → Domain
+ */
+export async function getOnboardingResumePath(): Promise<string> {
+	if ((await getSetting('dns_verified')) === 'true') return '/onboarding/git';
+	if (await getSetting('domain_config')) return '/onboarding/verify';
+	return '/onboarding/domain';
+}

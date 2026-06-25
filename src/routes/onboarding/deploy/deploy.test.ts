@@ -222,6 +222,15 @@ describe('deploy page source', () => {
 		expect(mod.default).toContain('branch');
 	});
 
+	it('hides repository list after selecting a repo', async () => {
+		const mod = await import('./+page.svelte?raw');
+		expect(mod.default).toContain('{#if selectedRepo}');
+		expect(mod.default).toContain('{:else if searching}');
+		expect(mod.default.indexOf('{#if selectedRepo}')).toBeLessThan(
+			mod.default.indexOf('{:else if searching}')
+		);
+	});
+
 	it('has skip button', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('Skip');

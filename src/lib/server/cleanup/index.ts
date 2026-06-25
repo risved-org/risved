@@ -1,8 +1,10 @@
 import { db } from '$lib/server/db';
 import { deployments, buildLogs, cronRuns } from '$lib/server/db/schema';
-import { lt, inArray } from 'drizzle-orm';
+import { inArray, isNotNull, lt } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import type { CleanupConfig, CleanupResult, DockerDiskUsage, DockerPruneResult } from './types';
+
+const RETAINED_DEPLOYMENT_LOGS_PER_PROJECT = 16;
 
 const DEFAULT_CONFIG: CleanupConfig = {
 	retentionDays: 30,
@@ -16,6 +18,7 @@ const DEFAULT_CONFIG: CleanupConfig = {
 export class CleanupManager {
 	private config: CleanupConfig;
 	private timer: ReturnType<typeof setInterval> | null = null;
+	private startupTimer: ReturnType<typeof setTimeout> | null = null;
 	private running = false;
 
 	constructor(config: Partial<CleanupConfig> = {}) {
@@ -27,11 +30,18 @@ export class CleanupManager {
 		if (this.timer) return;
 		this.timer = setInterval(() => this.runCleanup(), this.config.intervalMs);
 		/* Run once on start after a short delay */
-		setTimeout(() => this.runCleanup(), 5000);
+		this.startupTimer = setTimeout(() => {
+			this.startupTimer = null;
+			this.runCleanup();
+		}, 5000);
 	}
 
 	/** Stop periodic cleanup. */
 	stop(): void {
+		if (this.startupTimer) {
+			clearTimeout(this.startupTimer);
+			this.startupTimer = null;
+		}
 		if (this.timer) {
 			clearInterval(this.timer);
 			this.timer = null;
@@ -43,8 +53,8 @@ export class CleanupManager {
 	}
 
 	/**
-	 * Delete old deployment records and their build logs
-	 * based on the configured retention period.
+	 * Delete old build logs based on the configured retention period
+	 * while keeping deployment records as durable history.
 	 */
 	async runCleanup(): Promise<CleanupResult> {
 		if (this.running) {
@@ -66,7 +76,11 @@ export class CleanupManager {
 
 			/* Find old deployments */
 			const oldDeployments = await db
-				.select({ id: deployments.id })
+				.select({
+					id: deployments.id,
+					projectId: deployments.projectId,
+					createdAt: deployments.createdAt
+				})
 				.from(deployments)
 				.where(lt(deployments.createdAt, cutoffISO));
 
@@ -77,17 +91,53 @@ export class CleanupManager {
 				return { deploymentsRemoved: 0, buildLogsRemoved: 0, cutoffDate: cutoffISO };
 			}
 
-			const deploymentIds = oldDeployments.map((d) => d.id);
+			const allDeployments = await db
+				.select({
+					id: deployments.id,
+					projectId: deployments.projectId,
+					status: deployments.status,
+					createdAt: deployments.createdAt
+				})
+				.from(deployments)
+				.where(isNotNull(deployments.id));
 
-			/* Delete build logs for those deployments */
-			await db.delete(buildLogs).where(inArray(buildLogs.deploymentId, deploymentIds));
+			const deploymentsByProject = new Map<string, typeof allDeployments>();
+			for (const deployment of allDeployments) {
+				const projectDeployments = deploymentsByProject.get(deployment.projectId) ?? [];
+				projectDeployments.push(deployment);
+				deploymentsByProject.set(deployment.projectId, projectDeployments);
+			}
 
-			/* Delete the deployment records */
-			await db.delete(deployments).where(inArray(deployments.id, deploymentIds));
+			const protectedDeploymentIds = new Set<string>();
+			for (const projectDeployments of deploymentsByProject.values()) {
+				projectDeployments.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+				for (const deployment of projectDeployments.slice(0, RETAINED_DEPLOYMENT_LOGS_PER_PROJECT)) {
+					protectedDeploymentIds.add(deployment.id);
+				}
+
+				const latestLiveDeployment = projectDeployments.find(
+					(deployment) => deployment.status === 'live'
+				);
+				if (latestLiveDeployment) {
+					protectedDeploymentIds.add(latestLiveDeployment.id);
+				}
+			}
+
+			const logDeploymentIds = oldDeployments
+				.filter((deployment) => !protectedDeploymentIds.has(deployment.id))
+				.map((deployment) => deployment.id);
+
+			if (logDeploymentIds.length === 0) {
+				return { deploymentsRemoved: 0, buildLogsRemoved: 0, cutoffDate: cutoffISO };
+			}
+
+			/* Delete build logs for old deployments outside the protected history window. */
+			await db.delete(buildLogs).where(inArray(buildLogs.deploymentId, logDeploymentIds));
 
 			return {
-				deploymentsRemoved: deploymentIds.length,
-				buildLogsRemoved: deploymentIds.length,
+				deploymentsRemoved: 0,
+				buildLogsRemoved: logDeploymentIds.length,
 				cutoffDate: cutoffISO
 			};
 		} finally {

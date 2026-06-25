@@ -16,7 +16,16 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 import { db } from '$lib/server/db';
-import { getSetting, setSetting, isOnboardingComplete } from './settings';
+import { getSetting, setSetting, isOnboardingComplete, getOnboardingResumePath } from './settings';
+
+/** A db.select(...).from(...).where(...) chain resolving to the given rows */
+function selectReturning(rows: unknown[]) {
+	return {
+		from: vi.fn().mockReturnValue({
+			where: vi.fn().mockResolvedValue(rows)
+		})
+	};
+}
 
 describe('getSetting', () => {
 	beforeEach(() => {
@@ -103,5 +112,36 @@ describe('isOnboardingComplete', () => {
 		vi.mocked(db.select).mockReturnValue(mockChain as never);
 
 		expect(await isOnboardingComplete()).toBe(false);
+	});
+});
+
+describe('getOnboardingResumePath', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('resumes at Git once DNS is verified', async () => {
+		/* first getSetting('dns_verified') → 'true' */
+		vi.mocked(db.select).mockReturnValueOnce(selectReturning([{ value: 'true' }]) as never);
+
+		expect(await getOnboardingResumePath()).toBe('/onboarding/git');
+		/* short-circuits: domain_config is never queried */
+		expect(db.select).toHaveBeenCalledTimes(1);
+	});
+
+	it('resumes at Verify once the domain is configured but DNS is not verified', async () => {
+		vi.mocked(db.select)
+			.mockReturnValueOnce(selectReturning([]) as never) /* dns_verified missing */
+			.mockReturnValueOnce(selectReturning([{ value: '{"mode":"subdomain"}' }]) as never); /* domain_config */
+
+		expect(await getOnboardingResumePath()).toBe('/onboarding/verify');
+	});
+
+	it('falls back to Domain when nothing is configured yet', async () => {
+		vi.mocked(db.select)
+			.mockReturnValueOnce(selectReturning([]) as never) /* dns_verified missing */
+			.mockReturnValueOnce(selectReturning([]) as never); /* domain_config missing */
+
+		expect(await getOnboardingResumePath()).toBe('/onboarding/domain');
 	});
 });

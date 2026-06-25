@@ -166,8 +166,9 @@
 	.tab-content :global(.deploy-actions) {
 		text-align: right;
 	}
-	.tab-content :global(.btn-rollback) {
-		padding: 2px 8px;
+	.tab-content :global(.btn-rollback),
+	.tab-content :global(.btn-rebuild) {
+		padding: .125rem .5rem;
 		background: transparent;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
@@ -176,11 +177,13 @@
 		cursor: pointer;
 		white-space: nowrap;
 	}
-	.tab-content :global(.btn-rollback:hover) {
+	.tab-content :global(.btn-rollback:hover),
+	.tab-content :global(.btn-rebuild:hover) {
 		border-color: var(--color-accent);
 		color: var(--color-accent);
 	}
-	.tab-content :global(.btn-rollback:disabled) {
+	.tab-content :global(.btn-rollback:disabled),
+	.tab-content :global(.btn-rebuild:disabled) {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}

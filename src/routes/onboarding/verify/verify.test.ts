@@ -75,6 +75,7 @@ describe('verify load', () => {
 			location: '/onboarding/git'
 		});
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'false');
 	});
 
 	it('returns records and config for subdomain mode', async () => {
@@ -105,6 +106,25 @@ describe('verify load', () => {
 
 		const result = (await load({} as LoadParams)) as Record<string, unknown>;
 		expect(result.dnsVerified).toBe(true);
+	});
+
+	it('returns the last persisted DNS check', async () => {
+		vi.mocked(isFirstRun).mockResolvedValue(false);
+		const config = { mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' };
+		const lastCheck = {
+			results: [{ name: 'risved.example.com', type: 'A', resolved: true }],
+			allResolved: true,
+			checkedAt: '2026-06-24T00:00:00.000Z'
+		};
+		vi.mocked(getSetting)
+			.mockResolvedValueOnce(JSON.stringify(config)) /* domain_config */
+			.mockResolvedValueOnce('true') /* dns_verified */
+			.mockResolvedValueOnce(JSON.stringify(lastCheck)); /* dns_check_results */
+		vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
+		vi.mocked(generateDnsRecords).mockReturnValue([]);
+
+		const result = (await load({} as LoadParams)) as Record<string, unknown>;
+		expect(result.lastCheck).toEqual(lastCheck);
 	});
 });
 
@@ -143,7 +163,31 @@ describe('verify check action', () => {
 				{ name: '*.example.com', type: 'A', resolved: false }
 			]
 		});
-		expect(setSetting).not.toHaveBeenCalled();
+		/* Does not mark verified, but persists the results for later display */
+		expect(setSetting).not.toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).toHaveBeenCalledWith('dns_check_results', expect.any(String));
+	});
+
+	it('persists check results so they survive navigation', async () => {
+		const config = { mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' };
+		vi.mocked(getSetting).mockResolvedValue(JSON.stringify(config));
+		vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
+		const records = [
+			{ type: 'A', name: 'risved.example.com', value: '1.2.3.4', purpose: 'Dashboard' }
+		];
+		vi.mocked(generateDnsRecords).mockReturnValue(records as never);
+		vi.mocked(checkAllDnsRecords).mockResolvedValue([
+			{ record: records[0] as never, resolved: true }
+		]);
+
+		await actions.check(makeActionEvent('check'));
+
+		const persistCall = vi.mocked(setSetting).mock.calls.find((c) => c[0] === 'dns_check_results');
+		expect(persistCall).toBeTruthy();
+		const saved = JSON.parse(persistCall![1]);
+		expect(saved.allResolved).toBe(true);
+		expect(saved.results).toEqual([{ name: 'risved.example.com', type: 'A', resolved: true }]);
+		expect(typeof saved.checkedAt).toBe('string');
 	});
 
 	it('sets dns_verified when all records resolve', async () => {
@@ -161,6 +205,7 @@ describe('verify check action', () => {
 		const result = await actions.check(makeActionEvent('check'));
 		expect(result).toMatchObject({ allResolved: true });
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'false');
 	});
 });
 
@@ -175,6 +220,7 @@ describe('verify skip action', () => {
 			location: '/onboarding/git'
 		});
 		expect(setSetting).toHaveBeenCalledWith('dns_verified', 'true');
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'true');
 	});
 });
 

@@ -117,6 +117,9 @@ async function _runPipeline(
 	try {
 		/* ── Phase 1: Clone ──────────────────────────────── */
 		emit('clone', `Cloning ${config.repoUrl} (branch: ${config.branch})`);
+		if (config.checkoutRef) {
+			emit('clone', `Checking out ${config.checkoutRef}`)
+		}
 		await mkdir(workDir, { recursive: true });
 
 		/* Kick off clone, env var fetch, and SSH key lookup in parallel */
@@ -135,7 +138,14 @@ async function _runPipeline(
 		const cloneUrl = cloneToken
 			? injectTokenIntoUrl(config.repoUrl, cloneToken)
 			: config.repoUrl
-		const cloneResult = await gitClone(runner, cloneUrl, config.branch, cloneDir, sshKey ?? undefined);
+		const cloneResult = await gitClone(
+			runner,
+			cloneUrl,
+			config.branch,
+			cloneDir,
+			sshKey ?? undefined,
+			config.checkoutRef
+		);
 		if (!cloneResult.success) {
 			throw new PipelineError('clone', `Git clone failed: ${cloneResult.error}`);
 		}

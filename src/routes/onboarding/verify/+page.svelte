@@ -28,12 +28,14 @@
 
 	let activeProvider = $state<string | null>(null);
 
-	const allResolved = $derived(form?.allResolved ?? false);
+	/* Prefer a fresh check (form), otherwise fall back to the last persisted check */
+	const lastResults = $derived(form?.results ?? data.lastCheck?.results ?? null);
+	const allResolved = $derived(form?.allResolved ?? data.lastCheck?.allResolved ?? data.dnsVerified);
 
 	const recordResults = $derived.by(() => {
-		if (!form?.results) return null;
+		if (!lastResults) return null;
 		const map = new SvelteMap<string, boolean>();
-		for (const r of form.results) {
+		for (const r of lastResults) {
 			map.set(`${r.type}:${r.name}`, r.resolved);
 		}
 		return map;
@@ -157,7 +159,7 @@
 					{checking ? 'Checking…' : 'Check DNS'}
 				</button>
 			</form>
-			{#if form?.results && !allResolved}
+			{#if lastResults && !allResolved}
 				<p class="check-hint">DNS propagation can take a few minutes. Try again shortly.</p>
 			{/if}
 		</div>

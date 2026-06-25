@@ -59,7 +59,7 @@ export const deployments = sqliteTable('deployments', {
 	projectId: text('project_id').notNull(),
 	commitSha: text('commit_sha'),
 	status: text('status').notNull().default('pending'),
-	triggerType: text('trigger_type').notNull().default('manual'), // 'manual' | 'webhook' | 'rollback'
+	triggerType: text('trigger_type').notNull().default('manual'), // 'manual' | 'webhook' | 'rollback' | 'rebuild'
 	imageTag: text('image_tag'),
 	containerName: text('container_name'),
 	/** The release command that ran (or null if no release phase) */

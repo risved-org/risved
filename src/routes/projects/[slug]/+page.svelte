@@ -56,6 +56,7 @@
 	}
 
 	let rollingBack = $state<string | null>(null)
+	let rebuilding = $state<string | null>(null)
 
 	async function refreshDeployments() {
 		const res = await fetch(`/api/projects/${data.project.id}/deployments`)
@@ -104,6 +105,27 @@
 			window.location.reload()
 		} finally {
 			rollingBack = null
+		}
+	}
+
+	async function handleRebuild(e: Event, depId: string) {
+		e.preventDefault()
+		e.stopPropagation()
+		rebuilding = depId
+		try {
+			const res = await fetch(`/api/projects/${data.project.id}/deployments/${depId}/rebuild`, {
+				method: 'POST'
+			})
+			if (res.ok) {
+				const { deploymentId } = await res.json()
+				if (deploymentId) {
+					await goto(resolve(`/projects/${data.project.slug}/deployments/${deploymentId}`))
+				} else {
+					await invalidateAll()
+				}
+			}
+		} finally {
+			rebuilding = null
 		}
 	}
 </script>
@@ -174,6 +196,8 @@
 							{deployLabel(dep.status)}
 							{#if dep.triggerType === 'rollback'}
 								<span class="badge-md badge-accent" data-testid="rollback-badge">Rollback</span>
+							{:else if dep.triggerType === 'rebuild'}
+								<span class="badge-md badge-accent">Rebuild</span>
 							{/if}
 							{#if dep.status === 'live' && i === deployments.findIndex((d) => d.status === 'live')}
 								<span class="badge-md badge-live">Current</span>
@@ -189,6 +213,14 @@
 									onclick={(e) => handleRollback(e, dep.id)}
 								>
 									{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
+								</button>
+							{:else if dep.commitSha}
+								<button
+									class="btn-rebuild"
+									disabled={rebuilding === dep.id}
+									onclick={(e) => handleRebuild(e, dep.id)}
+								>
+									{rebuilding === dep.id ? 'Rebuilding…' : 'Rebuild'}
 								</button>
 							{:else}
 								<span class="deploy-duration mono">{duration(dep.createdAt, dep.finishedAt)}</span>
