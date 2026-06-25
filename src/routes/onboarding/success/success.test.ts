@@ -164,6 +164,68 @@ describe('success dashboard action', () => {
 			location: '/'
 		});
 	});
+
+	it('redirects to dedicated dashboard domain after DNS is verified', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'dns_verified') return 'true';
+			if (key === 'dns_verification_skipped') return 'false';
+			if (key === 'domain_config') {
+				return JSON.stringify({ mode: 'dedicated', baseDomain: 'app.mycompany.com' });
+			}
+			return null;
+		});
+
+		await expect(actions.dashboard(makeActionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: 'https://app.mycompany.com'
+		});
+	});
+
+	it('redirects to IP-based dashboard URL after DNS is verified', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'dns_verified') return 'true';
+			if (key === 'dns_verification_skipped') return 'false';
+			if (key === 'domain_config') {
+				return JSON.stringify({ mode: 'ip', baseDomain: '10.0.0.50' });
+			}
+			return null;
+		});
+
+		await expect(actions.dashboard(makeActionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: 'http://10.0.0.50'
+		});
+	});
+
+	it('falls back to / when domain config is corrupt JSON', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'dns_verified') return 'true';
+			if (key === 'dns_verification_skipped') return 'false';
+			if (key === 'domain_config') return 'not-valid-json{{{';
+			return null;
+		});
+
+		await expect(actions.dashboard(makeActionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: '/'
+		});
+	});
+
+	it('falls back to / when domain config mode is unrecognised', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'dns_verified') return 'true';
+			if (key === 'dns_verification_skipped') return 'false';
+			if (key === 'domain_config') {
+				return JSON.stringify({ mode: 'ftp', baseDomain: 'example.com' });
+			}
+			return null;
+		});
+
+		await expect(actions.dashboard(makeActionEvent())).rejects.toMatchObject({
+			status: 303,
+			location: '/'
+		});
+	});
 });
 
 describe('success page source', () => {

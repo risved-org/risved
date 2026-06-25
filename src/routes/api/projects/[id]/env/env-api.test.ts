@@ -389,3 +389,81 @@ describe('DELETE /api/projects/:id/env/:eid', () => {
 		expect(res.status).toBe(404);
 	});
 });
+
+/* ── Additional PUT branch coverage for [eid]/+server ─────────────── */
+
+describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it('returns 400 when JSON body is null (failed parse)', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT({
+			request: { json: () => Promise.resolve(null) },
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' }
+		} as never);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 when value is not a string', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT({
+			request: { json: () => Promise.resolve({ value: 42 }) },
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' }
+		} as never);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('updates is_secret without changing value', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const returningFn = vi
+			.fn()
+			.mockResolvedValue([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: true }]);
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ returning: returningFn })
+			})
+		});
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT({
+			request: { json: () => Promise.resolve({ is_secret: true }) },
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' }
+		} as never);
+
+		expect(res.status).toBe(200);
+	});
+
+	it('masks a very short secret value with just dots', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PIN', value: 'enc:abc', isSecret: true }]);
+
+		const returningFn = vi
+			.fn()
+			.mockResolvedValue([{ id: 'e-1', key: 'PIN', value: 'enc:abc', isSecret: true }]);
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ returning: returningFn })
+			})
+		});
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT({
+			request: { json: () => Promise.resolve({ value: 'abc' }) },
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' }
+		} as never);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.value).toBe('••••');
+	});
+});
