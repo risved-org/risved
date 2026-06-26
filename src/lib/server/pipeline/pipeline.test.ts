@@ -179,6 +179,44 @@ describe('runPipeline', () => {
 		expect(runCall).toContain('risved-proj-1-data:/app/data');
 	});
 
+	it('does not attach managed Postgres network to Docker builds', async () => {
+		const calls: string[] = []
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`
+				calls.push(joined)
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' }
+				if (joined.includes('docker inspect') && joined.includes('risved-postgres-proj-1')) {
+					return { exitCode: 0, stdout: 'true\n', stderr: '' }
+				}
+				if (joined.includes('docker exec') && joined.includes('pg_isready')) {
+					return { exitCode: 0, stdout: 'accepting connections', stderr: '' }
+				}
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' }
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		}
+
+		const result = await runPipeline(
+			makeConfig({
+				postgresEnabled: true,
+				postgresPassword: 'encrypted:secret',
+				releaseCommand: 'bun run db:migrate'
+			}),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		)
+
+		expect(result.success).toBe(true)
+		const buildCalls = calls.filter((c) => c.includes('docker build'))
+		expect(buildCalls).toHaveLength(2)
+		expect(buildCalls.every((c) => !c.includes('--network'))).toBe(true)
+		const runtimeRun = calls.find((c) => c.includes('docker run') && !c.includes('risved-release'))
+		expect(runtimeRun).toContain('--network risved')
+		const releaseRun = calls.find((c) => c.includes('docker run') && c.includes('risved-release'))
+		expect(releaseRun).toContain('--network risved')
+	});
+
 	it('emits logs for each phase', async () => {
 		const logs: LogEntry[] = [];
 		const result = await runPipeline(makeConfig(), makeSuccessRunner(), {

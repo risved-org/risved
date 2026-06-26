@@ -167,8 +167,6 @@ async function _runPipeline(
 			envMap[row.key] = safeDecrypt(row.value)
 		}
 
-		let buildNetwork: string | undefined
-
 		/* ── Phase 2: Detect ─────────────────────────────── */
 		let frameworkId = config.frameworkId;
 		let tier = config.tier;
@@ -209,7 +207,6 @@ async function _runPipeline(
 				config.postgresPassword
 			)
 			Object.assign(envMap, buildManagedPostgresEnv(postgres, password))
-			buildNetwork = postgres.network
 
 			emit('build', `Managed Postgres enabled for project ${config.projectId}`)
 			const postgresResult = await ensureManagedPostgres(runner, postgres, password, {
@@ -301,7 +298,6 @@ async function _runPipeline(
 		const buildResult = await dockerBuild(runner, {
 			contextDir: cloneDir,
 			imageTag,
-			network: buildNetwork,
 			onLine: (line) => emit('build', line)
 		});
 		if (!buildResult.success) {
@@ -323,7 +319,6 @@ async function _runPipeline(
 				contextDir: cloneDir,
 				imageTag: releaseImageTag,
 				target: 'build',
-				network: buildNetwork,
 				onLine: (line) => emit('release', line)
 			})
 			if (!releaseBuild.success) {

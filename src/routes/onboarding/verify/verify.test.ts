@@ -15,9 +15,14 @@ vi.mock('$lib/server/dns', () => ({
 	getServerIps: vi.fn()
 }));
 
+vi.mock('$lib/server/caddy/control-plane', () => ({
+	ensureControlPlaneRoutes: vi.fn()
+}));
+
 import { isFirstRun } from '$lib/server/auth-utils';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { generateDnsRecords, checkAllDnsRecords, getServerIps } from '$lib/server/dns';
+import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
 import { load, actions } from './+page.server';
 
 type LoadParams = Parameters<typeof load>[0];
@@ -247,6 +252,7 @@ describe('verify continue action', () => {
 			location: '/onboarding/git'
 		});
 		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'false');
+		expect(ensureControlPlaneRoutes).toHaveBeenCalled();
 	});
 });
 

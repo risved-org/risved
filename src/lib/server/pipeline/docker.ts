@@ -61,7 +61,7 @@ export async function ensureWarmImage(
 
 /**
  * Build a Docker image from a context directory.
- * Uses --network to allow package downloads during build.
+ * Optionally passes Docker's build network mode.
  */
 export async function dockerBuild(
 	runner: CommandRunner,

@@ -113,7 +113,10 @@ export class CaddyClient {
 			});
 
 			if (res.ok) {
-				return { success: true };
+				const existing = await res.json().catch(() => null);
+				if (existing && typeof existing === 'object') {
+					return { success: true };
+				}
 			}
 
 			/* PUT directly to the srv0 path instead of PATCHing /config/.
