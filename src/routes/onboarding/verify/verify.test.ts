@@ -224,6 +224,32 @@ describe('verify skip action', () => {
 	});
 });
 
+describe('verify continue action', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('redirects back to verify when DNS is not verified', async () => {
+		vi.mocked(getSetting).mockResolvedValue(null);
+
+		await expect(actions.continue(makeActionEvent('continue'))).rejects.toMatchObject({
+			status: 303,
+			location: '/onboarding/verify'
+		});
+		expect(setSetting).not.toHaveBeenCalledWith('dns_verification_skipped', 'false');
+	});
+
+	it('keeps DNS marked as not skipped and redirects to git', async () => {
+		vi.mocked(getSetting).mockResolvedValue('true');
+
+		await expect(actions.continue(makeActionEvent('continue'))).rejects.toMatchObject({
+			status: 303,
+			location: '/onboarding/git'
+		});
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'false');
+	});
+});
+
 describe('verify page source', () => {
 	it('includes step indicator at step 2', async () => {
 		const mod = await import('./+page.svelte?raw');
@@ -253,6 +279,7 @@ describe('verify page source', () => {
 	it('has check and skip buttons', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('Check DNS');
+		expect(mod.default).toContain('?/continue');
 		expect(mod.default).toContain('Skip for now');
 	});
 });

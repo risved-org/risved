@@ -109,5 +109,15 @@ export const actions: Actions = {
 		await setSetting('dns_verified', 'true');
 		await setSetting('dns_verification_skipped', 'true');
 		redirect(303, '/onboarding/git');
+	},
+
+	continue: async () => {
+		const dnsVerified = (await getSetting('dns_verified')) === 'true';
+		if (!dnsVerified) {
+			redirect(303, '/onboarding/verify');
+		}
+
+		await setSetting('dns_verification_skipped', 'false');
+		redirect(303, '/onboarding/git');
 	}
 };
