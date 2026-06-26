@@ -358,6 +358,116 @@ describe('PUT /api/projects/:id/env/:eid', () => {
 
 		expect(res.status).toBe(404);
 	});
+
+	it('returns 400 for invalid JSON body', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT({
+			request: new Request('http://localhost', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: 'not-json'
+			}),
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' },
+			url: new URL('http://localhost')
+		} as never);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 when value is not a string', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(
+			makeEvent({
+				method: 'PUT',
+				params: { id: 'p-1', eid: 'e-1' },
+				body: { value: 42 }
+			})
+		);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('updates is_secret flag without changing value', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'TOKEN', value: 'enc:abc', isSecret: false }]);
+
+		const setFn = vi.fn().mockReturnValue({
+			where: vi.fn().mockReturnValue({
+				returning: vi
+					.fn()
+					.mockResolvedValue([{ id: 'e-1', key: 'TOKEN', value: 'enc:abc', isSecret: true }])
+			})
+		});
+		mockDb.update.mockReturnValue({ set: setFn });
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(
+			makeEvent({
+				method: 'PUT',
+				params: { id: 'p-1', eid: 'e-1' },
+				body: { is_secret: true }
+			})
+		);
+
+		expect(res.status).toBe(200);
+		expect(setFn).toHaveBeenCalledWith(expect.objectContaining({ isSecret: true }));
+	});
+
+	it('masks long secret value showing first 4 chars', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'TOKEN', value: 'enc:abc', isSecret: true }]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi
+						.fn()
+						.mockResolvedValue([{ id: 'e-1', key: 'TOKEN', value: 'enc:secretvalue', isSecret: true }])
+				})
+			})
+		});
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(
+			makeEvent({
+				method: 'PUT',
+				params: { id: 'p-1', eid: 'e-1' },
+				body: { value: 'secretvalue' }
+			})
+		);
+
+		const data = await res.json();
+		expect(data.value).toBe('secr••••••••');
+	});
+
+	it('masks short secret value entirely', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'PIN', value: 'enc:abc', isSecret: true }]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi
+						.fn()
+						.mockResolvedValue([{ id: 'e-1', key: 'PIN', value: 'enc:123', isSecret: true }])
+				})
+			})
+		});
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT(
+			makeEvent({
+				method: 'PUT',
+				params: { id: 'p-1', eid: 'e-1' },
+				body: { value: '123' }
+			})
+		);
+
+		const data = await res.json();
+		expect(data.value).toBe('••••');
+	});
 });
 
 /* ── Tests: DELETE /api/projects/:id/env/:eid ─────────────────────── */
