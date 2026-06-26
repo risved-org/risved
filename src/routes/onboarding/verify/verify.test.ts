@@ -15,9 +15,14 @@ vi.mock('$lib/server/dns', () => ({
 	getServerIps: vi.fn()
 }));
 
+vi.mock('$lib/server/caddy/control-plane', () => ({
+	ensureControlPlaneRoutes: vi.fn()
+}));
+
 import { isFirstRun } from '$lib/server/auth-utils';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { generateDnsRecords, checkAllDnsRecords, getServerIps } from '$lib/server/dns';
+import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
 import { load, actions } from './+page.server';
 
 type LoadParams = Parameters<typeof load>[0];
@@ -224,6 +229,33 @@ describe('verify skip action', () => {
 	});
 });
 
+describe('verify continue action', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('redirects back to verify when DNS is not verified', async () => {
+		vi.mocked(getSetting).mockResolvedValue(null);
+
+		await expect(actions.continue(makeActionEvent('continue'))).rejects.toMatchObject({
+			status: 303,
+			location: '/onboarding/verify'
+		});
+		expect(setSetting).not.toHaveBeenCalledWith('dns_verification_skipped', 'false');
+	});
+
+	it('keeps DNS marked as not skipped and redirects to git', async () => {
+		vi.mocked(getSetting).mockResolvedValue('true');
+
+		await expect(actions.continue(makeActionEvent('continue'))).rejects.toMatchObject({
+			status: 303,
+			location: '/onboarding/git'
+		});
+		expect(setSetting).toHaveBeenCalledWith('dns_verification_skipped', 'false');
+		expect(ensureControlPlaneRoutes).toHaveBeenCalled();
+	});
+});
+
 describe('verify page source', () => {
 	it('includes step indicator at step 2', async () => {
 		const mod = await import('./+page.svelte?raw');
@@ -253,6 +285,7 @@ describe('verify page source', () => {
 	it('has check and skip buttons', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('Check DNS');
+		expect(mod.default).toContain('?/continue');
 		expect(mod.default).toContain('Skip for now');
 	});
 });

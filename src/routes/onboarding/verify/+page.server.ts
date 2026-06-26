@@ -8,6 +8,7 @@ import {
 	getServerIps,
 	type DnsCheckResult
 } from '$lib/server/dns';
+import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
 import type { DomainConfig } from '../domain/+page.server';
 
 export const load: PageServerLoad = async () => {
@@ -108,6 +109,17 @@ export const actions: Actions = {
 	skip: async () => {
 		await setSetting('dns_verified', 'true');
 		await setSetting('dns_verification_skipped', 'true');
+		redirect(303, '/onboarding/git');
+	},
+
+	continue: async () => {
+		const dnsVerified = (await getSetting('dns_verified')) === 'true';
+		if (!dnsVerified) {
+			redirect(303, '/onboarding/verify');
+		}
+
+		await setSetting('dns_verification_skipped', 'false');
+		await ensureControlPlaneRoutes();
 		redirect(303, '/onboarding/git');
 	}
 };

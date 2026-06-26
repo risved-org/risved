@@ -194,7 +194,7 @@
 		</div>
 
 		<div class="check-actions">
-			<form method="post" action="?/skip">
+			<form method="post" action="?/continue">
 				<button type="submit" class="btn-primary btn-lg" disabled={!allResolved}>Continue</button>
 			</form>
 

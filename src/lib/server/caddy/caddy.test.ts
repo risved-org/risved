@@ -132,6 +132,29 @@ describe('Caddy Route Management', () => {
 				expect(callCount).toBe(1);
 			});
 
+			it('creates server when Caddy returns null for the server path', async () => {
+				let callCount = 0;
+				mockFetch = vi.fn(async (input: string, init?: RequestInit) => {
+					const method = init?.method ?? 'GET';
+					if (String(input).includes('srv0') && method === 'GET') {
+						return new Response('null', {
+							status: 200,
+							headers: { 'Content-Type': 'application/json' }
+						});
+					}
+					if (String(input).includes('srv0') && method === 'PUT') {
+						callCount++;
+						return new Response('OK', { status: 200 });
+					}
+					return new Response('Not Found', { status: 404 });
+				}) as unknown as FetchFn;
+				client = new CaddyClient(undefined, mockFetch);
+
+				const result = await client.ensureServer();
+				expect(result.success).toBe(true);
+				expect(callCount).toBe(1);
+			});
+
 			it('returns error when server creation fails', async () => {
 				mockFetch = vi.fn(async (_input: string, init?: RequestInit) => {
 					const method = init?.method ?? 'GET';
