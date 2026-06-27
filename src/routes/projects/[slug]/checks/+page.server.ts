@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load = (async ({ params }) => {
 	const { slug } = params;
 
 	const rows = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1);
@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		risvedDomain,
 		previewUrlFormat: `pr-{number}.${project.slug}.${risvedDomain}`
 	};
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	save: async ({ params, request }) => {

@@ -6,7 +6,7 @@ import { verifyForgejoToken } from '$lib/server/forgejo';
 import { encrypt } from '$lib/server/crypto';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load = (async ({ locals }) => {
 	if (!locals.user) {
 		return { connections: [] };
 	}
@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.from(gitConnections);
 
 	return { connections };
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	/** Connect a Forgejo/Gitea instance with API token. */

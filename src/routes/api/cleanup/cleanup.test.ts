@@ -40,7 +40,7 @@ function makeEvent(method = 'GET', body?: unknown) {
 describe('GET /api/cleanup', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		vi.mocked(getCleanupManager).mockReturnValue(mockManager as ReturnType<typeof getCleanupManager>)
+		vi.mocked(getCleanupManager).mockReturnValue(mockManager as unknown as ReturnType<typeof getCleanupManager>)
 	})
 
 	it('returns retentionDays and diskUsage', async () => {
@@ -66,7 +66,7 @@ describe('GET /api/cleanup', () => {
 describe('POST /api/cleanup', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		vi.mocked(getCleanupManager).mockReturnValue(mockManager as ReturnType<typeof getCleanupManager>)
+		vi.mocked(getCleanupManager).mockReturnValue(mockManager as unknown as ReturnType<typeof getCleanupManager>)
 	})
 
 	it('updateRetention: saves valid days and returns success', async () => {

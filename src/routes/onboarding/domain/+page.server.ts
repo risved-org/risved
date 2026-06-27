@@ -12,7 +12,8 @@ export interface DomainConfig {
 	prefix: string;
 }
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const firstRun = await isFirstRun();
 	if (firstRun) {
 		redirect(303, '/onboarding');
@@ -28,7 +29,7 @@ export const load: PageServerLoad = async () => {
 		}
 	}
 	return { displayName };
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	default: async (event) => {

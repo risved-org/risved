@@ -6,7 +6,8 @@ import { db } from '$lib/server/db'
 import { gitConnections } from '$lib/server/db/schema'
 import { STARTER_TEMPLATES } from './templates'
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const firstRun = await isFirstRun();
 	if (firstRun) {
 		redirect(303, '/onboarding');
@@ -40,7 +41,7 @@ export const load: PageServerLoad = async () => {
 		connections,
 		domainMode
 	}
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	starter: async ({ request }) => {

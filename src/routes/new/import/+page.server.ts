@@ -19,7 +19,8 @@ const FRAMEWORK_OPTIONS = detectors.map((d) => ({
 	tier: d.tier
 }));
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const connections = await db
 		.select({
 			id: gitConnections.id,
@@ -30,7 +31,7 @@ export const load: PageServerLoad = async () => {
 		.from(gitConnections);
 
 	return { connections, frameworks: FRAMEWORK_OPTIONS };
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	/** Import a repo from a connected provider and deploy. */

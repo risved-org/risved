@@ -44,7 +44,7 @@ function makeEvent(overrides: { body?: unknown } = {}) {
 			json: vi.fn().mockResolvedValue(overrides.body ?? null)
 		},
 		url: new URL('http://localhost/api/health')
-	} as never
+	} as Record<string, unknown>
 }
 
 describe('GET /api/health', () => {
@@ -57,7 +57,7 @@ describe('GET /api/health', () => {
 		setupSelectChain(events)
 
 		const { GET } = await import('./+server')
-		const res = await GET(makeEvent())
+		const res = await GET(makeEvent() as never)
 
 		expect(res.status).toBe(200)
 		const data = await res.json()

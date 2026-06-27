@@ -21,7 +21,8 @@ vi.mock('$lib/server/db', () => {
 			update: updateMock,
 			delete: deleteMock,
 			__limitMock: limitMock,
-			__whereMock: whereMock
+			__whereMock: whereMock,
+			__setMock: setMock
 		}
 	};
 });
@@ -50,15 +51,27 @@ vi.mock('$lib/server/dns', () => ({
 vi.mock('$lib/server/caddy', () => ({
 	CaddyClient: vi.fn(() => ({
 		addRoute: vi.fn().mockResolvedValue(undefined),
+		addRedirectRoute: vi.fn().mockResolvedValue(undefined),
 		removeRoute: vi.fn().mockResolvedValue(undefined)
 	})),
 	createCaddyClient: vi.fn(() => ({
 		addRoute: vi.fn().mockResolvedValue(undefined),
+		addRedirectRoute: vi.fn().mockResolvedValue(undefined),
 		removeRoute: vi.fn().mockResolvedValue(undefined)
 	}))
 }));
 
+vi.mock('$lib/server/ssl', () => ({
+	resolveSslStatus: vi.fn().mockResolvedValue('provisioning')
+}));
+
+vi.mock('$lib/server/caddy/repair', () => ({
+	repairDomainRoute: vi.fn().mockResolvedValue(true)
+}));
+
 import { db } from '$lib/server/db';
+import { repairDomainRoute } from '$lib/server/caddy/repair';
+import { resolveSslStatus } from '$lib/server/ssl';
 import { load, actions } from './+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
@@ -188,6 +201,7 @@ describe('domains actions', () => {
 	});
 
 	it('verify updates ssl status when DNS resolves', async () => {
+		vi.mocked(resolveSslStatus).mockResolvedValueOnce('active');
 		dbAny.__limitMock
 			.mockResolvedValueOnce([{ id: 'proj-1' }])
 			.mockResolvedValueOnce([{
@@ -200,8 +214,30 @@ describe('domains actions', () => {
 			params: { slug: 'test' },
 			request: { formData: () => Promise.resolve(formData) }
 		} as unknown as Parameters<typeof actions.verify>[0]);
-		expect(result).toMatchObject({ verified: true, domainId: 'dom-1' });
-		expect(db.update).toHaveBeenCalled();
+		expect(result).toMatchObject({ verified: true, domainId: 'dom-1', sslStatus: 'active' });
+		expect(resolveSslStatus).toHaveBeenCalledWith('app.example.com', true);
+		expect(repairDomainRoute).not.toHaveBeenCalled();
+		expect(dbAny.__setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'active' }));
+	});
+
+	it('repairs caddy route when DNS resolves but SSL is still provisioning', async () => {
+		vi.mocked(resolveSslStatus).mockResolvedValueOnce('provisioning');
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1', port: 3001 }])
+			.mockResolvedValueOnce([{
+				id: 'dom-1', hostname: 'app.example.com',
+				sslStatus: 'pending', verifiedAt: null, projectId: 'proj-1'
+			}]);
+
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		const result = await actions.verify({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.verify>[0]);
+
+		expect(result).toMatchObject({ verified: true, domainId: 'dom-1', sslStatus: 'provisioning' });
+		expect(repairDomainRoute).toHaveBeenCalledWith('app.example.com', 3001);
 	});
 
 	it('primary returns 404 when project not found', async () => {

@@ -116,7 +116,7 @@ describe('persistLogs', () => {
 	it('passes through all entry fields', async () => {
 		const entry = {
 			timestamp: '2024-01-01T00:00:00Z',
-			phase: 'run' as const,
+			phase: 'release' as const,
 			level: 'warn' as const,
 			message: 'a warning'
 		}
@@ -127,7 +127,7 @@ describe('persistLogs', () => {
 		expect(vals[0]).toEqual({
 			deploymentId: 'dep-42',
 			timestamp: '2024-01-01T00:00:00Z',
-			phase: 'run',
+			phase: 'release',
 			level: 'warn',
 			message: 'a warning'
 		})

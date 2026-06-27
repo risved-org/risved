@@ -21,7 +21,7 @@ const PHASE_LABELS: Record<string, string> = {
 const PHASE_ORDER_BASE = ['clone', 'detect', 'build', 'start', 'health', 'live'];
 const PHASE_ORDER_WITH_RELEASE = ['clone', 'detect', 'build', 'release', 'start', 'health', 'live'];
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load = (async ({ params }) => {
 	const { slug, did } = params;
 
 	/* Find project by slug */
@@ -93,4 +93,4 @@ export const load: PageServerLoad = async ({ params }) => {
 		isTerminal,
 		phases: phaseOrder.map((id) => ({ id, label: PHASE_LABELS[id] ?? id }))
 	};
-};
+}) satisfies PageServerLoad;

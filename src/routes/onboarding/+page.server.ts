@@ -5,13 +5,14 @@ import { isFirstRun } from '$lib/server/auth-utils'
 import { setSetting } from '$lib/server/settings'
 import { APIError } from 'better-auth/api'
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const firstRun = await isFirstRun();
 	if (!firstRun) {
 		redirect(303, '/');
 	}
 	return {};
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	default: async (event) => {

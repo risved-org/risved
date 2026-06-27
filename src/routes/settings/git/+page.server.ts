@@ -13,7 +13,7 @@ const DEFAULT_INSTANCE_URLS: Record<string, string> = {
 	gitlab: 'https://gitlab.com'
 };
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load = (async ({ locals }) => {
 	const isCloud = env.RISVED_MODE === 'cloud'
 
 	if (!locals.user) {
@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		githubAppMode,
 		gitlabAppMode
 	};
-};
+}) satisfies PageServerLoad;
 
 function defaultWebhookSettings() {
 	return { autoWebhook: true, commitStatus: true, deployPreviews: true };

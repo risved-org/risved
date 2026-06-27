@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
+	import { SvelteURLSearchParams } from 'svelte/reactivity'
 	import type { ActionData, PageData } from './$types'
 	import StepIndicator from '../StepIndicator.svelte'
 
@@ -51,7 +52,7 @@
 		searching = true
 		try {
 			const provider = selectedConnection?.provider ?? 'github'
-			const params = new URLSearchParams({ connectionId: selectedConnectionId })
+			const params = new SvelteURLSearchParams({ connectionId: selectedConnectionId })
 			if (searchQuery.trim()) params.set('search', searchQuery.trim())
 
 			const res = await fetch(`/api/git/${provider}/repos?${params}`)
@@ -240,7 +241,6 @@
 									<button
 										type="button"
 										class="repo-row"
-										class:selected={selectedRepo?.id === repo.id}
 										onclick={() => selectRepo(repo)}
 									>
 										<div class="repo-info">
@@ -574,10 +574,6 @@
 
 	.repo-row:hover {
 		background: var(--color-bg-2);
-	}
-
-	.repo-row.selected {
-		background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 	}
 
 	.repo-info {

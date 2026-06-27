@@ -30,7 +30,7 @@ function dotMask(value: string): string {
 	return '••••••••'
 }
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load = (async ({ params }) => {
 	const { slug } = params
 
 	const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
@@ -111,7 +111,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		webhookActive: !!project.webhookSecret,
 		lastWebhookAt: lastDelivery[0]?.createdAt ?? null
 	}
-}
+}) satisfies PageServerLoad
 
 export const actions: Actions = {
 	saveScripts: async ({ params, request }) => {

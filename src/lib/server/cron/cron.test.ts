@@ -1,16 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-/* Mock DB before importing the scheduler */
-const mockSelect = vi.fn()
-const mockInsert = vi.fn()
-const mockUpdate = vi.fn()
-const mockDelete = vi.fn()
-
 /**
  * Creates a thenable chain object that resolves to `result` when awaited directly,
  * but also supports chaining .from().where().limit() etc.
  */
-function chainable(result: unknown[]) {
+function chainable(result: unknown[]): never {
 	const chain: Record<string, unknown> = {
 		then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
 			Promise.resolve(result).then(resolve, reject)
@@ -22,7 +16,7 @@ function chainable(result: unknown[]) {
 	chain.returning = vi.fn().mockResolvedValue(result)
 	chain.set = vi.fn().mockReturnValue(chain)
 	chain.values = vi.fn().mockReturnValue(chain)
-	return chain
+	return chain as never
 }
 
 vi.mock('$lib/server/db', () => ({

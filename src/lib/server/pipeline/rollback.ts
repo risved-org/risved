@@ -1,10 +1,10 @@
 import { db } from '$lib/server/db';
 import { deployments } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { getSetting } from '$lib/server/settings';
 import { CaddyClient, createCaddyClient } from '../caddy';
 import { dockerRun, dockerStop, waitForHealthy, freePort, projectVolumeName } from './docker';
 import { createLogCollector } from './log';
+import { getManagedAppDomain } from './domains'
 import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
 
 export interface RollbackConfig {
@@ -107,11 +107,10 @@ export async function runRollback(
 			emit('route', 'No domain configured, skipping route setup');
 		}
 
-		/* Also add alt route via control plane hostname */
+		/* Also add a route via the configured app wildcard domain. */
 		if (config.domain) {
-			const hostname = await getSetting('hostname')
-			if (hostname && !config.domain.endsWith(hostname)) {
-				const altDomain = `${config.projectSlug}.${hostname}`
+			const altDomain = await getManagedAppDomain(config.projectSlug, config.domain)
+			if (altDomain) {
 				const altResult = await caddy.addRoute({ hostname: altDomain, port: config.port })
 				if (!altResult.success) {
 					emit('route', `Warning: alt route failed (${altDomain}): ${altResult.error}`, 'warn')
