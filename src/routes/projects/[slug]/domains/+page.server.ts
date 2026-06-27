@@ -4,10 +4,12 @@ import { projects, domains } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getServerIps, checkDnsRecord } from '$lib/server/dns';
 import { createCaddyClient } from '$lib/server/caddy';
+import { repairDomainRoute } from '$lib/server/caddy/repair';
 import { getSetting } from '$lib/server/settings';
+import { resolveSslStatus } from '$lib/server/ssl';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load = (async ({ params }) => {
 	const { slug } = params;
 
 	const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1);
@@ -49,7 +51,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		serverIps,
 		defaultSubdomain
 	};
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	/** Add a new domain to the project. */
@@ -82,6 +84,9 @@ export const actions: Actions = {
 			try {
 				const caddy = createCaddyClient();
 				await caddy.addRoute({ hostname, port: project.port });
+				if (!hostname.startsWith('www.')) {
+					await caddy.addRedirectRoute(`www.${hostname}`, hostname);
+				}
 			} catch {
 				/* Caddy may not be running */
 			}
@@ -130,14 +135,14 @@ export const actions: Actions = {
 		const results = await Promise.all(checks)
 		const anyResolved = results.some((r) => r.resolved)
 
-		let sslStatus: string;
 		let verifiedAt: string | null = domain.verifiedAt;
 
+		const sslStatus = await resolveSslStatus(domain.hostname, anyResolved);
 		if (anyResolved) {
-			sslStatus = domain.sslStatus === 'active' ? 'active' : 'provisioning';
 			verifiedAt = verifiedAt ?? new Date().toISOString();
-		} else {
-			sslStatus = 'pending';
+			if (sslStatus !== 'active' && proj[0].port) {
+				await repairDomainRoute(domain.hostname, proj[0].port);
+			}
 		}
 
 		await db.update(domains).set({ sslStatus, verifiedAt }).where(eq(domains.id, domainId));

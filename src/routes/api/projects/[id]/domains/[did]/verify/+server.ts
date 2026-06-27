@@ -1,9 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { domains } from '$lib/server/db/schema';
+import { projects, domains } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { checkDnsRecord, getServerIps } from '$lib/server/dns';
+import { resolveSslStatus } from '$lib/server/ssl';
+import { repairDomainRoute } from '$lib/server/caddy/repair';
 import type { RequestHandler } from './$types';
 
 /**
@@ -38,14 +40,20 @@ export const POST: RequestHandler = async (event) => {
 	const results = await Promise.all(checks)
 	const anyResolved = results.some((r) => r.resolved)
 
-	let sslStatus: string;
 	let verifiedAt: string | null = domain.verifiedAt;
 
+	const sslStatus = await resolveSslStatus(domain.hostname, anyResolved);
 	if (anyResolved) {
-		sslStatus = domain.sslStatus === 'active' ? 'active' : 'provisioning';
 		verifiedAt = verifiedAt ?? new Date().toISOString();
-	} else {
-		sslStatus = 'pending';
+		if (sslStatus !== 'active') {
+			const projectRows = await db
+				.select({ port: projects.port })
+				.from(projects)
+				.where(eq(projects.id, id))
+				.limit(1)
+			const port = projectRows[0]?.port
+			if (port) await repairDomainRoute(domain.hostname, port)
+		}
 	}
 
 	const [updated] = await db

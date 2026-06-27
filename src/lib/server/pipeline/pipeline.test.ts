@@ -559,11 +559,15 @@ describe('runPipeline', () => {
 		);
 	});
 
-	it('configures alt control-plane route when hostname is set', async () => {
-		// getSetting is called twice: first for ssh_deploy_private_key, then for hostname
+	it('configures alt managed app route when subdomain DNS is set', async () => {
+		// getSetting is called twice: first for ssh_deploy_private_key, then for domain_config
 		vi.mocked(getSetting)
 			.mockResolvedValueOnce(null) // ssh key
-			.mockResolvedValueOnce('panel.example.com'); // hostname
+			.mockResolvedValueOnce(JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'example.com',
+				prefix: 'panel'
+			}))
 
 		const caddy = makeCaddy();
 		const result = await runPipeline(
@@ -574,7 +578,7 @@ describe('runPipeline', () => {
 
 		expect(result.success).toBe(true);
 		expect(caddy.addRoute).toHaveBeenCalledWith({
-			hostname: 'my-app.panel.example.com',
+			hostname: 'my-app.example.com',
 			port: 3001
 		});
 	});

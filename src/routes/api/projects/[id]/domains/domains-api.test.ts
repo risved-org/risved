@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /* ── Hoisted mock handles ─────────────────────────────────────────── */
 
-const { removeRouteMock } = vi.hoisted(() => {
+const { removeRouteMock, resolveSslStatusMock, repairDomainRouteMock } = vi.hoisted(() => {
 	const removeRouteMock = vi.fn().mockResolvedValue(undefined);
-	return { removeRouteMock };
+	const resolveSslStatusMock = vi.fn().mockResolvedValue('provisioning');
+	const repairDomainRouteMock = vi.fn().mockResolvedValue(true);
+	return { removeRouteMock, resolveSslStatusMock, repairDomainRouteMock };
 });
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
@@ -59,6 +61,14 @@ vi.mock('$lib/server/caddy', () => ({
 vi.mock('$lib/server/dns', () => ({
 	checkDnsRecord: vi.fn().mockResolvedValue({ resolved: true }),
 	getServerIps: vi.fn().mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null })
+}));
+
+vi.mock('$lib/server/ssl', () => ({
+	resolveSslStatus: resolveSslStatusMock
+}));
+
+vi.mock('$lib/server/caddy/repair', () => ({
+	repairDomainRoute: repairDomainRouteMock
 }));
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -275,16 +285,19 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	it('verifies DNS and updates status', async () => {
+		resolveSslStatusMock.mockResolvedValueOnce('active');
 		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }]);
 
-		mockDb.update.mockReturnValue({
-			set: vi.fn().mockReturnValue({
-				where: vi.fn().mockReturnValue({
-					returning: vi.fn().mockResolvedValue([
-						{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'provisioning' }
-					])
-				})
+		const setMock = vi.fn().mockReturnValue({
+			where: vi.fn().mockReturnValue({
+				returning: vi.fn().mockResolvedValue([
+					{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }
+				])
 			})
+		});
+
+		mockDb.update.mockReturnValue({
+			set: setMock
 		});
 
 		const { POST } = await import('./[did]/verify/+server');
@@ -295,6 +308,49 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 		expect(res.status).toBe(200);
 		const data = await res.json();
 		expect(data.dnsResolved).toBe(true);
+		expect(data.sslStatus).toBe('active');
+		expect(resolveSslStatusMock).toHaveBeenCalledWith('app.example.com', true);
+		expect(repairDomainRouteMock).not.toHaveBeenCalled();
+		expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'active' }));
+	});
+
+	it('repairs caddy route when DNS resolves but SSL is still provisioning', async () => {
+		resolveSslStatusMock.mockResolvedValueOnce('provisioning');
+		mockDb.select
+			.mockImplementationOnce(() => ({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockResolvedValue([
+							{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }
+						])
+					})
+				})
+			}))
+			.mockImplementationOnce(() => ({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockResolvedValue([{ port: 3001 }])
+					})
+				})
+			}));
+
+		const setMock = vi.fn().mockReturnValue({
+			where: vi.fn().mockReturnValue({
+				returning: vi.fn().mockResolvedValue([
+					{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'provisioning' }
+				])
+			})
+		});
+		mockDb.update.mockReturnValue({ set: setMock });
+
+		const { POST } = await import('./[did]/verify/+server');
+		const res = await POST(
+			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
+		);
+
+		expect(res.status).toBe(200);
+		expect(repairDomainRouteMock).toHaveBeenCalledWith('app.example.com', 3001);
+		expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'provisioning' }));
 	});
 
 	it('returns 404 for missing domain', async () => {

@@ -257,7 +257,11 @@ describe('runRollback', () => {
 	});
 
 	it('adds alt route when hostname setting is set and domain differs', async () => {
-		vi.mocked(getSetting).mockResolvedValue('host.example.com');
+		vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
+			mode: 'subdomain',
+			baseDomain: 'example.com',
+			prefix: 'host'
+		}))
 
 		const caddy = makeCaddy();
 		await runRollback(
@@ -267,17 +271,21 @@ describe('runRollback', () => {
 		);
 
 		const routeCalls = caddy.addRoute.mock.calls.map((c) => c[0].hostname);
-		expect(routeCalls).toContain('my-app.host.example.com');
+		expect(routeCalls).toContain('my-app.example.com');
 	});
 
 	it('emits warning when alt route fails', async () => {
-		vi.mocked(getSetting).mockResolvedValue('host.example.com');
+		vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
+			mode: 'subdomain',
+			baseDomain: 'example.com',
+			prefix: 'host'
+		}))
 
 		const logs: LogEntry[] = [];
 		let altCall = 0;
 		const caddy = {
 			...makeCaddy(),
-			addRoute: vi.fn().mockImplementation((args: { hostname: string }) => {
+			addRoute: vi.fn().mockImplementation(() => {
 				altCall++
 				/* primary route succeeds, alt route fails */
 				if (altCall === 2) return Promise.resolve({ success: false, error: 'alt fail' })
