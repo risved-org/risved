@@ -21,7 +21,8 @@ const FRAMEWORK_OPTIONS = detectors.map((d) => ({
 	tier: d.tier
 }));
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const domain = await getSetting('risved_domain');
 	const connections = await db
 		.select({
@@ -32,7 +33,7 @@ export const load: PageServerLoad = async () => {
 		})
 		.from(gitConnections);
 	return { frameworks: FRAMEWORK_OPTIONS, domain, connections };
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	default: async ({ request, url }) => {

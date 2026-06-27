@@ -6,7 +6,7 @@ import { projects, deployments } from '$lib/server/db/schema';
 import { count, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async (event) => {
+export const load = (async (event) => {
 	if (event.locals.user) {
 		redirect(302, '/');
 	}
@@ -21,7 +21,7 @@ export const load: PageServerLoad = async (event) => {
 		projectCount: projectCount.count,
 		runningCount: runningCount.count
 	};
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	default: async (event) => {

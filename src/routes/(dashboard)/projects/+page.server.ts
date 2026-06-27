@@ -17,7 +17,8 @@ export const _FRAMEWORK_NAMES: Record<string, string> = {
 	solidstart: 'SolidStart'
 }
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	/* Fetch all projects */
 	const allProjects = await db.select().from(projects).orderBy(desc(projects.createdAt))
 
@@ -86,4 +87,4 @@ export const load: PageServerLoad = async () => {
 	})
 
 	return { projects: projectList }
-}
+}) satisfies PageServerLoad

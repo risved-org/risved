@@ -1,7 +1,7 @@
 import { building } from '$app/environment'
 import type { LayoutServerLoad } from './$types'
 
-export const load: LayoutServerLoad = async ({ locals }) => {
+export const load = (async ({ locals }) => {
 	if (building || !locals.user) {
 		return { updateAvailable: null }
 	}
@@ -16,4 +16,4 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			? { currentVersion: info.currentVersion, latestVersion: info.latestVersion }
 			: null
 	}
-}
+}) satisfies LayoutServerLoad

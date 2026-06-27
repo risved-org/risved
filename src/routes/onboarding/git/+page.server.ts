@@ -7,7 +7,8 @@ import { getSetting } from '$lib/server/settings'
 import { connectForgejo, saveGithubApp, saveGitlabApp } from '$lib/server/git-actions'
 import type { PageServerLoad, Actions } from './$types'
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const firstRun = await isFirstRun()
 	if (firstRun) {
 		redirect(303, '/onboarding')
@@ -31,7 +32,7 @@ export const load: PageServerLoad = async () => {
 	} catch { /* use default */ }
 
 	return { connections, isCloud, domainMode }
-}
+}) satisfies PageServerLoad
 
 export const actions: Actions = {
 	skip: async () => {

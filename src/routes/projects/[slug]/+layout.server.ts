@@ -19,7 +19,7 @@ const FRAMEWORK_NAMES: Record<string, string> = {
 	generic: 'Generic'
 }
 
-export const load: LayoutServerLoad = async ({ params }) => {
+export const load = (async ({ params }) => {
 	const { slug } = params
 
 	const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
@@ -90,4 +90,4 @@ export const load: LayoutServerLoad = async ({ params }) => {
 				}
 			: null
 	}
-}
+}) satisfies LayoutServerLoad

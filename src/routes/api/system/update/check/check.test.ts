@@ -32,7 +32,7 @@ describe('POST /api/system/update/check', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		vi.mocked(getUpdateChecker).mockReturnValue(
-			mockChecker as ReturnType<typeof getUpdateChecker>
+			mockChecker as unknown as ReturnType<typeof getUpdateChecker>
 		)
 	})
 

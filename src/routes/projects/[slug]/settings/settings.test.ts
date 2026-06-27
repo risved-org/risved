@@ -126,7 +126,7 @@ function setupLoadMocks(
 	whereMock.mockReturnValueOnce(doms)
 	whereMock.mockReturnValueOnce(crons)
 	// For each cron job, there's a cronRuns query with orderBy().limit()
-	for (const _cron of crons) {
+	for (let i = 0; i < crons.length; i++) {
 		whereMock.mockReturnValueOnce({ limit: limitMock, orderBy: orderByMock })
 		orderByMock.mockReturnValueOnce({ limit: vi.fn().mockResolvedValue([]) })
 	}
@@ -219,7 +219,7 @@ describe('settings load', () => {
 	})
 
 	it('webhookActive is false when no webhook secret', async () => {
-		setupLoadMocks({ ...sampleProject, webhookSecret: null } as typeof sampleProject)
+		setupLoadMocks({ ...sampleProject, webhookSecret: null } as unknown as typeof sampleProject)
 
 		const result = (await load({ params: { slug: 'test-app' } } as never)) as {
 			webhookActive: boolean

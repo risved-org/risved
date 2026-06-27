@@ -101,7 +101,10 @@ const PROJECT = {
 	tier: null,
 	buildCommand: null,
 	startCommand: null,
-	releaseCommand: null
+	releaseCommand: null,
+	branch: 'main',
+	previewsEnabled: true,
+	previewAutoDelete: true
 }
 
 beforeEach(() => {

@@ -4,7 +4,7 @@ import { projects, deployments } from '$lib/server/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import type { PageServerLoad } from './$types'
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load = (async ({ params }) => {
 	const { slug } = params
 
 	const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
@@ -36,4 +36,4 @@ export const load: PageServerLoad = async ({ params }) => {
 			finishedAt: d.finishedAt
 		}))
 	}
-}
+}) satisfies PageServerLoad

@@ -11,7 +11,8 @@ import {
 import { ensureControlPlaneRoutes } from '$lib/server/caddy/control-plane';
 import type { DomainConfig } from '../domain/+page.server';
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const firstRun = await isFirstRun();
 	if (firstRun) {
 		redirect(303, '/onboarding');
@@ -60,7 +61,7 @@ export const load: PageServerLoad = async () => {
 		dnsVerified,
 		lastCheck
 	};
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	check: async () => {

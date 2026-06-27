@@ -225,7 +225,7 @@ describe('settings actions', () => {
 
 	it('password returns 400 when auth rejects', async () => {
 		const { auth } = await import('$lib/server/auth');
-		(auth.api.changePassword as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+		(auth.api.changePassword as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
 			new Error('Wrong password')
 		);
 

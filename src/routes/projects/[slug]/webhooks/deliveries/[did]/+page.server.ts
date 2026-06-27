@@ -8,7 +8,7 @@ import { createCommandRunner } from '$lib/server/pipeline/docker';
 import type { FrameworkId, Tier } from '$lib/server/detection/types';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load = (async ({ params }) => {
 	const { slug, did } = params;
 
 	const rows = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1);
@@ -60,7 +60,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			payload
 		}
 	};
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	redeliver: async ({ params }) => {

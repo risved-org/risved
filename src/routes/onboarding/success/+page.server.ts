@@ -30,7 +30,8 @@ function getDashboardUrl(domainConfig: string | null): string {
 	return '';
 }
 
-export const load: PageServerLoad = async () => {
+export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
+	void event
 	const firstRun = await isFirstRun();
 	if (firstRun) {
 		redirect(303, '/onboarding');
@@ -62,7 +63,7 @@ export const load: PageServerLoad = async () => {
 		repoUrl: parsed.repoUrl ?? null,
 		appUrl
 	};
-};
+}) satisfies PageServerLoad;
 
 export const actions: Actions = {
 	dashboard: async () => {

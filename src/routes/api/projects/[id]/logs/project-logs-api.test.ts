@@ -41,19 +41,19 @@ describe('GET /api/projects/[id]/logs', () => {
 
 	it('returns logs for a project', async () => {
 		setupSelectChain([{ id: 'p-1', slug: 'my-app' }])
-		vi.mocked(getContainerLogs).mockResolvedValue(['line 1', 'line 2'] as never)
+		vi.mocked(getContainerLogs).mockResolvedValue('line 1\nline 2')
 
 		const { GET } = await import('./+server')
 		const res = await GET(makeEvent())
 
 		expect(res.status).toBe(200)
 		const data = await res.json()
-		expect(data.logs).toEqual(['line 1', 'line 2'])
+		expect(data.logs).toBe('line 1\nline 2')
 	})
 
 	it('passes default tail of 200', async () => {
 		setupSelectChain([{ id: 'p-1', slug: 'my-app' }])
-		vi.mocked(getContainerLogs).mockResolvedValue([])
+		vi.mocked(getContainerLogs).mockResolvedValue('')
 
 		const { GET } = await import('./+server')
 		await GET(makeEvent())
@@ -63,7 +63,7 @@ describe('GET /api/projects/[id]/logs', () => {
 
 	it('respects custom tail parameter', async () => {
 		setupSelectChain([{ id: 'p-1', slug: 'my-app' }])
-		vi.mocked(getContainerLogs).mockResolvedValue([])
+		vi.mocked(getContainerLogs).mockResolvedValue('')
 
 		const { GET } = await import('./+server')
 		await GET(makeEvent({}, { tail: '50' }))
@@ -73,7 +73,7 @@ describe('GET /api/projects/[id]/logs', () => {
 
 	it('caps tail at 1000', async () => {
 		setupSelectChain([{ id: 'p-1', slug: 'my-app' }])
-		vi.mocked(getContainerLogs).mockResolvedValue([])
+		vi.mocked(getContainerLogs).mockResolvedValue('')
 
 		const { GET } = await import('./+server')
 		await GET(makeEvent({}, { tail: '5000' }))

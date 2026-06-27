@@ -10,7 +10,7 @@ import { getHeartbeatReporter } from '$lib/server/heartbeat';
 import { env } from '$env/dynamic/private';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load = (async ({ locals }) => {
 	const currentUser = locals.user;
 	if (!currentUser) {
 		return {
@@ -70,7 +70,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		censusInfo,
 		heartbeatInfo
 	};
-};
+}) satisfies PageServerLoad;
 
 /** Show first 8 and last 4 chars of a token. */
 function maskToken(token: string): string {

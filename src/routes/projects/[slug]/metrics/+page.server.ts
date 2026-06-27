@@ -5,7 +5,7 @@ import { eq, desc } from 'drizzle-orm'
 import { getProjectMetrics } from '$lib/server/metrics'
 import type { PageServerLoad } from './$types'
 
-export const load: PageServerLoad = async ({ params, url }) => {
+export const load = (async ({ params, url }) => {
 	const { slug } = params
 
 	const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
@@ -34,4 +34,4 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			createdAt: e.createdAt
 		}))
 	}
-}
+}) satisfies PageServerLoad

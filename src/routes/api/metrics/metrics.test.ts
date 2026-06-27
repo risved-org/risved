@@ -37,7 +37,13 @@ describe('GET /api/metrics', () => {
 	})
 
 	it('passes custom hours parameter', async () => {
-		vi.mocked(getServerMetrics).mockResolvedValue([{ cpu: 10 }])
+		vi.mocked(getServerMetrics).mockResolvedValue([{
+			bucket: '2024-01-01T00:00:00Z',
+			cpuPercent: 10,
+			memoryMb: 128,
+			memoryLimitMb: 512,
+			sampleCount: 1
+		}])
 		const res = await GET(makeEvent({ hours: '48' }))
 		expect(getServerMetrics).toHaveBeenCalledWith(48)
 		expect(res.status).toBe(200)
