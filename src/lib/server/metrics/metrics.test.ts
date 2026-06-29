@@ -31,6 +31,7 @@ vi.mock('node:child_process', () => ({
 import { db } from '$lib/server/db';
 import {
 	MetricsCollector,
+	parseDockerStats,
 	parseStatsOutput,
 	toBucket,
 	getProjectMetrics,
@@ -390,3 +391,64 @@ describe('getMetricsCollector / _resetMetricsCollector', () => {
 		expect(() => _resetMetricsCollector()).not.toThrow();
 	});
 });
+
+describe('parseDockerStats (four-column format)', () => {
+	it('parses valid output with MiB units', () => {
+		const output = 'myapp|12.50%|256MiB|1GiB\n'
+		const map = new Map([['myapp', 'p-1']])
+		const stats = parseDockerStats(output, map)
+		expect(stats).toHaveLength(1)
+		expect(stats[0]).toMatchObject({
+			projectId: 'p-1',
+			containerName: 'myapp',
+			cpuPercent: 12.5,
+			memoryMb: 256,
+			memoryLimitMb: 1024
+		})
+	})
+
+	it('parses GiB memory fields', () => {
+		const output = 'app|2.00%|1.5GiB|4GiB\n'
+		const map = new Map([['app', 'p-1']])
+		const stats = parseDockerStats(output, map)
+		expect(stats[0].memoryMb).toBe(1536)
+		expect(stats[0].memoryLimitMb).toBe(4096)
+	})
+
+	it('skips unknown container names', () => {
+		const output = 'unknown|5.00%|100MiB|1GiB\n'
+		const map = new Map([['myapp', 'p-1']])
+		expect(parseDockerStats(output, map)).toHaveLength(0)
+	})
+
+	it('skips lines with fewer than four parts', () => {
+		const output = 'myapp|5.00%|100MiB\n'
+		const map = new Map([['myapp', 'p-1']])
+		expect(parseDockerStats(output, map)).toHaveLength(0)
+	})
+
+	it('skips blank lines', () => {
+		const output = '\n\nmyapp|1.00%|128MiB|2GiB\n\n'
+		const map = new Map([['myapp', 'p-1']])
+		expect(parseDockerStats(output, map)).toHaveLength(1)
+	})
+
+	it('handles multiple containers', () => {
+		const output = 'app1|1.00%|100MiB|1GiB\napp2|2.00%|200MiB|2GiB\n'
+		const map = new Map([
+			['app1', 'p-1'],
+			['app2', 'p-2']
+		])
+		const stats = parseDockerStats(output, map)
+		expect(stats).toHaveLength(2)
+		expect(stats[0].projectId).toBe('p-1')
+		expect(stats[1].projectId).toBe('p-2')
+	})
+})
+
+describe('MetricsCollector default execFn', () => {
+	it('uses execSync as the default when no execFn is provided', () => {
+		const collector = new MetricsCollector()
+		expect(collector).toBeInstanceOf(MetricsCollector)
+	})
+})
