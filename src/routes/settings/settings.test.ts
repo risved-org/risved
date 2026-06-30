@@ -165,6 +165,46 @@ describe('settings actions', () => {
 		expect(result).toMatchObject({ status: 400 });
 	});
 
+	it('email returns 401 when user is not authenticated', async () => {
+		const formData = new FormData();
+		formData.set('email', 'new@example.com');
+
+		const result = await actions.email({
+			request: { formData: () => Promise.resolve(formData) },
+			locals: { user: null }
+		} as unknown as Parameters<typeof actions.email>[0]);
+
+		expect(result).toMatchObject({ status: 401 });
+	});
+
+	it('email updates address when valid email and user authenticated', async () => {
+		const { db } = await import('$lib/server/db');
+		const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
+		dbAny.update.mockReturnValue({ set: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })) });
+
+		const formData = new FormData();
+		formData.set('email', 'new@example.com');
+
+		const result = await actions.email({
+			request: { formData: () => Promise.resolve(formData) },
+			locals: { user: { id: 'u-1' } }
+		} as unknown as Parameters<typeof actions.email>[0]);
+
+		expect(result).toMatchObject({ emailSaved: true });
+	});
+
+	it('password returns 400 when currentPassword is missing', async () => {
+		const formData = new FormData();
+		formData.set('newPassword', 'newpass12345abc');
+		formData.set('confirmPassword', 'newpass12345abc');
+
+		const result = await actions.password({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.password>[0]);
+
+		expect(result).toMatchObject({ status: 400 });
+	});
+
 	it('password returns error for short password', async () => {
 		const formData = new FormData();
 		formData.set('currentPassword', 'oldpass12345x');
