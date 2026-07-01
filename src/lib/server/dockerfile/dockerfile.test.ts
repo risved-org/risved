@@ -342,5 +342,31 @@ describe('Dockerfile Generation', () => {
 			expect(hono.content).toContain('RUN deno cache main.ts');
 			expect(hono.content).not.toContain('task build');
 		});
+
+		it('rewrites nuxt2 static copy path to the srcDir-relative path when meta.srcDir is set', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'app/' }
+			});
+			expect(result.content).toContain('COPY --from=deps /app/app/static ./app/static');
+			expect(result.content).not.toContain('/app/static ./static');
+		});
+
+		it('keeps the default static copy path for nuxt2 when meta.srcDir is absent', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+			expect(result.content).toContain('COPY --from=deps /app/static ./static');
+			expect(result.content).not.toContain('/app/app/static');
+		});
+
+		it('overrides the serve command when startCommand is provided', () => {
+			const result = generateDockerfile({
+				frameworkId: 'sveltekit',
+				tier: 'node',
+				startCommand: 'node custom-entry.js'
+			});
+			expect(result.content).toContain('CMD ["node", "custom-entry.js"]');
+			expect(result.content).not.toContain('node build/index.js');
+		});
 	});
 });
