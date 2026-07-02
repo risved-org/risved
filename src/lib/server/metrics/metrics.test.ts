@@ -31,6 +31,7 @@ vi.mock('node:child_process', () => ({
 import { db } from '$lib/server/db';
 import {
 	MetricsCollector,
+	parseDockerStats,
 	parseStatsOutput,
 	toBucket,
 	getProjectMetrics,
@@ -153,6 +154,45 @@ describe('parseStatsOutput', () => {
 		const output = 'app|1.00%|512B / 1GiB\n';
 		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
 		expect(stats[0].memoryMb).toBe(0);
+	});
+});
+
+describe('parseDockerStats', () => {
+	it('parses pipe-delimited docker stats with separate mem/limit fields', () => {
+		const output = 'myapp|12.50%|256MiB|2GiB\nother|3.20%|128MiB|1GiB\n';
+		const containerMap = new Map([['myapp', 'p-1']]);
+
+		const stats = parseDockerStats(output, containerMap);
+		expect(stats).toHaveLength(1);
+		expect(stats[0]).toEqual({
+			projectId: 'p-1',
+			containerName: 'myapp',
+			cpuPercent: 12.5,
+			memoryMb: 256,
+			memoryLimitMb: 2048
+		});
+	});
+
+	it('skips unknown containers', () => {
+		const output = 'unknown|5.00%|100MiB|1GiB\n';
+		const stats = parseDockerStats(output, new Map([['myapp', 'p-1']]));
+		expect(stats).toHaveLength(0);
+	});
+
+	it('handles empty output', () => {
+		expect(parseDockerStats('', new Map())).toHaveLength(0);
+	});
+
+	it('skips lines with fewer than 4 fields', () => {
+		const output = 'myapp|5.00%|100MiB\n';
+		const stats = parseDockerStats(output, new Map([['myapp', 'p-1']]));
+		expect(stats).toHaveLength(0);
+	});
+
+	it('skips blank lines', () => {
+		const output = '\n\nmyapp|5.00%|100MiB|1GiB\n';
+		const stats = parseDockerStats(output, new Map([['myapp', 'p-1']]));
+		expect(stats).toHaveLength(1);
 	});
 });
 
