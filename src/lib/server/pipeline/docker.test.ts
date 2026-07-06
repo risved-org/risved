@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+	createCommandRunner,
 	dockerBuild,
 	dockerRun,
 	dockerStop,
@@ -513,5 +514,48 @@ describe('dockerStop error paths', () => {
 		const result = await dockerStop(runner, 'my-app');
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('volume in use');
+	});
+});
+
+describe('createCommandRunner', () => {
+	const node = process.execPath;
+
+	it('resolves stdout and exitCode 0 for a successful command', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec(node, ['-e', "console.log('hello')"]);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain('hello');
+	});
+
+	it('resolves a non-zero exitCode and stderr for a failing command', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec(node, [
+			'-e',
+			"console.error('boom'); process.exit(3)"
+		]);
+		expect(result.exitCode).toBe(3);
+		expect(result.stderr).toContain('boom');
+	});
+
+	it('streams output line by line via onLine when provided', async () => {
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec(
+			node,
+			['-e', "console.log('line1'); console.log('line2')"],
+			{ onLine: (line) => lines.push(line) }
+		);
+		expect(result.exitCode).toBe(0);
+		expect(lines).toContain('line1');
+		expect(lines).toContain('line2');
+	});
+
+	it('resolves exitCode 1 when spawn itself errors (onLine path)', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec('this-binary-does-not-exist-xyz', [], {
+			onLine: () => {}
+		});
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toBeTruthy();
 	});
 });
