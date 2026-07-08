@@ -72,6 +72,8 @@ vi.mock('$lib/server/caddy/repair', () => ({
 import { db } from '$lib/server/db';
 import { repairDomainRoute } from '$lib/server/caddy/repair';
 import { resolveSslStatus } from '$lib/server/ssl';
+import { getSetting } from '$lib/server/settings';
+import { checkDnsRecord, getServerIps } from '$lib/server/dns';
 import { load, actions } from './+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
@@ -129,6 +131,55 @@ describe('domains load', () => {
 		}
 		expect(db.select).toHaveBeenCalled();
 	});
+
+	it('derives the default subdomain from a configured base domain', async () => {
+		vi.mocked(getSetting).mockResolvedValueOnce(
+			JSON.stringify({ mode: 'domain', baseDomain: 'risved.example.eu' })
+		);
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{ id: 'proj-1', name: 'Test', slug: 'test', port: 3001 }
+		]);
+		dbAny.__whereMock.mockReturnValueOnce({ limit: dbAny.__limitMock });
+		dbAny.__whereMock.mockReturnValueOnce([]);
+
+		const result = (await load({
+			params: { slug: 'test' }
+		} as Parameters<typeof load>[0])) as { defaultSubdomain: string | null };
+
+		expect(result.defaultSubdomain).toBe('test.risved.example.eu');
+	});
+
+	it('leaves the default subdomain null when base domain mode is ip', async () => {
+		vi.mocked(getSetting).mockResolvedValueOnce(
+			JSON.stringify({ mode: 'ip', baseDomain: 'risved.example.eu' })
+		);
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{ id: 'proj-1', name: 'Test', slug: 'test', port: 3001 }
+		]);
+		dbAny.__whereMock.mockReturnValueOnce({ limit: dbAny.__limitMock });
+		dbAny.__whereMock.mockReturnValueOnce([]);
+
+		const result = (await load({
+			params: { slug: 'test' }
+		} as Parameters<typeof load>[0])) as { defaultSubdomain: string | null };
+
+		expect(result.defaultSubdomain).toBeNull();
+	});
+
+	it('ignores corrupt domain config JSON', async () => {
+		vi.mocked(getSetting).mockResolvedValueOnce('not-json');
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{ id: 'proj-1', name: 'Test', slug: 'test', port: 3001 }
+		]);
+		dbAny.__whereMock.mockReturnValueOnce({ limit: dbAny.__limitMock });
+		dbAny.__whereMock.mockReturnValueOnce([]);
+
+		const result = (await load({
+			params: { slug: 'test' }
+		} as Parameters<typeof load>[0])) as { defaultSubdomain: string | null };
+
+		expect(result.defaultSubdomain).toBeNull();
+	});
 });
 
 describe('domains actions', () => {
@@ -158,6 +209,34 @@ describe('domains actions', () => {
 		} as unknown as Parameters<typeof actions.add>[0]);
 
 		expect(result).toMatchObject({ status: 400 });
+	});
+
+	it('add returns 404 when project not found', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([]);
+
+		const formData = new FormData();
+		formData.set('hostname', 'app.example.com');
+		const result = await actions.add({
+			params: { slug: 'ghost' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.add>[0]);
+
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('add returns 409 when the domain is already in use', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1', slug: 'test', port: 3001 }]) // project lookup
+			.mockResolvedValueOnce([{ id: 'dom-existing' }]); // existing domain
+
+		const formData = new FormData();
+		formData.set('hostname', 'app.example.com');
+		const result = await actions.add({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.add>[0]);
+
+		expect(result).toMatchObject({ status: 409 });
 	});
 
 	it('add inserts domain when valid', async () => {
@@ -218,6 +297,26 @@ describe('domains actions', () => {
 		expect(resolveSslStatus).toHaveBeenCalledWith('app.example.com', true);
 		expect(repairDomainRoute).not.toHaveBeenCalled();
 		expect(dbAny.__setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'active' }));
+	});
+
+	it('verify also checks the AAAA record when the server has an IPv6 address', async () => {
+		vi.mocked(getServerIps).mockResolvedValueOnce({ ipv4: '1.2.3.4', ipv6: '::1' });
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([{
+				id: 'dom-1', hostname: 'app.example.com',
+				sslStatus: 'pending', verifiedAt: null, projectId: 'proj-1'
+			}]);
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		await actions.verify({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.verify>[0]);
+
+		expect(checkDnsRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'AAAA', value: '::1' })
+		);
 	});
 
 	it('repairs caddy route when DNS resolves but SSL is still provisioning', async () => {

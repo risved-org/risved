@@ -261,4 +261,25 @@ describe('parseWebhookPayload', () => {
 
 		expect(result.type).toBe('unknown');
 	});
+
+	it('returns unknown for a GitHub pull_request action with no matching handler', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{ action: 'labeled', pull_request: { number: 1, title: 'Add feature' } }
+		);
+
+		expect(result.type).toBe('unknown');
+	});
+
+	it('returns unknown for a GitLab merge request action with no matching handler', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{
+				object_attributes: { action: 'approved', iid: 10, title: 'MR title' },
+				user: { username: 'gl-dev' }
+			}
+		);
+
+		expect(result.type).toBe('unknown');
+	});
 });
