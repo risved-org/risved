@@ -46,10 +46,12 @@ vi.mock('$lib/server/pipeline/docker', () => ({
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
-function makeEvent(overrides: {
-	method?: string;
-	params?: Record<string, string>;
-} = {}) {
+function makeEvent(
+	overrides: {
+		method?: string;
+		params?: Record<string, string>;
+	} = {}
+) {
 	const { method = 'GET', params = {} } = overrides;
 	return {
 		request: new Request('http://localhost/api/projects/p-1/deployments/d-1', { method }),
@@ -194,8 +196,20 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 	it('streams logs for a terminal deployment and closes', async () => {
 		const deployment = { id: 'd-1', projectId: 'p-1', status: 'live' };
 		const logs = [
-			{ id: 1, timestamp: '2026-01-01T00:00:00Z', phase: 'clone', level: 'info', message: 'Cloning…' },
-			{ id: 2, timestamp: '2026-01-01T00:00:01Z', phase: 'build', level: 'info', message: 'Building…' }
+			{
+				id: 1,
+				timestamp: '2026-01-01T00:00:00Z',
+				phase: 'clone',
+				level: 'info',
+				message: 'Cloning…'
+			},
+			{
+				id: 2,
+				timestamp: '2026-01-01T00:00:01Z',
+				phase: 'build',
+				level: 'info',
+				message: 'Building…'
+			}
 		];
 
 		let callCount = 0;
@@ -242,9 +256,17 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 							}
 							return Promise.resolve([{ id: 'd-2', projectId: 'p-1', status: 'live' }]);
 						}),
-						orderBy: vi.fn().mockResolvedValue([
-							{ id: 10, timestamp: '2026-01-01T00:00:00Z', phase: 'build', level: 'info', message: 'Compiling' }
-						])
+						orderBy: vi
+							.fn()
+							.mockResolvedValue([
+								{
+									id: 10,
+									timestamp: '2026-01-01T00:00:00Z',
+									phase: 'build',
+									level: 'info',
+									message: 'Compiling'
+								}
+							])
 					})
 				})
 			};
@@ -261,6 +283,40 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 		expect(text).toContain('event: done');
 		expect(text).toContain('live');
 	});
+
+	it('polls again after a non-terminal status check before finishing', async () => {
+		/* Select call sequence:
+		 * 0 – initial deployment lookup → non-terminal (building)
+		 * 1 – loop 1 log poll
+		 * 2 – loop 1 status re-check    → still non-terminal → waits and polls again
+		 * 3 – loop 2 log poll
+		 * 4 – loop 2 status re-check    → terminal (live) → loop exits
+		 */
+		let selectCallIdx = 0;
+		mockDb.select.mockImplementation(() => {
+			const idx = selectCallIdx++;
+			return {
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockImplementation(() => {
+							if (idx === 0 || idx === 2) {
+								return Promise.resolve([{ id: 'd-4', projectId: 'p-1', status: 'building' }]);
+							}
+							return Promise.resolve([{ id: 'd-4', projectId: 'p-1', status: 'live' }]);
+						}),
+						orderBy: vi.fn().mockResolvedValue([])
+					})
+				})
+			};
+		});
+
+		const { GET } = await import('./[did]/logs/+server');
+		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-4' } }));
+
+		const text = await res.text();
+		expect(text).toContain('event: done');
+		expect(text).toContain('live');
+	}, 10000);
 
 	it('stream cancel() sets closed flag without throwing', async () => {
 		const deployment = { id: 'd-3', projectId: 'p-1', status: 'building' };
