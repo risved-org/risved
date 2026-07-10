@@ -84,6 +84,7 @@ import { detectFramework } from '../detection';
 import { resolveCloneToken } from '../git-token';
 import { getSetting } from '$lib/server/settings';
 import { db } from '$lib/server/db';
+import { encrypt } from '$lib/server/crypto';
 import type { CommandRunner, PipelineConfig } from './types';
 import type { LogEntry } from './types';
 
@@ -215,6 +216,32 @@ describe('runPipeline', () => {
 		expect(runtimeRun).toContain('--network risved')
 		const releaseRun = calls.find((c) => c.includes('docker run') && c.includes('risved-release'))
 		expect(releaseRun).toContain('--network risved')
+	});
+
+	it('generates and persists a Postgres password when none is stored yet', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' }
+				if (joined.includes('docker inspect') && joined.includes('risved-postgres-proj-1')) {
+					return { exitCode: 0, stdout: 'true\n', stderr: '' }
+				}
+				if (joined.includes('docker exec') && joined.includes('pg_isready')) {
+					return { exitCode: 0, stdout: 'accepting connections', stderr: '' }
+				}
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' }
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		}
+
+		const result = await runPipeline(
+			makeConfig({ postgresEnabled: true, postgresPassword: null }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		)
+
+		expect(result.success).toBe(true)
+		expect(vi.mocked(encrypt)).toHaveBeenCalled()
 	});
 
 	it('emits logs for each phase', async () => {
