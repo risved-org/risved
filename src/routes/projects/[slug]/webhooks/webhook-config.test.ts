@@ -34,6 +34,11 @@ vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn().mockResolvedValue('risved.example.com')
 }));
 
+const mockRepairWebhook = vi.fn();
+vi.mock('$lib/server/auto-webhook', () => ({
+	repairWebhook: (...args: unknown[]) => mockRepairWebhook(...args)
+}));
+
 import { db } from '$lib/server/db';
 import { load, actions } from './+page.server';
 
@@ -150,6 +155,86 @@ describe('webhook config update action', () => {
 	});
 });
 
+describe('webhook config repair action', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		dbAny.__limitMock.mockResolvedValue([]);
+		mockRepairWebhook.mockResolvedValue({ ok: true, action: 'updated' });
+	});
+
+	it('returns 404 when project not found', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([]);
+
+		const result = await actions.repair({
+			params: { slug: 'nonexistent' }
+		} as Parameters<typeof actions.repair>[0]);
+		expect(result).toMatchObject({ status: 404 });
+		expect(mockRepairWebhook).not.toHaveBeenCalled();
+	});
+
+	it('repairs the webhook and returns the action taken', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{
+				id: 'proj-1',
+				repoUrl: 'https://github.com/owner/repo',
+				gitConnectionId: 'conn-1',
+				webhookSecret: 'whsec_test'
+			}
+		]);
+		mockRepairWebhook.mockResolvedValueOnce({ ok: true, action: 'created' });
+
+		const result = await actions.repair({
+			params: { slug: 'my-app' }
+		} as Parameters<typeof actions.repair>[0]);
+		expect(result).toMatchObject({ repaired: true, action: 'created' });
+		expect(mockRepairWebhook).toHaveBeenCalledWith(
+			expect.objectContaining({
+				connectionId: 'conn-1',
+				repoUrl: 'https://github.com/owner/repo',
+				projectId: 'proj-1',
+				webhookSecret: 'whsec_test',
+				origin: 'https://risved.example.com'
+			})
+		);
+	});
+
+	it('mints a secret before repairing when none exists', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{
+				id: 'proj-1',
+				repoUrl: 'https://github.com/owner/repo',
+				gitConnectionId: 'conn-1',
+				webhookSecret: null
+			}
+		]);
+
+		await actions.repair({
+			params: { slug: 'my-app' }
+		} as Parameters<typeof actions.repair>[0]);
+		expect(db.update).toHaveBeenCalled();
+		expect(mockRepairWebhook).toHaveBeenCalledWith(
+			expect.objectContaining({ webhookSecret: 'new-secret-abc123' })
+		);
+	});
+
+	it('returns a 400 with the reason when repair cannot proceed', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{
+				id: 'proj-1',
+				repoUrl: 'https://github.com/owner/repo',
+				gitConnectionId: null,
+				webhookSecret: 'whsec_test'
+			}
+		]);
+		mockRepairWebhook.mockResolvedValueOnce({ ok: false, reason: 'No Git connection is linked.' });
+
+		const result = await actions.repair({
+			params: { slug: 'my-app' }
+		} as Parameters<typeof actions.repair>[0]);
+		expect(result).toMatchObject({ status: 400, data: { repairError: 'No Git connection is linked.' } });
+	});
+});
+
 describe('webhook config page source', () => {
 	it('has payload URL section', async () => {
 		const mod = await import('./+page.svelte?raw');
@@ -196,5 +281,19 @@ describe('webhook config page source', () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('save-btn');
 		expect(mod.default).toContain('Save settings');
+	});
+
+	it('has repair connection section', async () => {
+		const mod = await import('./+page.svelte?raw');
+		expect(mod.default).toContain('repair-section');
+		expect(mod.default).toContain('repair-btn');
+		expect(mod.default).toContain('Repair connection');
+		expect(mod.default).toContain('?/repair');
+	});
+
+	it('renders repair success and error feedback', async () => {
+		const mod = await import('./+page.svelte?raw');
+		expect(mod.default).toContain('repair-success');
+		expect(mod.default).toContain('repair-error');
 	});
 });

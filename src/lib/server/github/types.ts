@@ -42,3 +42,23 @@ export interface WebhookCreateParams {
 	secret: string;
 	events?: string[];
 }
+
+export interface WebhookUpdateParams {
+	owner: string;
+	repo: string;
+	hookId: number;
+	webhookUrl: string;
+	secret: string;
+	events?: string[];
+}
+
+export interface GitHubHook {
+	id: number;
+	active: boolean;
+	events: string[];
+	config: {
+		url?: string;
+		content_type?: string;
+		insecure_ssl?: string;
+	};
+}
