@@ -261,4 +261,22 @@ describe('parseWebhookPayload', () => {
 
 		expect(result.type).toBe('unknown');
 	});
+
+	it('returns unknown for a GitHub pull_request event with an unrecognized action', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{ action: 'labeled', pull_request: { number: 1 } }
+		);
+
+		expect(result.type).toBe('unknown');
+	});
+
+	it('returns unknown for a GitLab merge request event with an unrecognized action', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{ object_attributes: { action: 'approved', iid: 1 } }
+		);
+
+		expect(result.type).toBe('unknown');
+	});
 });
