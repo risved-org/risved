@@ -263,6 +263,30 @@ describe('Dockerfile Generation', () => {
 			).toThrow('Unknown tier: unknown');
 		});
 
+		it('rewrites the nuxt2 static copy path using meta.srcDir', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'src/' }
+			});
+			expect(result.content).toContain('COPY --from=deps /app/src/static ./src/static');
+			expect(result.content).not.toContain('/app/static ./static');
+		});
+
+		it('leaves nuxt2 copy paths untouched without meta.srcDir', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+			expect(result.content).toContain('COPY --from=deps /app/static ./static');
+		});
+
+		it('overrides the serve command with a custom startCommand', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nextjs',
+				tier: 'node',
+				startCommand: 'node custom-server.js'
+			});
+			expect(result.content).toContain('CMD ["node", "custom-server.js"]');
+		});
+
 		it('copies package-lock.json optionally in node tier for sveltekit', () => {
 			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'node' });
 			expect(result.content).toContain('COPY package.json package-lock.json* ./');
