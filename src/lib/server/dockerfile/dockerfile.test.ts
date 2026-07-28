@@ -188,6 +188,35 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('deno cache main.ts');
 			expect(result.content).toContain('CMD ["deno", "run", "--allow-all", "main.ts"]');
 		});
+
+		it('overrides the serve command when startCommand is provided', () => {
+			const result = generateDockerfile({
+				frameworkId: 'generic',
+				tier: 'node',
+				startCommand: 'node dist/server.js'
+			});
+
+			expect(result.content).toContain('CMD ["node", "dist/server.js"]');
+		});
+	});
+
+	describe('Nuxt 2', () => {
+		it('remaps the static copy path using meta.srcDir', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'app/' }
+			});
+
+			expect(result.content).toContain('app/static');
+			expect(result.content).not.toMatch(/COPY --from=build \/app\/static /);
+		});
+
+		it('keeps the default static copy path when meta.srcDir is absent', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+
+			expect(result.content).toMatch(/static/);
+		});
 	});
 
 	describe('Framework configs', () => {
