@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { access } from 'node:fs/promises';
 import {
 	dockerBuild,
 	dockerRun,
@@ -11,9 +12,13 @@ import {
 	toSshUrl,
 	getCommitSha,
 	gitClone,
-	waitForHealthy
+	waitForHealthy,
+	createCommandRunner
 } from './docker';
 import type { CommandRunner } from './types';
+
+const FAKE_SSH_KEY_B64 =
+	'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KZmFrZWtleWRhdGEKLS0tLS1FTkQgT1BFTlNTSCBQUklWQVRFIEtFWS0tLS0t';
 
 function mockRunner(
 	responses: Record<string, { exitCode: number; stdout: string; stderr: string }>
@@ -94,6 +99,54 @@ describe('gitClone', () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('repository not found');
 	});
+
+	it('writes a temp SSH key and clones over SSH when a key is provided', async () => {
+		const calls: { cmd: string; args: string[]; env?: Record<string, string> }[] = []
+		const runner: CommandRunner = {
+			async exec(cmd, args, options) {
+				calls.push({ cmd, args, env: options?.env })
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		}
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			FAKE_SSH_KEY_B64
+		)
+
+		expect(result.success).toBe(true)
+		expect(calls[0].args).toContain('git@github.com:user/repo.git')
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('-i ')
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('ssh -i')
+
+		const keyFile = calls[0].env!.GIT_SSH_COMMAND.split('-i ')[1].split(' ')[0]
+		await expect(access(keyFile)).rejects.toThrow()
+	})
+
+	it('cleans up the temp SSH key even when the clone fails', async () => {
+		let capturedKeyFile = ''
+		const runner: CommandRunner = {
+			async exec(_cmd, _args, options) {
+				capturedKeyFile = options?.env?.GIT_SSH_COMMAND?.split('-i ')[1].split(' ')[0] ?? ''
+				return { exitCode: 128, stdout: '', stderr: 'fatal: could not read from remote' }
+			}
+		}
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			FAKE_SSH_KEY_B64
+		)
+
+		expect(result.success).toBe(false)
+		expect(capturedKeyFile).not.toBe('')
+		await expect(access(capturedKeyFile)).rejects.toThrow()
+	})
 });
 
 describe('getCommitSha', () => {
@@ -169,6 +222,46 @@ describe('dockerBuild', () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('COPY failed');
 	});
+
+	it('passes build args', async () => {
+		const calls: string[][] = []
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args])
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		}
+
+		const result = await dockerBuild(runner, {
+			contextDir: '/tmp/ctx',
+			imageTag: 'myapp:abc1234',
+			buildArgs: { NODE_ENV: 'production', VERSION: '1.0' }
+		})
+
+		expect(result.success).toBe(true)
+		expect(calls[0]).toContain('--build-arg')
+		expect(calls[0]).toContain('NODE_ENV=production')
+		expect(calls[0]).toContain('VERSION=1.0')
+	})
+
+	it('passes the target stage', async () => {
+		const calls: string[][] = []
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args])
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		}
+
+		await dockerBuild(runner, {
+			contextDir: '/tmp/ctx',
+			imageTag: 'myapp:abc1234',
+			target: 'build'
+		})
+
+		expect(calls[0]).toContain('--target')
+		expect(calls[0]).toContain('build')
+	})
 });
 
 describe('dockerRun', () => {
@@ -515,3 +608,40 @@ describe('dockerStop error paths', () => {
 		expect(result.error).toContain('volume in use');
 	});
 });
+
+describe('createCommandRunner', () => {
+	it('executes a real command and captures stdout', async () => {
+		const runner = createCommandRunner()
+		const result = await runner.exec('node', ['-e', 'console.log("hello")'])
+		expect(result.exitCode).toBe(0)
+		expect(result.stdout).toContain('hello')
+	})
+
+	it('captures a non-zero exit code and stderr', async () => {
+		const runner = createCommandRunner()
+		const result = await runner.exec('node', ['-e', 'console.error("boom"); process.exit(2)'])
+		expect(result.exitCode).toBe(2)
+		expect(result.stderr).toContain('boom')
+	})
+
+	it('streams output line by line when onLine is provided', async () => {
+		const runner = createCommandRunner()
+		const lines: string[] = []
+		const result = await runner.exec(
+			'node',
+			['-e', 'console.log("line1"); console.log("line2")'],
+			{ onLine: (line) => lines.push(line) }
+		)
+		expect(result.exitCode).toBe(0)
+		expect(lines).toEqual(['line1', 'line2'])
+	})
+
+	it('resolves with exitCode 1 when the streamed process fails to spawn', async () => {
+		const runner = createCommandRunner()
+		const result = await runner.exec('risved-definitely-not-a-real-binary', [], {
+			onLine: () => {}
+		})
+		expect(result.exitCode).toBe(1)
+		expect(result.stderr).not.toBe('')
+	})
+})
