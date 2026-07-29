@@ -342,5 +342,30 @@ describe('Dockerfile Generation', () => {
 			expect(hono.content).toContain('RUN deno cache main.ts');
 			expect(hono.content).not.toContain('task build');
 		});
+
+		it('overrides the framework serveCommand with a custom startCommand', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nextjs',
+				tier: 'node',
+				startCommand: 'node custom-server.js'
+			});
+			expect(result.content).toContain('CMD ["node", "custom-server.js"]');
+			expect(result.content).not.toContain('CMD ["node", "server.js"]');
+		});
+
+		it('remaps nuxt2 static copyPath to the srcDir-relative path when meta.srcDir is set', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'app/' }
+			});
+			expect(result.content).toContain('COPY --from=deps /app/app/static ./app/static');
+			expect(result.content).not.toContain('COPY --from=deps /app/static ./static');
+		});
+
+		it('does not remap nuxt2 copyPaths when meta.srcDir is absent', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+			expect(result.content).toContain('COPY --from=deps /app/static ./static');
+		});
 	});
 });
