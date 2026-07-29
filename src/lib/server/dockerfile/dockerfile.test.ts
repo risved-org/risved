@@ -343,4 +343,46 @@ describe('Dockerfile Generation', () => {
 			expect(hono.content).not.toContain('task build');
 		});
 	});
+
+	describe('Nuxt 2 srcDir handling', () => {
+		it('rewrites the static copyPath to the srcDir-relative path when meta.srcDir is set', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'app/' }
+			});
+			expect(result.content).toContain('app/static');
+			expect(result.content).not.toMatch(/COPY[^\n]*[^/]static/);
+		});
+
+		it('leaves copyPaths untouched when meta.srcDir is absent', () => {
+			const withMeta = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+			expect(withMeta.content).toContain('static');
+		});
+
+		it('does not rewrite copyPaths for other frameworks even with meta.srcDir set', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt',
+				tier: 'node',
+				meta: { srcDir: 'app/' }
+			});
+			expect(result.content).not.toContain('app/static');
+		});
+	});
+
+	describe('startCommand override', () => {
+		it('overrides the framework serveCommand when startCommand is provided', () => {
+			const result = generateDockerfile({
+				frameworkId: 'sveltekit',
+				tier: 'node',
+				startCommand: 'node custom-server.js'
+			});
+			expect(result.content).toContain('CMD ["node", "custom-server.js"]');
+		});
+
+		it('uses the default serveCommand when startCommand is not provided', () => {
+			const result = generateDockerfile({ frameworkId: 'sveltekit', tier: 'node' });
+			expect(result.content).toContain('CMD ["node", "build/index.js"]');
+		});
+	});
 });
