@@ -167,6 +167,37 @@ describe('Dockerfile Generation', () => {
 		});
 	});
 
+	describe('Nuxt 2', () => {
+		it('keeps the default copyPaths when no srcDir is provided', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+
+			expect(result.content).toContain('COPY --from=deps /app/static ./static');
+		});
+
+		it('rewrites the static copyPath relative to a custom srcDir', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'app/' }
+			});
+
+			expect(result.content).toContain('COPY --from=deps /app/app/static ./app/static');
+			expect(result.content).not.toContain('/app/static ./static');
+		});
+	});
+
+	describe('startCommand override', () => {
+		it('replaces the default serveCommand with a custom startCommand', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nextjs',
+				tier: 'node',
+				startCommand: 'node custom-server.js'
+			});
+
+			expect(result.content).toContain('CMD ["node", "custom-server.js"]');
+		});
+	});
+
 	describe('Generic fallback', () => {
 		it('generates generic Node Dockerfile', () => {
 			const result = generateDockerfile({ frameworkId: 'generic', tier: 'node' });
