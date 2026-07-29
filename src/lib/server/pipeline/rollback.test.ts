@@ -146,11 +146,10 @@ describe('runRollback', () => {
 
 	it('skips route when no domain', async () => {
 		const caddy = makeCaddy();
-		const result = await runRollback(
-			makeConfig({ domain: undefined }),
-			makeSuccessRunner(),
-			{ caddy: caddy as never, fetchFn: makeHealthyFetch() }
-		);
+		const result = await runRollback(makeConfig({ domain: undefined }), makeSuccessRunner(), {
+			caddy: caddy as never,
+			fetchFn: makeHealthyFetch()
+		});
 
 		expect(caddy.addRoute).not.toHaveBeenCalled();
 		expect(result.success).toBe(true);
@@ -245,23 +244,31 @@ describe('runRollback', () => {
 			addRoute: vi.fn().mockResolvedValue({ success: false, error: 'caddy unavailable' })
 		};
 
-		const result = await runRollback(makeConfig({ domain: 'app.example.com' }), makeSuccessRunner(), {
-			onLog: (entry) => logs.push(entry),
-			caddy: caddy as never,
-			fetchFn: makeHealthyFetch()
-		});
+		const result = await runRollback(
+			makeConfig({ domain: 'app.example.com' }),
+			makeSuccessRunner(),
+			{
+				onLog: (entry) => logs.push(entry),
+				caddy: caddy as never,
+				fetchFn: makeHealthyFetch()
+			}
+		);
 
 		expect(result.success).toBe(true);
-		const warnLog = logs.find((l) => l.level === 'warn' && l.message.includes('route update failed'));
+		const warnLog = logs.find(
+			(l) => l.level === 'warn' && l.message.includes('route update failed')
+		);
 		expect(warnLog).toBeDefined();
 	});
 
 	it('adds alt route when hostname setting is set and domain differs', async () => {
-		vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'example.com',
-			prefix: 'host'
-		}))
+		vi.mocked(getSetting).mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'example.com',
+				prefix: 'host'
+			})
+		);
 
 		const caddy = makeCaddy();
 		await runRollback(
@@ -275,21 +282,23 @@ describe('runRollback', () => {
 	});
 
 	it('emits warning when alt route fails', async () => {
-		vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'example.com',
-			prefix: 'host'
-		}))
+		vi.mocked(getSetting).mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'example.com',
+				prefix: 'host'
+			})
+		);
 
 		const logs: LogEntry[] = [];
 		let altCall = 0;
 		const caddy = {
 			...makeCaddy(),
 			addRoute: vi.fn().mockImplementation(() => {
-				altCall++
+				altCall++;
 				/* primary route succeeds, alt route fails */
-				if (altCall === 2) return Promise.resolve({ success: false, error: 'alt fail' })
-				return Promise.resolve({ success: true })
+				if (altCall === 2) return Promise.resolve({ success: false, error: 'alt fail' });
+				return Promise.resolve({ success: true });
 			})
 		};
 
@@ -301,5 +310,55 @@ describe('runRollback', () => {
 
 		const warnLog = logs.find((l) => l.level === 'warn' && l.message.includes('alt route failed'));
 		expect(warnLog).toBeDefined();
+	});
+
+	it('falls back to a default caddy client when none is provided', async () => {
+		const result = await runRollback(makeConfig({ domain: undefined }), makeSuccessRunner(), {
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+	});
+
+	it('falls back to globalThis.fetch for health checks when none is provided', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi
+			.fn()
+			.mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+		try {
+			const result = await runRollback(makeConfig(), makeSuccessRunner(), {
+				caddy: makeCaddy() as never
+			});
+
+			expect(result.success).toBe(true);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it('returns commitSha as undefined when the config has no commit sha', async () => {
+		const result = await runRollback(makeConfig({ commitSha: null }), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.commitSha).toBeUndefined();
+	});
+
+	it('falls back to the start phase for non-RollbackError failures', async () => {
+		vi.mocked(getSetting).mockRejectedValue(new Error('settings unavailable'));
+
+		const result = await runRollback(
+			makeConfig({ domain: 'app.custom.com' }),
+			makeSuccessRunner(),
+			{
+				caddy: makeCaddy() as never,
+				fetchFn: makeHealthyFetch()
+			}
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('settings unavailable');
 	});
 });
