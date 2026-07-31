@@ -273,6 +273,30 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('COPY package.json package-lock.json* ./');
 		});
 
+		it('rewrites nuxt2 static copy path to the meta srcDir', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'src/' }
+			});
+			expect(result.content).toContain('COPY --from=deps /app/src/static ./src/static');
+			expect(result.content).not.toContain('COPY --from=deps /app/static ./static');
+		});
+
+		it('keeps the default static copy path when nuxt2 has no srcDir meta', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+			expect(result.content).toContain('COPY --from=deps /app/static ./static');
+		});
+
+		it('overrides the serve command with startCommand when provided', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nextjs',
+				tier: 'node',
+				startCommand: 'node custom-server.js'
+			});
+			expect(result.content).toContain('CMD ["node", "custom-server.js"]');
+		});
+
 		it('uses yarn --immutable for Yarn Berry', () => {
 			const result = generateDockerfile({
 				frameworkId: 'nuxt',
