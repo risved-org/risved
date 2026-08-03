@@ -41,6 +41,12 @@ describe('verifySignature', () => {
 		const sig = `sha256=${hmac(payload, 'wrong-secret')}`;
 		expect(verifySignature(payload, secret, { 'x-hub-signature-256': sig })).toBe(false);
 	});
+
+	it('rejects when equal-length strings encode to different byte lengths', () => {
+		/* Same JS string length (1 char) but different UTF-8 byte lengths */
+		const hex = 'é'.repeat(64);
+		expect(verifySignature(payload, secret, { 'x-hub-signature-256': hex })).toBe(false);
+	});
 });
 
 describe('parseWebhookPayload', () => {
@@ -258,6 +264,24 @@ describe('parseWebhookPayload', () => {
 
 	it('returns unknown for unsupported events', () => {
 		const result = parseWebhookPayload({ 'x-github-event': 'issues' }, { action: 'opened' });
+
+		expect(result.type).toBe('unknown');
+	});
+
+	it('returns unknown for unhandled GitHub pull_request actions', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{ action: 'labeled', pull_request: { number: 1, title: 'PR' } }
+		);
+
+		expect(result.type).toBe('unknown');
+	});
+
+	it('returns unknown for unhandled GitLab merge request actions', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{ object_attributes: { action: 'approved', iid: 1, title: 'MR' } }
+		);
 
 		expect(result.type).toBe('unknown');
 	});
