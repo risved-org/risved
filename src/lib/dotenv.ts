@@ -93,11 +93,11 @@ export function parseDotenvValue(raw: string): string {
 		const closing = findClosingQuote(trimmed, 0, quote);
 		if (closing !== -1) {
 			const inner = trimmed.slice(1, closing);
-			return quote === "'" ? inner : unescapeQuoted(inner);
+			return unescapeDollar(quote === "'" ? inner : unescapeQuoted(inner));
 		}
 	}
 
-	return stripInlineComment(trimmed).trim();
+	return unescapeDollar(stripInlineComment(trimmed).trim());
 }
 
 /**
@@ -149,7 +149,7 @@ export function parseDotenv(text: string): ParsedEnvVar[] {
 			const closing = findClosingQuote(source, cursor, quote);
 			if (closing !== -1) {
 				const inner = source.slice(cursor + 1, closing);
-				addRow(rows, key, quote === "'" ? inner : unescapeQuoted(inner));
+				addRow(rows, key, unescapeDollar(quote === "'" ? inner : unescapeQuoted(inner)));
 				/* Anything after the closing quote is a comment. */
 				i = endOfLine(source, closing);
 				continue;
@@ -206,6 +206,103 @@ function stripInlineComment(value: string): string {
 		if (i === 0 || /\s/.test(value[i - 1])) return value.slice(0, i);
 	}
 	return value;
+}
+
+/**
+ * Thrown when a value cannot be represented in a `.env` file. Carries the
+ * offending keys so the deploy can name them instead of failing vaguely.
+ */
+export class DotenvEncodeError extends Error {
+	readonly keys: string[];
+
+	constructor(keys: string[], reason: string) {
+		super(`Cannot write ${keys.join(', ')} to the build .env: ${reason}`);
+		this.name = 'DotenvEncodeError';
+		this.keys = keys;
+	}
+}
+
+/**
+ * Wrap a value so a dotenv parser reads back exactly what went in.
+ *
+ * Two things drive this, both established by round-tripping values through
+ * Vite's own loader (see dotenv.test.ts):
+ *
+ * - Quoted values are taken literally, so the wrapper must be a character
+ *   the value does not contain. Single quotes first, then backtick, then
+ *   double. Escaping the wrapper instead does not work: dotenv consumes
+ *   `\"` without unescaping it, which is how risved's previous writer
+ *   turned `say "hi"` into `say \"hi\"`.
+ * - `$` is expanded, in every quoting style. `${OTHER}` picks up a sibling
+ *   variable and a `${MISSING}` collapses to nothing, so every `$` is
+ *   escaped as `\$` — which the expander honours and strips back.
+ */
+export function encodeDotenvValue(value: string): string {
+	const escaped = value.replace(/\$/g, '\\$');
+	const quote = ["'", '`', '"'].find((candidate) => !value.includes(candidate));
+
+	if (quote === undefined) {
+		throw new DotenvEncodeError([], 'it contains every quote character');
+	}
+
+	return quote + escaped + quote;
+}
+
+/**
+ * Render env vars as a `.env` file for the build stage.
+ *
+ * Self-checking: every value is parsed back out of the rendered file and
+ * compared, so an encoding gap fails the deploy with the offending variable
+ * named rather than silently shipping a corrupted secret into the build.
+ */
+export function serializeDotenv(env: Record<string, string>): string {
+	const entries = Object.entries(env);
+
+	/* A carriage return is dropped by every dotenv parser, in every quoting
+	   style. There is no encoding that survives it, so refuse rather than
+	   corrupt — it is almost always an accident from a Windows paste. */
+	const withCarriageReturn = entries.filter(([, value]) => value.includes('\r')).map(([key]) => key);
+	if (withCarriageReturn.length > 0) {
+		throw new DotenvEncodeError(
+			withCarriageReturn,
+			'the value contains a carriage return, which no dotenv parser preserves. Remove the CR characters and redeploy.'
+		);
+	}
+
+	const unencodable: string[] = [];
+	const lines: string[] = [];
+	for (const [key, value] of entries) {
+		try {
+			lines.push(`${key}=${encodeDotenvValue(value)}`);
+		} catch {
+			unencodable.push(key);
+		}
+	}
+	if (unencodable.length > 0) {
+		throw new DotenvEncodeError(unencodable, 'the value contains every quote character');
+	}
+
+	const file = lines.join('\n');
+
+	/* Prove the round-trip rather than trusting it. */
+	const readBack = new Map(parseDotenv(file).map((row) => [row.key, row.value]));
+	const corrupted = entries
+		.filter(([key, value]) => readBack.get(key) !== value)
+		.map(([key]) => key);
+	if (corrupted.length > 0) {
+		throw new DotenvEncodeError(corrupted, 'the value did not survive a round-trip through dotenv');
+	}
+
+	return file;
+}
+
+/**
+ * Undo `\$`. Dotenv parsers hand their result to an expander that resolves
+ * `${VAR}` and treats a backslash as the opt-out, so this runs after the
+ * quote handling, in every quoting style.
+ */
+function unescapeDollar(value: string): string {
+	return value.replace(/\\\$/g, '$');
 }
 
 function unescapeQuoted(value: string): string {

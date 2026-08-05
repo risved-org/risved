@@ -6,6 +6,7 @@ import { deployments, projects, domains, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import { encrypt, safeDecrypt } from '$lib/server/crypto'
+import { serializeDotenv, DotenvEncodeError } from '$lib/dotenv'
 import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
@@ -252,12 +253,22 @@ async function _runPipeline(
 		     available when SvelteKit analyzes server modules during build
 		   The .env file lives only in the builder stage — it is NOT copied
 		   to the runtime image (only copyPaths are). Secrets stay safe.
-		   At runtime, all env vars are passed via `docker run -e`. */
+		   At runtime, all env vars are passed via `docker run -e`.
+
+		   serializeDotenv owns the quoting and verifies its own round-trip,
+		   so a value that cannot survive a .env file fails the deploy with
+		   the variable named rather than reaching the build corrupted. */
 		const buildEnv = Object.entries(envMap)
 		if (buildEnv.length > 0) {
-			const dotenv = buildEnv
-				.map(([k, v]) => `${k}="${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
-				.join('\n')
+			let dotenv: string
+			try {
+				dotenv = serializeDotenv(envMap)
+			} catch (err) {
+				if (err instanceof DotenvEncodeError) {
+					throw new PipelineError('build', err.message)
+				}
+				throw err
+			}
 			await writeFile(join(cloneDir, '.env'), dotenv)
 			emit('build', `Injecting ${buildEnv.length} env var(s) into build`)
 		}

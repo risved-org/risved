@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { parseDotenv, parseDotenvValue, looksSecret } from './dotenv';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { loadEnv } from 'vite';
+import {
+	parseDotenv,
+	parseDotenvValue,
+	looksSecret,
+	serializeDotenv,
+	encodeDotenvValue,
+	DotenvEncodeError
+} from './dotenv';
 
 describe('parseDotenvValue', () => {
 	it('returns a plain value unchanged', () => {
@@ -263,5 +274,118 @@ describe('looksSecret', () => {
 
 	it('returns false for an empty key', () => {
 		expect(looksSecret('   ')).toBe(false);
+	});
+});
+
+describe('encodeDotenvValue', () => {
+	it('wraps a plain value in single quotes', () => {
+		expect(encodeDotenvValue('simple')).toBe("'simple'");
+	});
+
+	it('switches to backticks when the value contains a single quote', () => {
+		expect(encodeDotenvValue("it's here")).toBe('`it\'s here`');
+	});
+
+	it('switches to double quotes when the value contains both', () => {
+		expect(encodeDotenvValue("a'b`c")).toBe('"a\'b`c"');
+	});
+
+	it('escapes every dollar sign', () => {
+		expect(encodeDotenvValue('${A} and $B')).toBe("'\\${A} and \\$B'");
+	});
+
+	it('throws when the value contains every quote character', () => {
+		expect(() => encodeDotenvValue('a\'b`c"d')).toThrow(DotenvEncodeError);
+	});
+});
+
+describe('serializeDotenv', () => {
+	it('renders one line per variable', () => {
+		expect(serializeDotenv({ A: '1', B: '2' })).toBe("A='1'\nB='2'");
+	});
+
+	it('renders an empty object as an empty file', () => {
+		expect(serializeDotenv({})).toBe('');
+	});
+
+	it('rejects a value containing a carriage return, naming the key', () => {
+		let caught: unknown;
+		try {
+			serializeDotenv({ GOOD: 'x', PEM_KEY: 'line1\r\nline2' });
+		} catch (err) {
+			caught = err;
+		}
+		expect(caught).toBeInstanceOf(DotenvEncodeError);
+		expect((caught as DotenvEncodeError).keys).toEqual(['PEM_KEY']);
+	});
+
+	it('rejects a value containing every quote character, naming the key', () => {
+		let caught: unknown;
+		try {
+			serializeDotenv({ WEIRD: 'a\'b`c"d' });
+		} catch (err) {
+			caught = err;
+		}
+		expect(caught).toBeInstanceOf(DotenvEncodeError);
+		expect((caught as DotenvEncodeError).keys).toEqual(['WEIRD']);
+	});
+});
+
+/* The values a real project actually breaks on. Each must survive risved's
+   writer and come back byte-identical from the loader the build will use. */
+const ROUND_TRIP_CORPUS: Record<string, string> = {
+	PLAIN: 'simple',
+	SPACES: 'has spaces',
+	HASH_COMMENT_LOOKALIKE: 'value # not a comment',
+	HASH_INLINE: 'pa#ss',
+	DOUBLE_QUOTE: 'say "hi"',
+	SINGLE_QUOTE: "it's here",
+	BACKTICK: 'tick ` here',
+	BACKSLASH: 'C:\\path\\to',
+	BACKSLASH_N: 'C:\\npath',
+	TRAILING_BACKSLASH: 'ends\\',
+	NEWLINE: 'line1\nline2',
+	PEM: '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkq+/=\n-----END PRIVATE KEY-----',
+	JSON_BLOB: '{"type":"service_account","id":1}',
+	DOLLAR_BRACE: 'literal ${NOT_EXPANDED} here',
+	DOLLAR_BARE: 'cost $NOT_EXPANDED now',
+	DOLLAR_LONE: 'price $ 5',
+	DOLLAR_DOUBLE: '$$anchor',
+	BACKSLASH_DOLLAR: 'raw \\${KEEP}',
+	EQUALS: 'a=b=c',
+	LEADING_SPACE: '  padded  ',
+	EMPTY: '',
+	URL_FRAGMENT: 'https://host/path#frag',
+	BASE64: 'aGVsbG8gd29ybGQ=+/',
+	UNICODE: 'naïve — 日本語 🔑'
+};
+
+describe('round-trip through the loader the build actually uses', () => {
+	it('survives Vite loadEnv byte-for-byte', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'risved-dotenv-'));
+		writeFileSync(join(dir, '.env'), serializeDotenv(ROUND_TRIP_CORPUS));
+
+		const loaded = loadEnv('production', dir, '');
+		const mismatches = Object.entries(ROUND_TRIP_CORPUS)
+			.filter(([key, value]) => loaded[key] !== value)
+			.map(([key, value]) => ({ key, expected: value, actual: loaded[key] }));
+
+		expect(mismatches).toEqual([]);
+	});
+
+	it('does not let one variable expand into another', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'risved-dotenv-'));
+		writeFileSync(
+			join(dir, '.env'),
+			serializeDotenv({ SECRET_VALUE: 'topsecret', TEMPLATE: 'see ${SECRET_VALUE}' })
+		);
+
+		expect(loadEnv('production', dir, '').TEMPLATE).toBe('see ${SECRET_VALUE}');
+	});
+
+	it('round-trips through our own parser too', () => {
+		const file = serializeDotenv(ROUND_TRIP_CORPUS);
+		const parsed = Object.fromEntries(parseDotenv(file).map((row) => [row.key, row.value]));
+		expect(parsed).toEqual(ROUND_TRIP_CORPUS);
 	});
 });
