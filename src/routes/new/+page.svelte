@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
+	import { parseDotenv } from '$lib/dotenv'
 	import ProjectScriptsForm from '$lib/components/ProjectScriptsForm.svelte'
 	import type { DetectScriptsResult } from '$lib/scripts-detect'
 	import type { ActionData, PageData } from './$types'
@@ -161,22 +162,13 @@
 		envRows = envRows.filter((_, i) => i !== index)
 	}
 
-	/** Parse pasted .env content: split KEY=value on the first = sign */
+	/** Parse pasted .env content into rows, stripping dotenv syntax. */
 	function handleEnvPaste(event: ClipboardEvent, index: number) {
 		const text = event.clipboardData?.getData('text') ?? ''
 		if (!text.includes('=')) return
 
 		event.preventDefault()
-		const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'))
-		const parsed = lines.map((line) => {
-			const eqIndex = line.indexOf('=')
-			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: false }
-			return {
-				key: line.slice(0, eqIndex).trim(),
-				value: line.slice(eqIndex + 1).trim(),
-				isSecret: false
-			}
-		})
+		const parsed = parseDotenv(text)
 
 		if (parsed.length === 0) return
 

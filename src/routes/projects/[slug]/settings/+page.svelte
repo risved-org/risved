@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms'
 	import { goto } from '$app/navigation'
 	import { resolve } from '$app/paths'
+	import { parseDotenv } from '$lib/dotenv'
 	import type { ActionData, PageData } from './$types'
 
 	let { data, form }: { data: PageData; form: ActionData } = $props()
@@ -62,21 +63,13 @@
 		revealed = revealed.filter((_, i) => i !== index)
 	}
 
+	/** Parse pasted .env content into rows, stripping dotenv syntax. */
 	function handleEnvPaste(event: ClipboardEvent, index: number) {
 		const text = event.clipboardData?.getData('text') ?? ''
 		if (!text.includes('=')) return
 
 		event.preventDefault()
-		const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'))
-		const parsed = lines.map((line) => {
-			const eqIndex = line.indexOf('=')
-			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: true }
-			return {
-				key: line.slice(0, eqIndex).trim(),
-				value: line.slice(eqIndex + 1).trim(),
-				isSecret: true
-			}
-		})
+		const parsed = parseDotenv(text)
 
 		if (parsed.length === 0) return
 
