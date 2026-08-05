@@ -147,6 +147,88 @@ describe('parseDotenv', () => {
 	it('returns no rows for comment-only input', () => {
 		expect(parseDotenv('# just a note\n# and another')).toEqual([]);
 	});
+
+	it('strips a leading byte order mark', () => {
+		expect(parseDotenv('\uFEFFORIGIN=https://example.com')[0].key).toBe('ORIGIN');
+	});
+
+	it('accepts backtick quotes', () => {
+		expect(parseDotenv('MESSAGE=`hello # world`')[0].value).toBe('hello # world');
+	});
+});
+
+describe('parseDotenv multi-line values', () => {
+	it('keeps a double-quoted value spanning several lines', () => {
+		const pem = [
+			'PRIVATE_KEY="-----BEGIN PRIVATE KEY-----',
+			'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC',
+			'-----END PRIVATE KEY-----"',
+			'ORIGIN=https://example.com'
+		].join('\n');
+
+		const rows = parseDotenv(pem);
+		expect(rows).toHaveLength(2);
+		expect(rows[0].value).toBe(
+			'-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----'
+		);
+		expect(rows[1].value).toBe('https://example.com');
+	});
+
+	it('keeps a single-quoted value spanning several lines', () => {
+		const rows = parseDotenv("BLOB='line1\nline2'\nA=1");
+		expect(rows[0].value).toBe('line1\nline2');
+		expect(rows[1].key).toBe('A');
+	});
+
+	it('keeps a multi-line JSON credential blob intact', () => {
+		const json = 'GOOGLE_CREDENTIALS=\'{\n  "type": "service_account",\n  "id": 1\n}\'';
+		expect(parseDotenv(json)[0].value).toBe('{\n  "type": "service_account",\n  "id": 1\n}');
+	});
+
+	it('drops a comment after the closing quote of a multi-line value', () => {
+		const rows = parseDotenv('KEY="line1\nline2"   # a note\nA=1');
+		expect(rows[0].value).toBe('line1\nline2');
+		expect(rows[1].key).toBe('A');
+	});
+
+	it('does not let a multi-line value swallow a following bare key', () => {
+		const rows = parseDotenv('A="one\ntwo"\nB=3');
+		expect(rows.map((r) => [r.key, r.value])).toEqual([
+			['A', 'one\ntwo'],
+			['B', '3']
+		]);
+	});
+
+	it('falls back to the single line when a quote is never closed', () => {
+		const rows = parseDotenv('A="unterminated\nB=2');
+		expect(rows.map((r) => [r.key, r.value])).toEqual([
+			['A', '"unterminated'],
+			['B', '2']
+		]);
+	});
+});
+
+describe('parseDotenv key handling', () => {
+	it('drops keys that the API would reject', () => {
+		const rows = parseDotenv('2FOO=bar\nfoo-bar=baz\nsome sentence = x\nVALID=1');
+		expect(rows.map((r) => r.key)).toEqual(['VALID']);
+	});
+
+	it('drops a pasted code snippet rather than filling the form with junk', () => {
+		expect(parseDotenv('const a = 1;\nlet b = 2;')).toEqual([]);
+	});
+
+	it('keeps a repeated key once, taking the last value', () => {
+		const rows = parseDotenv('PORT=3000\nORIGIN=https://a.test\nPORT=4000');
+		expect(rows.map((r) => [r.key, r.value])).toEqual([
+			['PORT', '4000'],
+			['ORIGIN', 'https://a.test']
+		]);
+	});
+
+	it('allows a leading underscore', () => {
+		expect(parseDotenv('_INTERNAL=1')[0].key).toBe('_INTERNAL');
+	});
 });
 
 describe('looksSecret', () => {
