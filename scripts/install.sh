@@ -9,7 +9,7 @@ set -euo pipefail
 
 RISVED_VERSION="${RISVED_VERSION:-latest}"
 RISVED_DISPLAY_VERSION="$RISVED_VERSION"
-if [ "$RISVED_DISPLAY_VERSION" = "latest" ]; then
+if [ "$RISVED_DISPLAY_VERSION" = "latest" ] && [ "${RISVED_TESTING:-}" != "1" ]; then
   RISVED_DISPLAY_VERSION=$(curl -fsSL --max-time 5 "https://api.github.com/repos/risved-org/risved/tags?per_page=1" 2>/dev/null \
     | grep '"name"' | head -1 | cut -d'"' -f4 | sed 's/^v//') || true
   RISVED_DISPLAY_VERSION="${RISVED_DISPLAY_VERSION:-latest}"
