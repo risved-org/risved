@@ -41,6 +41,14 @@ describe('verifySignature', () => {
 		const sig = `sha256=${hmac(payload, 'wrong-secret')}`;
 		expect(verifySignature(payload, secret, { 'x-hub-signature-256': sig })).toBe(false);
 	});
+
+	it('rejects a same-length signature that fails the byte-safe comparison', () => {
+		/* Multi-byte chars keep the JS string length equal to the hex digest's
+		 * length while the UTF-8 byte length differs, forcing timingSafeEqual
+		 * to throw and exercising safeCompare's catch branch. */
+		const sameLengthSig = '😀'.repeat(hmac(payload, secret).length / 2);
+		expect(verifySignature(payload, secret, { 'x-hub-signature-256': sameLengthSig })).toBe(false);
+	});
 });
 
 describe('parseWebhookPayload', () => {
@@ -142,6 +150,19 @@ describe('parseWebhookPayload', () => {
 		expect(result.commitSha).toBe('def456');
 	});
 
+	it('returns unknown for an unrecognized GitHub PR action', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{
+				action: 'labeled',
+				pull_request: { number: 42, title: 'Add feature', head: { ref: 'feat-branch' } },
+				sender: { login: 'dev' }
+			}
+		);
+
+		expect(result.type).toBe('unknown');
+	});
+
 	it('parses GitLab MR open event', () => {
 		const result = parseWebhookPayload(
 			{ 'x-gitlab-event': 'Merge Request Hook' },
@@ -202,6 +223,24 @@ describe('parseWebhookPayload', () => {
 
 		expect(result.type).toBe('pr_close');
 		expect(result.prNumber).toBe(10);
+	});
+
+	it('returns unknown for an unrecognized GitLab MR action', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{
+				object_attributes: {
+					action: 'approved',
+					iid: 10,
+					title: 'Approved MR',
+					source_branch: 'feature',
+					target_branch: 'main'
+				},
+				user: { username: 'gl-dev' }
+			}
+		);
+
+		expect(result.type).toBe('unknown');
 	});
 
 	it('parses GitLab push event', () => {

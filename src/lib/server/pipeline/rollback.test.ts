@@ -146,11 +146,10 @@ describe('runRollback', () => {
 
 	it('skips route when no domain', async () => {
 		const caddy = makeCaddy();
-		const result = await runRollback(
-			makeConfig({ domain: undefined }),
-			makeSuccessRunner(),
-			{ caddy: caddy as never, fetchFn: makeHealthyFetch() }
-		);
+		const result = await runRollback(makeConfig({ domain: undefined }), makeSuccessRunner(), {
+			caddy: caddy as never,
+			fetchFn: makeHealthyFetch()
+		});
 
 		expect(caddy.addRoute).not.toHaveBeenCalled();
 		expect(result.success).toBe(true);
@@ -189,6 +188,42 @@ describe('runRollback', () => {
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Health check timed out');
+	});
+
+	it('falls back to the default caddy client and global fetch when not provided', async () => {
+		const fetchSpy = vi
+			.spyOn(globalThis, 'fetch')
+			.mockResolvedValue({ ok: true, status: 200 } as Response);
+
+		const result = await runRollback(makeConfig({ domain: undefined }), makeSuccessRunner(), {});
+
+		expect(result.success).toBe(true);
+		expect(fetchSpy).toHaveBeenCalled();
+
+		fetchSpy.mockRestore();
+	});
+
+	it('falls back to phase "start" and a generic message for a non-Error failure', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('docker ps')) throw 'boom';
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runRollback(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('Unknown error');
+		expect(result.logs.at(-1)).toMatchObject({
+			phase: 'start',
+			level: 'error',
+			message: 'Unknown error'
+		});
 	});
 
 	it('removes existing container before starting the rollback container', async () => {
@@ -245,23 +280,31 @@ describe('runRollback', () => {
 			addRoute: vi.fn().mockResolvedValue({ success: false, error: 'caddy unavailable' })
 		};
 
-		const result = await runRollback(makeConfig({ domain: 'app.example.com' }), makeSuccessRunner(), {
-			onLog: (entry) => logs.push(entry),
-			caddy: caddy as never,
-			fetchFn: makeHealthyFetch()
-		});
+		const result = await runRollback(
+			makeConfig({ domain: 'app.example.com' }),
+			makeSuccessRunner(),
+			{
+				onLog: (entry) => logs.push(entry),
+				caddy: caddy as never,
+				fetchFn: makeHealthyFetch()
+			}
+		);
 
 		expect(result.success).toBe(true);
-		const warnLog = logs.find((l) => l.level === 'warn' && l.message.includes('route update failed'));
+		const warnLog = logs.find(
+			(l) => l.level === 'warn' && l.message.includes('route update failed')
+		);
 		expect(warnLog).toBeDefined();
 	});
 
 	it('adds alt route when hostname setting is set and domain differs', async () => {
-		vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'example.com',
-			prefix: 'host'
-		}))
+		vi.mocked(getSetting).mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'example.com',
+				prefix: 'host'
+			})
+		);
 
 		const caddy = makeCaddy();
 		await runRollback(
@@ -275,21 +318,23 @@ describe('runRollback', () => {
 	});
 
 	it('emits warning when alt route fails', async () => {
-		vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'example.com',
-			prefix: 'host'
-		}))
+		vi.mocked(getSetting).mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'example.com',
+				prefix: 'host'
+			})
+		);
 
 		const logs: LogEntry[] = [];
 		let altCall = 0;
 		const caddy = {
 			...makeCaddy(),
 			addRoute: vi.fn().mockImplementation(() => {
-				altCall++
+				altCall++;
 				/* primary route succeeds, alt route fails */
-				if (altCall === 2) return Promise.resolve({ success: false, error: 'alt fail' })
-				return Promise.resolve({ success: true })
+				if (altCall === 2) return Promise.resolve({ success: false, error: 'alt fail' });
+				return Promise.resolve({ success: true });
 			})
 		};
 
