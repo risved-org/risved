@@ -97,6 +97,58 @@ describe('ensureControlPlaneRoutes', () => {
 			port: 3000
 		})
 	})
+
+	it('does nothing when domain_config is malformed JSON', async () => {
+		mockGetSetting.mockResolvedValue('not-json')
+		const caddy = mockCaddy()
+		await ensureControlPlaneRoutes(caddy)
+		expect(caddy.addRoute).not.toHaveBeenCalled()
+	})
+
+	it('aborts and logs when ensureServer fails', async () => {
+		mockGetSetting.mockResolvedValue(JSON.stringify({
+			mode: 'subdomain',
+			baseDomain: 'risved.example.eu',
+			prefix: 'dash'
+		}))
+		const caddy = mockCaddy()
+		;(caddy.ensureServer as ReturnType<typeof vi.fn>).mockResolvedValue({
+			success: false,
+			error: 'connection refused'
+		})
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+		await ensureControlPlaneRoutes(caddy)
+
+		expect(caddy.addRoute).not.toHaveBeenCalled()
+		expect(errorSpy).toHaveBeenCalledWith(
+			'[caddy] Failed to ensure server:',
+			'connection refused'
+		)
+		errorSpy.mockRestore()
+	})
+
+	it('logs when the dashboard route fails to add', async () => {
+		mockGetSetting.mockResolvedValue(JSON.stringify({
+			mode: 'subdomain',
+			baseDomain: 'risved.example.eu',
+			prefix: 'dash'
+		}))
+		const caddy = mockCaddy()
+		;(caddy.addRoute as ReturnType<typeof vi.fn>).mockResolvedValue({
+			success: false,
+			error: 'caddy unavailable'
+		})
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+		await ensureControlPlaneRoutes(caddy)
+
+		expect(errorSpy).toHaveBeenCalledWith(
+			'[caddy] Failed to add dashboard route (dash.risved.example.eu):',
+			'caddy unavailable'
+		)
+		errorSpy.mockRestore()
+	})
 })
 
 /* ── restoreAllRoutes ─────────────────────────────────────────────── */
@@ -282,5 +334,29 @@ describe('restoreAllRoutes', () => {
 		await restoreAllRoutes(caddy)
 
 		expect(caddy.addRoute).not.toHaveBeenCalled()
+	})
+
+	it('logs and skips a route that fails to restore', async () => {
+		mockGetSetting.mockResolvedValue(null)
+		const caddy = mockCaddy()
+		;(caddy.addRoute as ReturnType<typeof vi.fn>).mockResolvedValue({
+			success: false,
+			error: 'caddy unavailable'
+		})
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+		setupDbForRestore(
+			[{ id: 'p-1', domain: 'app.example.com', port: 4001 }],
+			['p-1'],
+			[]
+		)
+
+		await restoreAllRoutes(caddy)
+
+		expect(errorSpy).toHaveBeenCalledWith(
+			'[caddy] Failed to restore route app.example.com:',
+			'caddy unavailable'
+		)
+		errorSpy.mockRestore()
 	})
 })
