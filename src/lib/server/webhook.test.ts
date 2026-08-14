@@ -261,4 +261,35 @@ describe('parseWebhookPayload', () => {
 
 		expect(result.type).toBe('unknown');
 	});
+
+	it('returns unknown for an unrecognized GitHub PR action', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{
+				action: 'labeled',
+				pull_request: { number: 1, head: { ref: 'feat', sha: 'abc' } },
+				sender: { login: 'dev' }
+			}
+		);
+
+		expect(result.type).toBe('unknown');
+	});
+
+	it('returns unknown for an unrecognized GitLab MR action', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{
+				object_attributes: {
+					action: 'approved',
+					iid: 10,
+					title: 'MR title',
+					source_branch: 'feature',
+					target_branch: 'main'
+				},
+				user: { username: 'gl-dev' }
+			}
+		);
+
+		expect(result.type).toBe('unknown');
+	});
 });
