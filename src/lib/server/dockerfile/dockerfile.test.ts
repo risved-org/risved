@@ -153,6 +153,35 @@ describe('Dockerfile Generation', () => {
 			expect(result.content).toContain('RUN yarn install --frozen-lockfile');
 			expect(result.content).toContain('RUN yarn build');
 		});
+
+		it('overrides serveCommand with a custom startCommand', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nextjs',
+				tier: 'node',
+				startCommand: 'node custom-server.js'
+			});
+
+			expect(result.content).toContain('CMD ["node", "custom-server.js"]');
+		});
+	});
+
+	describe('Nuxt 2', () => {
+		it('rewrites the static copy path using meta.srcDir', () => {
+			const result = generateDockerfile({
+				frameworkId: 'nuxt2',
+				tier: 'node',
+				meta: { srcDir: 'app/' }
+			});
+
+			expect(result.content).toContain('app/static');
+			expect(result.content).not.toContain('COPY --from=build /app/static ./static');
+		});
+
+		it('leaves copy paths untouched without meta.srcDir', () => {
+			const result = generateDockerfile({ frameworkId: 'nuxt2', tier: 'node' });
+
+			expect(result.content).toContain('static');
+		});
 	});
 
 	describe('TanStack Start', () => {

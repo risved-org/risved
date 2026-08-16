@@ -256,6 +256,35 @@ describe('runRollback', () => {
 		expect(warnLog).toBeDefined();
 	});
 
+	it('falls back to a default caddy client and fetch when not provided', async () => {
+		const result = await runRollback(makeConfig({ domain: undefined }), makeSuccessRunner(), {
+			healthTimeoutMs: 100,
+			healthIntervalMs: 20
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Health check timed out');
+	}, 10000);
+
+	it('uses a default phase when a non-rollback error is thrown', async () => {
+		const { db } = await import('$lib/server/db');
+		vi.mocked(db.update).mockImplementationOnce(() => {
+			throw new Error('unexpected db error');
+		});
+
+		const logs: LogEntry[] = [];
+		const result = await runRollback(makeConfig(), makeSuccessRunner(), {
+			onLog: (entry) => logs.push(entry),
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('unexpected db error');
+		const errorLog = logs.find((l) => l.level === 'error');
+		expect(errorLog?.phase).toBe('start');
+	});
+
 	it('adds alt route when hostname setting is set and domain differs', async () => {
 		vi.mocked(getSetting).mockResolvedValue(JSON.stringify({
 			mode: 'subdomain',
