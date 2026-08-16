@@ -331,4 +331,30 @@ describe('runRollback', () => {
 		const warnLog = logs.find((l) => l.level === 'warn' && l.message.includes('alt route failed'));
 		expect(warnLog).toBeDefined();
 	});
+
+	it('omits commitSha when config.commitSha is null', async () => {
+		const result = await runRollback(makeConfig({ commitSha: null }), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.commitSha).toBeUndefined();
+	});
+
+	it('falls back to start phase and generic message for a non-Error throw', async () => {
+		const caddy = {
+			...makeCaddy(),
+			addRoute: vi.fn().mockRejectedValue('caddy exploded')
+		};
+
+		const result = await runRollback(
+			makeConfig({ domain: 'app.example.com' }),
+			makeSuccessRunner(),
+			{ caddy: caddy as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('Unknown error');
+	});
 });
