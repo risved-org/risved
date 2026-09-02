@@ -168,6 +168,42 @@ describe('createPreview', () => {
 		expect(result).toMatchObject({ success: true, previewId: 'prev-existing', port: 4005 })
 		expect(mockDb.update).toHaveBeenCalled()
 		expect(mockDb.insert).not.toHaveBeenCalled()
+		})
+
+		it('marks the preview active once the background pipeline succeeds', async () => {
+			mockGetSetting.mockResolvedValue('example.com')
+			const existing = { id: 'prev-existing', port: 4005 }
+			mockDb.select.mockReturnValueOnce(makeSelectChain([existing]))
+			const updateChain = makeUpdateChain()
+			mockDb.update.mockReturnValue(updateChain)
+			mockRunPipeline.mockResolvedValue({
+				success: true,
+				deploymentId: 'dep-99',
+				commitSha: 'abc123'
+			})
+
+			await createPreview(PROJECT, 42, 'update', 'feat', null)
+			await new Promise((resolve) => setImmediate(resolve))
+
+			expect(updateChain.set).toHaveBeenCalledWith(
+				expect.objectContaining({ status: 'active', deploymentId: 'dep-99' })
+			)
+		})
+
+		it('marks the preview failed when the background pipeline rejects', async () => {
+			mockGetSetting.mockResolvedValue('example.com')
+			const existing = { id: 'prev-existing', port: 4005 }
+			mockDb.select.mockReturnValueOnce(makeSelectChain([existing]))
+			const updateChain = makeUpdateChain()
+			mockDb.update.mockReturnValue(updateChain)
+			mockRunPipeline.mockRejectedValue(new Error('docker daemon unreachable'))
+
+			await createPreview(PROJECT, 42, 'update', 'feat', null)
+			await new Promise((resolve) => setImmediate(resolve))
+
+			expect(updateChain.set).toHaveBeenCalledWith(
+				expect.objectContaining({ status: 'failed' })
+			)
 	})
 })
 
@@ -252,6 +288,30 @@ describe('enforcePreviewLimit', () => {
 		})
 		await enforcePreviewLimit('proj-1', 3)
 		expect(mockDb.update).not.toHaveBeenCalled()
+		})
+
+		it('removes the oldest previews when over the limit', async () => {
+			const active = [
+				{ id: 'p1', containerName: null, domain: null, deploymentId: null },
+				{ id: 'p2', containerName: null, domain: null, deploymentId: null },
+				{ id: 'p3', containerName: null, domain: null, deploymentId: null }
+			]
+			mockDb.select
+				.mockReturnValueOnce({
+					from: vi.fn().mockReturnValue({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockResolvedValue(active)
+						})
+					})
+				})
+				.mockReturnValueOnce(makeSelectChain([active[0]]))
+				.mockReturnValueOnce(makeSelectChain([active[1]]))
+			mockDb.update.mockReturnValue(makeUpdateChain())
+
+			await enforcePreviewLimit('proj-1', 2)
+
+			/* toRemove = 3 - 2 + 1 = 2, so the two oldest previews are cleaned up */
+			expect(mockDb.update).toHaveBeenCalledTimes(2)
 	})
 })
 
