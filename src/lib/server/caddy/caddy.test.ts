@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CaddyClient, buildRouteConfig, routeId } from './index';
+import { CaddyClient, buildRedirectRouteConfig, buildRouteConfig, routeId } from './index';
 import type { FetchFn } from './types';
 
 /** Create a mock fetch function with configurable responses */
@@ -63,6 +63,24 @@ describe('Caddy Route Management', () => {
 
 			expect(config.match[0].host).toEqual(['*.risved.example.eu']);
 			expect(config['@id']).toBe('route---risved-example-eu');
+		});
+	});
+
+	describe('buildRedirectRouteConfig', () => {
+		it('builds a 301 redirect route from www to non-www', () => {
+			const config = buildRedirectRouteConfig('www.example.eu', 'example.eu');
+
+			expect(config).toEqual({
+				'@id': 'route-www-example-eu',
+				match: [{ host: ['www.example.eu'] }],
+				handle: [
+					{
+						handler: 'static_response',
+						status_code: '301',
+						headers: { Location: ['https://example.eu{http.request.uri}'] }
+					}
+				]
+			});
 		});
 	});
 
@@ -275,6 +293,54 @@ describe('Caddy Route Management', () => {
 			});
 		});
 
+		describe('addRedirectRoute()', () => {
+			it('removes any existing route then adds a 301 redirect', async () => {
+				const calls: string[] = [];
+				mockFetch = vi.fn(async (input: string, init?: RequestInit) => {
+					const method = init?.method ?? 'GET';
+					calls.push(`${method} ${input}`);
+					if (method === 'DELETE') return new Response('', { status: 404 });
+					return new Response('OK', { status: 200 });
+				}) as unknown as FetchFn;
+				client = new CaddyClient(undefined, mockFetch);
+
+				const result = await client.addRedirectRoute('www.app.example.eu', 'app.example.eu');
+
+				expect(result.success).toBe(true);
+				const deleteIdx = calls.findIndex((c) => c.startsWith('DELETE'));
+				const postIdx = calls.findIndex((c) => c.startsWith('POST'));
+				expect(deleteIdx).toBeGreaterThanOrEqual(0);
+				expect(deleteIdx).toBeLessThan(postIdx);
+				expect(calls).toContain(
+					'POST http://localhost:2019/config/apps/http/servers/srv0/routes'
+				);
+			});
+
+			it('returns error when POST fails', async () => {
+				mockFetch = vi.fn(async (_input: string, init?: RequestInit) => {
+					const method = init?.method ?? 'GET';
+					if (method === 'DELETE') return new Response('', { status: 404 });
+					return new Response('Bad config', { status: 400 });
+				}) as unknown as FetchFn;
+				client = new CaddyClient(undefined, mockFetch);
+
+				const result = await client.addRedirectRoute('www.app.example.eu', 'app.example.eu');
+				expect(result.success).toBe(false);
+				expect(result.error).toContain('Failed to add redirect route');
+			});
+
+			it('handles fetch errors gracefully', async () => {
+				mockFetch = vi.fn(async () => {
+					throw new Error('Network error');
+				}) as unknown as FetchFn;
+				client = new CaddyClient(undefined, mockFetch);
+
+				const result = await client.addRedirectRoute('www.app.example.eu', 'app.example.eu');
+				expect(result.success).toBe(false);
+				expect(result.error).toBe('Network error');
+			});
+		});
+
 		describe('addWildcardRoute()', () => {
 			it('adds a wildcard route for a domain', async () => {
 				mockFetch = vi.fn(async () => {
@@ -325,6 +391,16 @@ describe('Caddy Route Management', () => {
 			it('returns empty array on error', async () => {
 				mockFetch = vi.fn(async () => {
 					throw new Error('Network error');
+				}) as unknown as FetchFn;
+				client = new CaddyClient(undefined, mockFetch);
+
+				const result = await client.listRoutes();
+				expect(result).toEqual([]);
+			});
+
+			it('returns empty array when the server responds with an error status', async () => {
+				mockFetch = vi.fn(async () => {
+					return new Response('Internal error', { status: 500 });
 				}) as unknown as FetchFn;
 				client = new CaddyClient(undefined, mockFetch);
 
