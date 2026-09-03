@@ -4,6 +4,7 @@ import {
 	dockerRun,
 	dockerStop,
 	dockerVolumeRemove,
+	createCommandRunner,
 	ensureWarmImage,
 	freePort,
 	getContainerLogs,
@@ -138,24 +139,24 @@ describe('dockerBuild', () => {
 	});
 
 	it('builds with requested Docker network', async () => {
-		const calls: string[][] = []
+		const calls: string[][] = [];
 		const runner: CommandRunner = {
 			async exec(cmd, args) {
-				calls.push([cmd, ...args])
-				return { exitCode: 0, stdout: '', stderr: '' }
+				calls.push([cmd, ...args]);
+				return { exitCode: 0, stdout: '', stderr: '' };
 			}
-		}
+		};
 
 		const result = await dockerBuild(runner, {
 			contextDir: '/tmp/ctx',
 			imageTag: 'myapp:abc1234',
 			network: 'risved'
-		})
+		});
 
-		expect(result.success).toBe(true)
-		expect(calls[0]).toContain('--network')
-		expect(calls[0]).toContain('risved')
-	})
+		expect(result.success).toBe(true);
+		expect(calls[0]).toContain('--network');
+		expect(calls[0]).toContain('risved');
+	});
 
 	it('returns error on build failure', async () => {
 		const runner = mockRunner({
@@ -513,5 +514,30 @@ describe('dockerStop error paths', () => {
 		const result = await dockerStop(runner, 'my-app');
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('volume in use');
+	});
+});
+
+describe('createCommandRunner', () => {
+	it('runs a real command and captures stdout on success', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', ['-e', "console.log('hello')"]);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain('hello');
+	});
+
+	it('captures a non-zero exit code from a real command', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', ['-e', 'process.exit(3)']);
+		expect(result.exitCode).toBe(3);
+	});
+
+	it('streams output line by line when onLine is provided', async () => {
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec('node', ['-e', "console.log('line1'); console.log('line2')"], {
+			onLine: (line) => lines.push(line)
+		});
+		expect(result.exitCode).toBe(0);
+		expect(lines).toEqual(expect.arrayContaining(['line1', 'line2']));
 	});
 });
