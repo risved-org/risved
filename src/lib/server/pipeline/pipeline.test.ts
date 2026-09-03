@@ -62,13 +62,11 @@ vi.mock('../detection', () => ({
 }));
 
 vi.mock('../dockerfile', () => ({
-	generateDockerfile: vi
-		.fn()
-		.mockReturnValue({
-			content: 'FROM node:20\nCMD ["node", "index.js"]',
-			frameworkId: 'fresh',
-			tier: 'deno'
-		})
+	generateDockerfile: vi.fn().mockReturnValue({
+		content: 'FROM node:20\nCMD ["node", "index.js"]',
+		frameworkId: 'fresh',
+		tier: 'deno'
+	})
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -83,6 +81,7 @@ import { runPipeline } from './index';
 import { detectFramework } from '../detection';
 import { resolveCloneToken } from '../git-token';
 import { getSetting } from '$lib/server/settings';
+import { encrypt } from '$lib/server/crypto';
 import { db } from '$lib/server/db';
 import type { CommandRunner, PipelineConfig } from './types';
 import type { LogEntry } from './types';
@@ -180,22 +179,22 @@ describe('runPipeline', () => {
 	});
 
 	it('does not attach managed Postgres network to Docker builds', async () => {
-		const calls: string[] = []
+		const calls: string[] = [];
 		const runner: CommandRunner = {
 			async exec(cmd, args) {
-				const joined = `${cmd} ${args.join(' ')}`
-				calls.push(joined)
-				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' }
+				const joined = `${cmd} ${args.join(' ')}`;
+				calls.push(joined);
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
 				if (joined.includes('docker inspect') && joined.includes('risved-postgres-proj-1')) {
-					return { exitCode: 0, stdout: 'true\n', stderr: '' }
+					return { exitCode: 0, stdout: 'true\n', stderr: '' };
 				}
 				if (joined.includes('docker exec') && joined.includes('pg_isready')) {
-					return { exitCode: 0, stdout: 'accepting connections', stderr: '' }
+					return { exitCode: 0, stdout: 'accepting connections', stderr: '' };
 				}
-				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' }
-				return { exitCode: 0, stdout: '', stderr: '' }
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
 			}
-		}
+		};
 
 		const result = await runPipeline(
 			makeConfig({
@@ -205,16 +204,16 @@ describe('runPipeline', () => {
 			}),
 			runner,
 			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
-		)
+		);
 
-		expect(result.success).toBe(true)
-		const buildCalls = calls.filter((c) => c.includes('docker build'))
-		expect(buildCalls).toHaveLength(2)
-		expect(buildCalls.every((c) => !c.includes('--network'))).toBe(true)
-		const runtimeRun = calls.find((c) => c.includes('docker run') && !c.includes('risved-release'))
-		expect(runtimeRun).toContain('--network risved')
-		const releaseRun = calls.find((c) => c.includes('docker run') && c.includes('risved-release'))
-		expect(releaseRun).toContain('--network risved')
+		expect(result.success).toBe(true);
+		const buildCalls = calls.filter((c) => c.includes('docker build'));
+		expect(buildCalls).toHaveLength(2);
+		expect(buildCalls.every((c) => !c.includes('--network'))).toBe(true);
+		const runtimeRun = calls.find((c) => c.includes('docker run') && !c.includes('risved-release'));
+		expect(runtimeRun).toContain('--network risved');
+		const releaseRun = calls.find((c) => c.includes('docker run') && c.includes('risved-release'));
+		expect(releaseRun).toContain('--network risved');
 	});
 
 	it('emits logs for each phase', async () => {
@@ -363,7 +362,8 @@ describe('runPipeline', () => {
 				calls.push(joined);
 				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
 				/* docker ps --filter publish= returns an existing container */
-				if (joined.includes('docker ps') && joined.includes('--filter')) return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
+				if (joined.includes('docker ps') && joined.includes('--filter'))
+					return { exitCode: 0, stdout: 'abc123def456\n', stderr: '' };
 				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
 				return { exitCode: 0, stdout: '', stderr: '' };
 			}
@@ -391,17 +391,15 @@ describe('runPipeline', () => {
 				const joined = `${cmd} ${args.join(' ')}`;
 				calls.push(joined);
 				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
-				if (joined.includes('docker run'))
-					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
 				return { exitCode: 0, stdout: '', stderr: '' };
 			}
 		};
 
-		const result = await runPipeline(
-			makeConfig({ releaseCommand: null }),
-			runner,
-			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
-		);
+		const result = await runPipeline(makeConfig({ releaseCommand: null }), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
 
 		expect(result.success).toBe(true);
 		/* No `--target build` invocations means the release runner never fired. */
@@ -416,17 +414,15 @@ describe('runPipeline', () => {
 				const joined = `${cmd} ${args.join(' ')}`;
 				calls.push(joined);
 				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
-				if (joined.includes('docker run'))
-					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
 				return { exitCode: 0, stdout: '', stderr: '' };
 			}
 		};
 
-		const result = await runPipeline(
-			makeConfig({ releaseCommand: 'bun run migrate' }),
-			runner,
-			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
-		);
+		const result = await runPipeline(makeConfig({ releaseCommand: 'bun run migrate' }), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
 
 		expect(result.success).toBe(true);
 		/* The release flow: docker build --target build → docker run for the release image. */
@@ -457,24 +453,20 @@ describe('runPipeline', () => {
 				if (joined.includes('docker run') && joined.includes('risved-release')) {
 					return { exitCode: 1, stdout: '', stderr: 'migration failed' };
 				}
-				if (joined.includes('docker run'))
-					return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
 				return { exitCode: 0, stdout: '', stderr: '' };
 			}
 		};
 
-		const result = await runPipeline(
-			makeConfig({ releaseCommand: 'bun run migrate' }),
-			runner,
-			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
-		);
+		const result = await runPipeline(makeConfig({ releaseCommand: 'bun run migrate' }), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('Release command failed');
 		/* The runtime container must NOT have been started — old version keeps serving. */
-		const runtimeRun = calls.find(
-			(c) => c.includes('docker run') && !c.includes('risved-release')
-		);
+		const runtimeRun = calls.find((c) => c.includes('docker run') && !c.includes('risved-release'));
 		expect(runtimeRun).toBeUndefined();
 		const failureLog = result.logs.find((l) => l.phase === 'release' && l.level === 'error');
 		expect(failureLog).toBeTruthy();
@@ -512,15 +504,16 @@ describe('runPipeline', () => {
 			}
 		};
 
-		const result = await runPipeline(
-			makeConfig({ gitConnectionId: 'conn-1' }),
-			runner,
-			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
-		);
+		const result = await runPipeline(makeConfig({ gitConnectionId: 'conn-1' }), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
 
 		expect(result.success).toBe(true);
 		expect(resolveCloneToken).toHaveBeenCalledWith('conn-1');
-		expect(cloneUrls.some((u) => u.includes('x-access-token') && u.includes('ghp_test_token'))).toBe(true);
+		expect(
+			cloneUrls.some((u) => u.includes('x-access-token') && u.includes('ghp_test_token'))
+		).toBe(true);
 	});
 
 	it('configures routes for custom domains and adds www redirect', async () => {
@@ -537,10 +530,12 @@ describe('runPipeline', () => {
 			// Second call: domains query (returns two custom domains)
 			.mockReturnValueOnce({
 				from: vi.fn().mockReturnValue({
-					where: vi.fn().mockResolvedValue([
-						{ hostname: 'custom.example.com' },
-						{ hostname: 'www.custom.example.com' }
-					])
+					where: vi
+						.fn()
+						.mockResolvedValue([
+							{ hostname: 'custom.example.com' },
+							{ hostname: 'www.custom.example.com' }
+						])
 				})
 			});
 
@@ -563,11 +558,13 @@ describe('runPipeline', () => {
 		// getSetting is called twice: first for ssh_deploy_private_key, then for domain_config
 		vi.mocked(getSetting)
 			.mockResolvedValueOnce(null) // ssh key
-			.mockResolvedValueOnce(JSON.stringify({
-				mode: 'subdomain',
-				baseDomain: 'example.com',
-				prefix: 'panel'
-			}))
+			.mockResolvedValueOnce(
+				JSON.stringify({
+					mode: 'subdomain',
+					baseDomain: 'example.com',
+					prefix: 'panel'
+				})
+			);
 
 		const caddy = makeCaddy();
 		const result = await runPipeline(
@@ -581,5 +578,56 @@ describe('runPipeline', () => {
 			hostname: 'my-app.example.com',
 			port: 3001
 		});
+	});
+
+	it('falls back to the original repo URL when token injection hits an invalid URL', async () => {
+		vi.mocked(resolveCloneToken).mockResolvedValueOnce('ghp_test_token');
+
+		const cloneCalls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (args.includes('clone')) cloneCalls.push(args);
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ gitConnectionId: 'conn-1', repoUrl: 'not-a-valid-url' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(cloneCalls.some((args) => args.includes('not-a-valid-url'))).toBe(true);
+		expect(cloneCalls.some((args) => args.some((a) => a.includes('ghp_test_token')))).toBe(false);
+	});
+
+	it('generates and encrypts a new Postgres password when none is stored', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker inspect') && joined.includes('risved-postgres-proj-1')) {
+					return { exitCode: 0, stdout: 'true\n', stderr: '' };
+				}
+				if (joined.includes('docker exec') && joined.includes('pg_isready')) {
+					return { exitCode: 0, stdout: 'accepting connections', stderr: '' };
+				}
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ postgresEnabled: true, postgresPassword: undefined }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(encrypt).toHaveBeenCalledWith(expect.stringMatching(/^[A-Za-z0-9_-]+$/));
 	});
 });
