@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+	createCommandRunner,
 	dockerBuild,
 	dockerRun,
 	dockerStop,
@@ -94,6 +95,52 @@ describe('gitClone', () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('repository not found');
 	});
+
+	it('writes an SSH key and clones over SSH when a private key is provided', async () => {
+		const calls: { cmd: string; args: string[]; env?: Record<string, string> }[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args, options) {
+				calls.push({ cmd, args, env: options?.env });
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const keyB64 = Buffer.from('-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END-----').toString(
+			'base64'
+		);
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			keyB64
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls[0].args).toContain('git@github.com:user/repo.git');
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('-i ');
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('StrictHostKeyChecking=accept-new');
+	});
+
+	it('returns error when the post-clone checkout fails', async () => {
+		const runner = mockRunner({
+			'git clone': { exitCode: 0, stdout: '', stderr: '' },
+			'git checkout': { exitCode: 1, stdout: '', stderr: 'fatal: reference not found' }
+		});
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			undefined,
+			'deadbeef'
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('reference not found');
+	});
 });
 
 describe('getCommitSha', () => {
@@ -138,24 +185,24 @@ describe('dockerBuild', () => {
 	});
 
 	it('builds with requested Docker network', async () => {
-		const calls: string[][] = []
+		const calls: string[][] = [];
 		const runner: CommandRunner = {
 			async exec(cmd, args) {
-				calls.push([cmd, ...args])
-				return { exitCode: 0, stdout: '', stderr: '' }
+				calls.push([cmd, ...args]);
+				return { exitCode: 0, stdout: '', stderr: '' };
 			}
-		}
+		};
 
 		const result = await dockerBuild(runner, {
 			contextDir: '/tmp/ctx',
 			imageTag: 'myapp:abc1234',
 			network: 'risved'
-		})
+		});
 
-		expect(result.success).toBe(true)
-		expect(calls[0]).toContain('--network')
-		expect(calls[0]).toContain('risved')
-	})
+		expect(result.success).toBe(true);
+		expect(calls[0]).toContain('--network');
+		expect(calls[0]).toContain('risved');
+	});
 
 	it('returns error on build failure', async () => {
 		const runner = mockRunner({
@@ -168,6 +215,43 @@ describe('dockerBuild', () => {
 		});
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('COPY failed');
+	});
+
+	it('passes --target and --build-arg flags when provided', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await dockerBuild(runner, {
+			contextDir: '/tmp/ctx',
+			imageTag: 'myapp:abc1234',
+			target: 'build',
+			buildArgs: { NODE_ENV: 'production', PORT: '3000' }
+		});
+
+		expect(result.success).toBe(true);
+		expect(calls[0]).toContain('--target');
+		expect(calls[0]).toContain('build');
+		expect(calls[0]).toContain('--build-arg');
+		expect(calls[0]).toContain('NODE_ENV=production');
+		expect(calls[0]).toContain('PORT=3000');
+	});
+
+	it('returns stdout as the error when stderr is empty', async () => {
+		const runner = mockRunner({
+			'docker build': { exitCode: 1, stdout: 'build failed output', stderr: '' }
+		});
+
+		const result = await dockerBuild(runner, {
+			contextDir: '/tmp/ctx',
+			imageTag: 'app:v1'
+		});
+		expect(result.success).toBe(false);
+		expect(result.error).toBe('build failed output');
 	});
 });
 
@@ -513,5 +597,52 @@ describe('dockerStop error paths', () => {
 		const result = await dockerStop(runner, 'my-app');
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('volume in use');
+	});
+});
+
+describe('createCommandRunner', () => {
+	it('runs a command and captures stdout via execFile', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', ['-e', "process.stdout.write('hello')"]);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toBe('hello');
+	});
+
+	it('captures a non-zero exit code and stderr via execFile', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', [
+			'-e',
+			"process.stderr.write('boom'); process.exit(3)"
+		]);
+		expect(result.exitCode).toBe(3);
+		expect(result.stderr).toContain('boom');
+	});
+
+	it('streams output line by line via spawn when onLine is provided', async () => {
+		const lines: string[] = [];
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', ['-e', "console.log('line1'); console.log('line2')"], {
+			onLine: (line) => lines.push(line)
+		});
+		expect(result.exitCode).toBe(0);
+		expect(lines).toEqual(['line1', 'line2']);
+		expect(result.stdout).toContain('line1');
+	});
+
+	it('resolves a non-zero exit code when streaming', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', ['-e', 'process.exit(2)'], {
+			onLine: () => {}
+		});
+		expect(result.exitCode).toBe(2);
+	});
+
+	it('resolves an error result when the spawned command does not exist', async () => {
+		const runner = createCommandRunner();
+		const result = await runner.exec('risved-definitely-not-a-real-binary', [], {
+			onLine: () => {}
+		});
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toBeTruthy();
 	});
 });
