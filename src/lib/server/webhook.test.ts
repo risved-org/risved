@@ -275,6 +275,86 @@ describe('parseWebhookPayload', () => {
 		expect(result.type).toBe('unknown');
 	});
 
+	it('parses GitHub push with a non-branch ref as-is', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'push' },
+			{ ref: 'refs/tags/v1.0.0', after: 'tag123' }
+		);
+
+		expect(result.branch).toBe('refs/tags/v1.0.0');
+	});
+
+	it('parses GitHub push missing ref, head_commit, and sender', () => {
+		const result = parseWebhookPayload({ 'x-github-event': 'push' }, {});
+
+		expect(result.type).toBe('push');
+		expect(result.branch).toBeNull();
+		expect(result.commitSha).toBeNull();
+		expect(result.commitMessage).toBeNull();
+		expect(result.sender).toBeNull();
+	});
+
+	it('falls back to head_commit.id when after is missing', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'push' },
+			{ ref: 'refs/heads/main', head_commit: { id: 'fallback-sha', message: 'msg' } }
+		);
+
+		expect(result.commitSha).toBe('fallback-sha');
+	});
+
+	it('parses GitLab push with a non-branch ref and no commits', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Push Hook' },
+			{ ref: 'refs/tags/v2', commits: [] }
+		);
+
+		expect(result.branch).toBe('refs/tags/v2');
+		expect(result.commitSha).toBeNull();
+		expect(result.commitMessage).toBeNull();
+		expect(result.sender).toBeNull();
+	});
+
+	it('returns unknown for a GitHub pull_request event missing pull_request data', () => {
+		const result = parseWebhookPayload({ 'x-github-event': 'pull_request' }, { action: 'opened' });
+
+		expect(result.type).toBe('pr_open');
+		expect(result.prNumber).toBeNull();
+		expect(result.branch).toBeNull();
+		expect(result.commitSha).toBeNull();
+		expect(result.sender).toBeNull();
+	});
+
+	it('returns unknown for a GitLab merge request event missing object_attributes', () => {
+		const result = parseWebhookPayload({ 'x-gitlab-event': 'Merge Request Hook' }, {});
+
+		expect(result.type).toBe('unknown');
+	});
+
+	it('parses GitLab MR open/update/close without last_commit', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{
+				object_attributes: {
+					action: 'open',
+					iid: 3,
+					title: 'No commit yet',
+					source_branch: 'feature'
+				}
+			}
+		);
+
+		expect(result.type).toBe('pr_open');
+		expect(result.commitSha).toBeNull();
+		expect(result.sender).toBeNull();
+	});
+
+	it('returns unknown when no recognized event headers are present', () => {
+		const result = parseWebhookPayload({}, { foo: 'bar' });
+
+		expect(result.type).toBe('unknown');
+	});
+
 	it('returns unknown for an unrecognized GitLab MR action', () => {
 		const result = parseWebhookPayload(
 			{ 'x-gitlab-event': 'Merge Request Hook' },
