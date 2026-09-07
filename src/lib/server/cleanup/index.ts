@@ -51,10 +51,12 @@ export class CleanupManager {
 			this.pruneDocker();
 		}, this.config.intervalMs);
 		this.diskTimer = setInterval(() => this.checkDiskPressure(), this.config.diskCheckIntervalMs);
-		/* Run once on start after a short delay */
-		this.startupTimer = setTimeout(() => {
+		/* Run once on start after a short delay, including a routine Docker
+		   prune so an update or restart reclaims space without waiting a day. */
+		this.startupTimer = setTimeout(async () => {
 			this.startupTimer = null;
 			this.runCleanup();
+			await this.pruneDocker();
 			this.checkDiskPressure();
 		}, 5000);
 	}

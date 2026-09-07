@@ -407,6 +407,28 @@ describe('CleanupManager Docker pruning', () => {
 		expect(mockPruneDockerResources).not.toHaveBeenCalled();
 	});
 
+	it('runs a routine prune and disk check shortly after start', async () => {
+		vi.useFakeTimers();
+		try {
+			mockGetSetting.mockResolvedValue(null);
+			mockDb.select.mockReturnValue(createSelectQuery([]));
+			mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue({ changes: 0 }) });
+			mockGetDiskSpace.mockResolvedValue(null);
+			const started = new CleanupManager({}, { exec: vi.fn() });
+			started.start();
+			await vi.advanceTimersByTimeAsync(5100);
+			started.stop();
+			expect(mockPruneDockerResources).toHaveBeenCalledTimes(1);
+			expect(mockPruneDockerResources).toHaveBeenCalledWith(expect.anything(), {
+				aggressive: false,
+				keepPerProject: 3
+			});
+			expect(mockGetDiskSpace).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('runs the disk check on the configured interval', async () => {
 		vi.useFakeTimers();
 		try {
