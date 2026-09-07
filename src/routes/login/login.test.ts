@@ -116,6 +116,27 @@ describe('login action', () => {
 			data: { error: 'An unexpected error occurred' }
 		});
 	});
+
+	it('defaults email and password to empty strings when the fields are missing', async () => {
+		await expect(actions.default(makeActionEvent({}))).rejects.toMatchObject({ status: 302 });
+
+		expect(auth.api.signInEmail).toHaveBeenCalledWith(
+			expect.objectContaining({ body: { email: '', password: '' } })
+		);
+	});
+
+	it('falls back to a generic message when the API error has none', async () => {
+		const { APIError } = await import('better-auth/api');
+		vi.mocked(auth.api.signInEmail).mockRejectedValue(new APIError('BAD_REQUEST', {}));
+
+		const result = await actions.default(
+			makeActionEvent({ email: 'a@b.com', password: 'wrongpassword1' })
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { email: 'a@b.com', error: 'Invalid email or password' }
+		});
+	});
 });
 
 describe('login page source', () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateDockerfile, getFrameworkConfig } from './index';
-import type { DockerfileOptions } from './types';
+import { hybridTemplate } from './templates';
+import type { DockerfileOptions, FrameworkBuildConfig } from './types';
 
 describe('Dockerfile Generation', () => {
 	describe('Tier 1 — Pure Deno', () => {
@@ -370,6 +371,31 @@ describe('Dockerfile Generation', () => {
 			// Hono has no build step — only the cache line and the data-dir prep.
 			expect(hono.content).toContain('RUN deno cache main.ts');
 			expect(hono.content).not.toContain('task build');
+		});
+	});
+
+	describe('hybridTemplate with node_modules in copyPaths', () => {
+		// No real hybrid-tier framework (only Astro) copies node_modules or a
+		// wildcard path today, so exercise these branches directly.
+		const config: FrameworkBuildConfig = {
+			outputDir: 'build',
+			buildCommand: 'npm run build',
+			installCommand: 'npm ci',
+			serveCommand: 'node build/index.js',
+			copyPaths: ['build', 'package.json', 'node_modules', 'assets.*']
+		};
+
+		it('adds a pruned deps stage and copies from it', () => {
+			const content = hybridTemplate(config, 8000);
+			expect(content).toContain('# Pruned deps stage');
+			expect(content).toContain('FROM build AS deps');
+			expect(content).toContain('RUN npm prune --omit=dev');
+			expect(content).toContain('COPY --from=deps /app/build ./build');
+		});
+
+		it('copies wildcard paths without appending the pattern to the destination', () => {
+			const content = hybridTemplate(config, 8000);
+			expect(content).toContain('COPY --from=deps /app/assets.* ./');
 		});
 	});
 });
