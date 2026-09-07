@@ -68,7 +68,14 @@
 		buildCache: { sizeFormatted: string };
 		totalFormatted: string;
 	}
+	interface HostDisk {
+		totalFormatted: string;
+		freeFormatted: string;
+		freePercent: number;
+		low: boolean;
+	}
 	let diskUsage = $state<DockerDisk | null>(null);
+	let hostDisk = $state<HostDisk | null>(null);
 	let diskLoading = $state(false);
 	let pruning = $state<string | null>(null);
 	let pruneResult = $state<string | null>(null);
@@ -202,6 +209,7 @@
 			if (res.ok) {
 				const d = await res.json();
 				diskUsage = d.diskUsage;
+				hostDisk = d.disk ?? null;
 			}
 		} finally {
 			diskLoading = false;
@@ -952,7 +960,22 @@
 						<span class="disk-size mono">{diskUsage.totalFormatted}</span>
 						<span></span>
 					</div>
+					{#if hostDisk}
+						<div class="disk-row" class:disk-low={hostDisk.low} data-testid="host-disk">
+							<span class="disk-label">VPS disk free</span>
+							<span class="disk-count mono">{hostDisk.freePercent}%</span>
+							<span class="disk-size mono"
+								>{hostDisk.freeFormatted} of {hostDisk.totalFormatted}</span
+							>
+							<span></span>
+						</div>
+					{/if}
 				</div>
+				<p class="form-hint">
+					Old images are removed after every deploy (the last 3 per project are kept for rollback).
+					When free space drops below 15% or 5GB, Risved prunes old images and the build cache
+					automatically. Containers and volumes are never pruned automatically.
+				</p>
 			{:else}
 				<p class="empty-text">
 					{diskLoading ? 'Loading Docker disk usage…' : 'No Docker disk data available.'}
@@ -1323,6 +1346,10 @@
 		border-top: 1px solid var(--color-border);
 		padding-top: var(--space-2);
 		font-weight: 600;
+	}
+	.disk-low .disk-size,
+	.disk-low .disk-count {
+		color: var(--color-failed);
 	}
 	.disk-label {
 		color: var(--color-text-1);

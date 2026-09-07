@@ -2,37 +2,60 @@ import { db } from '$lib/server/db';
 import { deployments, buildLogs, cronRuns } from '$lib/server/db/schema';
 import { inArray, isNotNull, lt } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
+import { createCommandRunner } from '$lib/server/pipeline/docker';
+import type { CommandRunner } from '$lib/server/pipeline/types';
+import {
+	getDiskSpace,
+	isDiskLow,
+	pruneDockerResources,
+	KEEP_IMAGES_PER_PROJECT,
+	type DiskSpace,
+	type DockerPruneSummary
+} from './docker-prune';
 import type { CleanupConfig, CleanupResult, DockerDiskUsage, DockerPruneResult } from './types';
+
+export { getDiskSpace, isDiskLow, pruneDockerResources, pruneProjectImages, KEEP_IMAGES_PER_PROJECT } from './docker-prune';
+export type { DiskSpace, DockerPruneSummary } from './docker-prune';
 
 const RETAINED_DEPLOYMENT_LOGS_PER_PROJECT = 16;
 
 const DEFAULT_CONFIG: CleanupConfig = {
 	retentionDays: 30,
-	intervalMs: 24 * 60 * 60 * 1000
+	intervalMs: 24 * 60 * 60 * 1000,
+	diskCheckIntervalMs: 15 * 60 * 1000
 };
 
 /**
- * CleanupManager handles periodic build log retention
- * and provides Docker disk usage / prune operations.
+ * CleanupManager handles periodic build log retention, routine Docker
+ * pruning, a host disk pressure watchdog, and manual prune operations.
  */
 export class CleanupManager {
 	private config: CleanupConfig;
+	private runner: CommandRunner;
 	private timer: ReturnType<typeof setInterval> | null = null;
+	private diskTimer: ReturnType<typeof setInterval> | null = null;
 	private startupTimer: ReturnType<typeof setTimeout> | null = null;
 	private running = false;
+	private pruning = false;
 
-	constructor(config: Partial<CleanupConfig> = {}) {
+	constructor(config: Partial<CleanupConfig> = {}, runner?: CommandRunner) {
 		this.config = { ...DEFAULT_CONFIG, ...config };
+		this.runner = runner ?? createCommandRunner();
 	}
 
 	/** Start periodic cleanup runs. */
 	start(): void {
 		if (this.timer) return;
-		this.timer = setInterval(() => this.runCleanup(), this.config.intervalMs);
+		this.timer = setInterval(() => {
+			this.runCleanup();
+			this.pruneDocker();
+		}, this.config.intervalMs);
+		this.diskTimer = setInterval(() => this.checkDiskPressure(), this.config.diskCheckIntervalMs);
 		/* Run once on start after a short delay */
 		this.startupTimer = setTimeout(() => {
 			this.startupTimer = null;
 			this.runCleanup();
+			this.checkDiskPressure();
 		}, 5000);
 	}
 
@@ -46,6 +69,58 @@ export class CleanupManager {
 			clearInterval(this.timer);
 			this.timer = null;
 		}
+		if (this.diskTimer) {
+			clearInterval(this.diskTimer);
+			this.diskTimer = null;
+		}
+	}
+
+	/**
+	 * Routine Docker housekeeping: drop images of old deployments (keeping the
+	 * newest few per project for rollback), dangling layers and excess build
+	 * cache. Aggressive mode keeps only the newest successful image per project
+	 * and drops the whole build cache — used when the host disk is nearly full.
+	 */
+	async pruneDocker(aggressive = false): Promise<DockerPruneSummary | null> {
+		if (this.pruning) return null;
+		this.pruning = true;
+		try {
+			const summary = await pruneDockerResources(this.runner, {
+				aggressive,
+				keepPerProject: aggressive ? 1 : KEEP_IMAGES_PER_PROJECT
+			});
+			if (summary.imagesRemoved.length > 0 || summary.buildCacheReclaimed !== '0B') {
+				console.log(
+					`[cleanup] Docker prune removed ${summary.imagesRemoved.length} image(s), reclaimed ${summary.danglingReclaimed} dangling and ${summary.buildCacheReclaimed} build cache`
+				);
+			}
+			return summary;
+		} catch (err) {
+			console.error('[cleanup] Docker prune failed:', err);
+			return null;
+		} finally {
+			this.pruning = false;
+		}
+	}
+
+	/** Read host disk space; null when the probe path is unavailable. */
+	getDiskSpace(): Promise<DiskSpace | null> {
+		return getDiskSpace(this.runner);
+	}
+
+	/**
+	 * Watchdog: when the host disk is nearly full, prune aggressively so
+	 * running apps and databases never hit a 100% full disk.
+	 */
+	async checkDiskPressure(): Promise<{ space: DiskSpace | null; pruned: DockerPruneSummary | null }> {
+		const space = await this.getDiskSpace();
+		if (!space || !isDiskLow(space)) return { space, pruned: null };
+
+		console.warn(
+			`[cleanup] Low disk space: ${formatBytes(space.freeBytes)} free (${space.freePercent.toFixed(0)}%) — pruning Docker resources`
+		);
+		const pruned = await this.pruneDocker(true);
+		return { space, pruned };
 	}
 
 	isRunning(): boolean {

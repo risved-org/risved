@@ -5,6 +5,14 @@ import { db } from '$lib/server/db';
 import { deployments, projects, domains, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
+import {
+	formatBytes,
+	getDiskSpace,
+	isDiskLow,
+	pruneDockerResources,
+	pruneProjectImages,
+	KEEP_IMAGES_PER_PROJECT
+} from '$lib/server/cleanup'
 import { encrypt, safeDecrypt } from '$lib/server/crypto'
 import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
@@ -278,6 +286,28 @@ async function _runPipeline(
 
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
 
+		/* A build needs several GB of headroom. If the host disk is nearly
+		   full, prune old images and the build cache first rather than letting
+		   the build fill the disk and take running apps down with it. */
+		const disk = await getDiskSpace(runner)
+		if (disk && isDiskLow(disk)) {
+			emit(
+				'build',
+				`Low disk space (${formatBytes(disk.freeBytes)} free) — pruning unused Docker resources before building…`,
+				'warn'
+			)
+			const pruned = await pruneDockerResources(runner, {
+				aggressive: true,
+				keepPerProject: 1
+			}).catch(() => null)
+			if (pruned) {
+				emit(
+					'build',
+					`Removed ${pruned.imagesRemoved.length} old image(s), reclaimed ${pruned.danglingReclaimed} dangling and ${pruned.buildCacheReclaimed} build cache`
+				)
+			}
+		}
+
 		/* The node and hybrid templates use a locally built warm builder image
 		   (risved-node-build:22). If it is missing we have to build it before
 		   the user's docker build, otherwise BuildKit tries to pull it from
@@ -476,6 +506,17 @@ async function _runPipeline(
 			})
 			.where(eq(deployments.id, deploymentId));
 
+		/* Drop images of older deployments so they don't pile up on disk.
+		   The newest few are kept so rollback keeps working. Best-effort. */
+		try {
+			const removed = await pruneProjectImages(runner, KEEP_IMAGES_PER_PROJECT, config.projectId)
+			if (removed.length > 0) {
+				emit('live', `Removed ${removed.length} old image(s): ${removed.join(', ')}`)
+			}
+			await runner.exec('docker', ['image', 'prune', '-f'])
+		} catch (err) {
+			emit('live', `Image cleanup skipped: ${err instanceof Error ? err.message : 'unknown error'}`, 'warn')
+		}
 
 		return {
 			success: true,

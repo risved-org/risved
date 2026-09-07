@@ -101,6 +101,11 @@ export async function dockerRun(
 	const { imageTag, containerName, port, network = DOCKER_NETWORK, env = {}, volumes = [] } = options;
 	const args = ['run', '-d', '--network', network, '--name', containerName, '-p', `${port}:3000`];
 
+	/* Cap container stdout/stderr logs. Docker never rotates json-file logs by
+	   default and `docker system df` doesn't count them, so a chatty app can
+	   silently fill the disk. */
+	args.push('--log-opt', 'max-size=10m', '--log-opt', 'max-file=3');
+
 	/* Ensure the app binds to all interfaces so the health check and
 	   reverse proxy can reach it over the Docker network. */
 	args.push('-e', 'HOST=0.0.0.0');

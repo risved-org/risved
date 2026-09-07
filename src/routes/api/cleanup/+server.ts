@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { getSetting, setSetting } from '$lib/server/settings';
-import { getCleanupManager } from '$lib/server/cleanup';
+import { getCleanupManager, formatBytes, isDiskLow } from '$lib/server/cleanup';
 import type { RequestHandler } from './$types';
 
 /**
@@ -13,11 +13,22 @@ export const GET: RequestHandler = async (event) => {
 
 	const manager = getCleanupManager();
 	const retentionDays = await getSetting('log_retention_days');
-	const diskUsage = await manager.getDockerDiskUsage();
+	const [diskUsage, disk] = await Promise.all([
+		manager.getDockerDiskUsage(),
+		manager.getDiskSpace()
+	]);
 
 	return json({
 		retentionDays: retentionDays ? parseInt(retentionDays, 10) : 30,
-		diskUsage
+		diskUsage,
+		disk: disk
+			? {
+					totalFormatted: formatBytes(disk.totalBytes),
+					freeFormatted: formatBytes(disk.freeBytes),
+					freePercent: Math.round(disk.freePercent),
+					low: isDiskLow(disk)
+				}
+			: null
 	});
 };
 
