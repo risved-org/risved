@@ -13,6 +13,9 @@ export const LOW_DISK_FREE_BYTES = 5 * 1000 * 1000 * 1000;
 /** How much BuildKit cache a routine prune leaves behind. */
 const BUILD_CACHE_KEEP = '2GB';
 
+/** Self-update pulls a new one of these per release; each is over 2GB. */
+const CONTROL_PLANE_IMAGE = 'ghcr.io/risved-org/risved';
+
 /**
  * /app/data is bind-mounted from the host, so probing it with `df` reports the
  * host disk that Docker images, volumes and logs actually live on.
@@ -158,9 +161,26 @@ export async function pruneProjectImages(
 }
 
 /**
- * Full Docker housekeeping: old project images, dangling layers and the
- * BuildKit cache (trimmed to a fixed size, or dropped entirely when aggressive).
- * Never touches containers or volumes.
+ * Remove control-plane images left behind by self-updates. The running
+ * version is refused by Docker because its container uses it.
+ */
+export async function pruneControlPlaneImages(runner: CommandRunner): Promise<string[]> {
+	const listed = await runner.exec('docker', ['images', '--format', '{{.Repository}}:{{.Tag}}']);
+	if (listed.exitCode !== 0) return [];
+
+	const removed: string[] = [];
+	for (const tag of listed.stdout.split('\n').map((line) => line.trim())) {
+		if (!tag || imageRepository(tag) !== CONTROL_PLANE_IMAGE) continue;
+		const result = await runner.exec('docker', ['rmi', tag]);
+		if (result.exitCode === 0) removed.push(tag);
+	}
+	return removed;
+}
+
+/**
+ * Full Docker housekeeping: old project images, stale control-plane images,
+ * dangling layers and the BuildKit cache (trimmed to a fixed size, or dropped
+ * entirely when aggressive). Never touches containers or volumes.
  */
 export async function pruneDockerResources(
 	runner: CommandRunner,
@@ -171,6 +191,7 @@ export async function pruneDockerResources(
 		options.keepPerProject ?? KEEP_IMAGES_PER_PROJECT,
 		options.projectId
 	);
+	imagesRemoved.push(...(await pruneControlPlaneImages(runner)));
 
 	const dangling = await runner.exec('docker', ['image', 'prune', '-f']);
 

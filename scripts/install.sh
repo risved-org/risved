@@ -162,6 +162,21 @@ install_docker() {
   ok "Docker installed: $(docker --version)"
 }
 
+# Cap the systemd journal so host logs can't quietly eat the disk
+# (an uncapped journal was found at 4GB on a production VPS).
+configure_journald() {
+  if [ -f /etc/systemd/journald.conf.d/risved.conf ]; then
+    return
+  fi
+  mkdir -p /etc/systemd/journald.conf.d
+  cat > /etc/systemd/journald.conf.d/risved.conf <<'EOF'
+[Journal]
+SystemMaxUse=500M
+EOF
+  systemctl restart systemd-journald >/dev/null 2>&1 || true
+  ok "systemd journal capped at 500M"
+}
+
 install_bun() {
   if command -v bun >/dev/null 2>&1; then
     ok "Bun already installed: $(bun --version)"
@@ -431,6 +446,7 @@ main() {
   printf "\n"
   info "Installing dependencies..."
   install_docker
+  configure_journald
   install_bun
 
   printf "\n"

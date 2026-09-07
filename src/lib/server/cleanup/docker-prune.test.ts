@@ -28,6 +28,7 @@ import {
 	getDiskSpace,
 	isDiskLow,
 	pruneProjectImages,
+	pruneControlPlaneImages,
 	pruneDockerResources,
 	LOW_DISK_FREE_BYTES
 } from './docker-prune';
@@ -287,6 +288,31 @@ describe('pruneProjectImages', () => {
 	});
 });
 
+/* ── pruneControlPlaneImages ──────────────────────────────────────── */
+
+describe('pruneControlPlaneImages', () => {
+	it('removes control-plane images that are not in use and nothing else', async () => {
+		const { runner, calls } = makeRunner(
+			[
+				'ghcr.io/risved-org/risved:0.13.5',
+				'ghcr.io/risved-org/risved:0.13.10',
+				'risved-node-build:22',
+				'docker:cli',
+				'my-app:live'
+			],
+			['ghcr.io/risved-org/risved:0.13.10']
+		);
+
+		const removed = await pruneControlPlaneImages(runner);
+
+		expect(removed).toEqual(['ghcr.io/risved-org/risved:0.13.5']);
+		expect(calls.filter((c) => c.startsWith('docker rmi'))).toEqual([
+			'docker rmi ghcr.io/risved-org/risved:0.13.5',
+			'docker rmi ghcr.io/risved-org/risved:0.13.10'
+		]);
+	});
+});
+
 /* ── pruneDockerResources ─────────────────────────────────────────── */
 
 describe('pruneDockerResources', () => {
@@ -296,10 +322,11 @@ describe('pruneDockerResources', () => {
 
 	it('trims the build cache and prunes dangling images by default', async () => {
 		setupDb([], []);
-		const { runner, calls } = makeRunner([]);
+		const { runner, calls } = makeRunner(['ghcr.io/risved-org/risved:0.13.5']);
 
 		const summary = await pruneDockerResources(runner);
 
+		expect(summary.imagesRemoved).toEqual(['ghcr.io/risved-org/risved:0.13.5']);
 		expect(calls).toContain('docker image prune -f');
 		expect(calls).toContain('docker builder prune -f --keep-storage 2GB');
 		expect(summary.danglingReclaimed).toBe('1.2GB');
