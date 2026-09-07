@@ -482,6 +482,20 @@ describe('getContainerLogs', () => {
 		expect(logs).toContain('warn');
 	});
 
+	it('strips ANSI color escapes from container output', async () => {
+		const runner = mockRunner({
+			'docker logs': {
+				exitCode: 0,
+				stdout: '\u001b[1;31m[404] GET /wp-content/plugins/core-plugin/include.php\u001b[0m\n',
+				stderr: ''
+			}
+		})
+
+		const logs = await getContainerLogs(runner, 'my-app')
+
+		expect(logs).toBe('[404] GET /wp-content/plugins/core-plugin/include.php')
+	})
+
 	it('accepts custom tail count', async () => {
 		const calls: string[][] = [];
 		const runner: CommandRunner = {

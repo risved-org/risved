@@ -7,6 +7,13 @@ const DOCKER_NETWORK = 'risved';
 
 const NODE_BUILD_IMAGE = 'risved-node-build:22';
 
+// eslint-disable-next-line no-control-regex -- matching terminal escape sequences is the point
+const ANSI_ESCAPE_PATTERN = /(?:\u001b\[|\u009b)[0-?]*[ -/]*[@-~]/g
+
+function stripAnsi(text: string): string {
+	return text.replace(ANSI_ESCAPE_PATTERN, '')
+}
+
 /**
  * Path to the bundled builder Dockerfiles inside the control-plane container.
  * Override with RISVED_BUILDERS_DIR for development/testing.
@@ -321,7 +328,7 @@ export async function getContainerLogs(
 	tail = 30
 ): Promise<string> {
 	const result = await runner.exec('docker', ['logs', '--tail', String(tail), containerName])
-	return (result.stdout + result.stderr).trim()
+	return stripAnsi(result.stdout + result.stderr).trim()
 }
 
 /**
