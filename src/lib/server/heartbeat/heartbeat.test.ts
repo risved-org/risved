@@ -64,6 +64,7 @@ describe('HeartbeatReporter', () => {
 		delete env.RISVED_INSTANCE_ID;
 		delete env.RISVED_HEARTBEAT_ENDPOINT;
 		delete env.RISVED_HEARTBEAT_SECRET;
+		delete env.ORIGIN;
 		reporter = new HeartbeatReporter({ heartbeatUrl: 'https://test.example.com/api/heartbeat' });
 	});
 
@@ -223,6 +224,7 @@ describe('HeartbeatReporter', () => {
 			const payload = await reporter.buildPayload();
 			const keys = Object.keys(payload).sort();
 			expect(keys).toEqual([
+				'control_plane_url',
 				'instance_id',
 				'last_deploy_at',
 				'project_count',
@@ -310,6 +312,65 @@ describe('HeartbeatReporter', () => {
 			const payload = await reporter.buildPayload();
 			expect(payload.total_backup_bytes).toBe(0);
 			expect(payload.total_bandwidth_bytes_30d).toBe(0);
+		});
+
+		it('builds control_plane_url from the configured hostname', async () => {
+			store.set('hostname', 'dashboard.example.com');
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.control_plane_url).toBe('https://dashboard.example.com');
+		});
+
+		it('falls back to ORIGIN for control_plane_url when no hostname is set', async () => {
+			env.ORIGIN = 'https://origin.example.com/';
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.control_plane_url).toBe('https://origin.example.com');
+		});
+
+		it('returns null control_plane_url when neither hostname nor ORIGIN is set', async () => {
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.control_plane_url).toBeNull();
 		});
 	});
 

@@ -18,6 +18,7 @@ export interface HeartbeatPayload {
 	last_deploy_at: string | null;
 	total_backup_bytes: number;
 	total_bandwidth_bytes_30d: number;
+	control_plane_url: string | null;
 }
 
 /**
@@ -132,6 +133,7 @@ export class HeartbeatReporter {
 			.limit(1);
 
 		const lastDeployAt = latestDeploy[0]?.finishedAt ?? null;
+		const controlPlaneUrl = await this.getControlPlaneUrl();
 
 		return {
 			instance_id: instanceId,
@@ -141,8 +143,21 @@ export class HeartbeatReporter {
 			project_count: projectCountResult.value,
 			last_deploy_at: lastDeployAt,
 			total_backup_bytes: 0,
-			total_bandwidth_bytes_30d: 0
+			total_bandwidth_bytes_30d: 0,
+			control_plane_url: controlPlaneUrl
 		};
+	}
+
+	/**
+	 * Public URL of this control plane's dashboard, so risved.com can link to it.
+	 * Uses the configured hostname (set during onboarding), falling back to ORIGIN.
+	 */
+	async getControlPlaneUrl(): Promise<string | null> {
+		const hostname = (await getSetting('hostname'))?.trim();
+		if (hostname) return `https://${hostname}`;
+
+		const origin = env.ORIGIN?.trim().replace(/\/+$/, '');
+		return origin || null;
 	}
 
 	/** Send the heartbeat. Silently swallows errors. */

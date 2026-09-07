@@ -1008,10 +1008,12 @@
 					your Cloud dashboard.
 				</p>
 				<p class="form-hint">
-					Includes: version, uptime, project count, last deploy time, aggregate usage metrics.
+					Includes: version, uptime, project count, last deploy time, this dashboard's URL,
+					aggregate usage metrics.
 				</p>
 				<p class="form-hint">
-					Does NOT include: project names, domain names, log contents, or any project data.
+					Does NOT include: project names, project domain names, log contents, or any project
+					data.
 				</p>
 				<div class="form-actions">
 					<label class="toggle-label">
