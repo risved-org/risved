@@ -523,6 +523,62 @@ describe('runPipeline', () => {
 		expect(cloneUrls.some((u) => u.includes('x-access-token') && u.includes('ghp_test_token'))).toBe(true);
 	});
 
+	it('falls back to the plain repo URL when it cannot be parsed as a URL', async () => {
+		vi.mocked(resolveCloneToken).mockResolvedValueOnce('ghp_test_token');
+
+		const cloneUrls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (args.includes('clone')) {
+					const urlArg = args.find((a) => a.includes('repo.git'));
+					if (urlArg) cloneUrls.push(urlArg);
+				}
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ gitConnectionId: 'conn-1', repoUrl: 'git@github.com:user/repo.git' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(cloneUrls).toContain('git@github.com:user/repo.git');
+	});
+
+	it('generates and persists a Postgres password when none is stored', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker inspect') && joined.includes('risved-postgres-proj-1')) {
+					return { exitCode: 0, stdout: 'true\n', stderr: '' };
+				}
+				if (joined.includes('docker exec') && joined.includes('pg_isready')) {
+					return { exitCode: 0, stdout: 'accepting connections', stderr: '' };
+				}
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ postgresEnabled: true, postgresPassword: null }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		const { set: setMock } = (db.update as ReturnType<typeof vi.fn>)();
+		expect(setMock).toHaveBeenCalledWith(
+			expect.objectContaining({ postgresPassword: expect.stringContaining('encrypted:') })
+		);
+	});
+
 	it('configures routes for custom domains and adds www redirect', async () => {
 		const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> };
 
