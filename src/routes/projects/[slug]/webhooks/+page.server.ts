@@ -4,6 +4,7 @@ import { projects } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { generateWebhookSecret } from '$lib/server/api-utils';
 import { getSetting } from '$lib/server/settings';
+import { repairWebhook } from '$lib/server/auto-webhook';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load = (async ({ params }) => {
@@ -68,5 +69,37 @@ export const actions: Actions = {
 			.where(eq(projects.id, rows[0].id));
 
 		return { updated: true };
+	},
+
+	repair: async ({ params }) => {
+		const { slug } = params;
+		const rows = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1);
+		if (rows.length === 0) return fail(404, { error: 'Project not found' });
+
+		const project = rows[0];
+
+		// A webhook can't be verified without a secret — mint one if missing.
+		let secret = project.webhookSecret;
+		if (!secret) {
+			secret = generateWebhookSecret();
+			await db
+				.update(projects)
+				.set({ webhookSecret: secret, updatedAt: new Date().toISOString() })
+				.where(eq(projects.id, project.id));
+		}
+
+		const hostname = (await getSetting('hostname')) ?? 'localhost:5173';
+		const origin = `https://${hostname}`;
+
+		const result = await repairWebhook({
+			connectionId: project.gitConnectionId,
+			repoUrl: project.repoUrl,
+			projectId: project.id,
+			webhookSecret: secret,
+			origin
+		});
+
+		if (!result.ok) return fail(400, { repairError: result.reason });
+		return { repaired: true, action: result.action };
 	}
 };

@@ -3,7 +3,9 @@
 	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	import type { ActionData } from './$types';
+
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let activeTab = $state('github');
 	let urlCopied = $state(false);
@@ -140,6 +142,32 @@
 					<button type="submit" class="btn-regen" data-testid="regenerate-btn"> Regenerate </button>
 				</form>
 			</div>
+		</div>
+	</section>
+
+	<!-- Repair Connection -->
+	<section data-testid="repair-section">
+		<h2 class="section-title">Connection</h2>
+		<div class="repair-card">
+			<p class="repair-desc">
+				If pushes to <code class="mono">{data.project.branch}</code> have stopped triggering deployments,
+				the webhook on your Git provider may be missing, disabled, or pointing at an old URL. Repair
+				re-registers it on GitHub with the correct payload URL, secret, and events.
+			</p>
+			<form method="post" action="?/repair" use:enhance>
+				<button type="submit" class="btn-secondary btn-md" data-testid="repair-btn">
+					Repair connection
+				</button>
+			</form>
+			{#if form?.repaired}
+				<p class="repair-result repair-ok" data-testid="repair-success">
+					{form.action === 'created'
+						? 'Webhook created on GitHub — the connection is repaired. Push to your branch to confirm a deployment starts.'
+						: 'Webhook updated on GitHub — the connection is repaired. Push to your branch to confirm a deployment starts.'}
+				</p>
+			{:else if form?.repairError}
+				<p class="repair-result repair-err" data-testid="repair-error">{form.repairError}</p>
+			{/if}
 		</div>
 	</section>
 
@@ -287,6 +315,33 @@
 	.btn-regen:hover {
 		border-color: var(--color-text-2);
 		color: var(--color-text-0);
+	}
+
+	/* Repair connection */
+	.repair-card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		padding: var(--space-3);
+		background: var(--color-bg-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.repair-desc {
+		font-size: .875rem;
+		color: var(--color-text-1);
+		line-height: 1.5;
+	}
+	.repair-result {
+		font-size: .875rem;
+		line-height: 1.5;
+		margin: 0;
+	}
+	.repair-ok {
+		color: var(--color-live);
+	}
+	.repair-err {
+		color: var(--color-failed);
 	}
 
 	/* Tabs */

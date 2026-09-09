@@ -370,4 +370,175 @@ describe('POST /api/webhooks/:projectId', () => {
 		const data = await res.json();
 		expect(data.action).toBe('triggered deployment');
 	});
+
+	it('skips push when no port is allocated', async () => {
+		setupSelectChain([makeProject({ port: null })]);
+
+		const payload = JSON.stringify({
+			ref: 'refs/heads/main',
+			after: 'abc1234',
+			head_commit: { id: 'abc1234', message: 'no port' },
+			sender: { login: 'user' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'push',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('no port allocated');
+	});
+
+	it('skips PR preview when event has no PR number', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: true })]);
+
+		// A pull_request event body without a pull_request.number field
+		const payload = JSON.stringify({
+			action: 'opened',
+			pull_request: {
+				title: 'No number PR',
+				head: { ref: 'feat', sha: 'sha1' },
+				base: { ref: 'main' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('no PR number');
+	});
+
+	it('skips PR close cleanup when auto-delete is disabled', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: true, previewAutoDelete: false })]);
+
+		const payload = JSON.stringify({
+			action: 'closed',
+			pull_request: {
+				number: 42,
+				merged: false,
+				title: 'Closed PR',
+				head: { ref: 'feat', sha: 'sha2' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('auto-delete disabled');
+	});
+
+	it('skips PR close when event has no PR number', async () => {
+		setupSelectChain([makeProject({ previewsEnabled: true, previewAutoDelete: true })]);
+
+		const payload = JSON.stringify({
+			action: 'closed',
+			pull_request: {
+				merged: false,
+				title: 'No number',
+				head: { ref: 'feat', sha: 'sha3' }
+			},
+			sender: { login: 'dev' }
+		});
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(
+			makeEvent(JSON.parse(payload), {
+				'x-github-event': 'pull_request',
+				'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+			})
+		);
+
+		expect(res.status).toBe(200);
+		const data = await res.json();
+		expect(data.action).toContain('no PR number');
+	});
+
+	it('returns 429 when rate limit is exceeded', async () => {
+		setupSelectChain([makeProject()]);
+
+		const payload = JSON.stringify({
+			ref: 'refs/heads/main',
+			after: 'abc',
+			sender: { login: 'user' }
+		});
+		const headers = {
+			'x-github-event': 'push',
+			'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
+		};
+
+		const { POST } = await import('./[projectId]/+server');
+
+		// Exhaust the rate limit window for a unique projectId
+		const overLimitEvent = {
+			request: new Request('http://localhost/api/webhooks/rate-test', {
+				method: 'POST',
+				headers: new Headers({ 'Content-Type': 'application/json', ...headers }),
+				body: payload
+			}),
+			params: { projectId: 'rate-test-project' },
+			locals: {},
+			url: new URL('http://localhost/api/webhooks/rate-test')
+		} as never;
+
+		// First 30 calls should pass the rate limit check (project not found → 404)
+		for (let i = 0; i < 30; i++) {
+			mockDb.select.mockReturnValue({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) })
+				})
+			});
+			await POST(overLimitEvent);
+		}
+
+		// 31st call should be rate limited
+		const res = await POST(overLimitEvent);
+		expect(res.status).toBe(429);
+	});
+
+	it('returns 400 for invalid JSON payload', async () => {
+		setupSelectChain([makeProject()]);
+
+		const rawPayload = 'not-valid-json';
+		const reqHeaders = new Headers({
+			'Content-Type': 'application/json',
+			'x-github-event': 'push',
+			'x-hub-signature-256': `sha256=${hmac(rawPayload, SECRET)}`
+		});
+		const event = {
+			request: new Request('http://localhost/api/webhooks/p-1', {
+				method: 'POST',
+				headers: reqHeaders,
+				body: rawPayload
+			}),
+			params: { projectId: 'p-1' },
+			locals: {},
+			url: new URL('http://localhost/api/webhooks/p-1')
+		} as never;
+
+		const { POST } = await import('./[projectId]/+server');
+		const res = await POST(event);
+
+		expect(res.status).toBe(400);
+	});
 });

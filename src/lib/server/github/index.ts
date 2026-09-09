@@ -3,7 +3,9 @@ import type {
 	GitHubUser,
 	CommitStatusParams,
 	PrCommentParams,
-	WebhookCreateParams
+	WebhookCreateParams,
+	WebhookUpdateParams,
+	GitHubHook
 } from './types';
 
 const GITHUB_API = 'https://api.github.com';
@@ -97,6 +99,35 @@ export class GitHubClient {
 				}
 			})
 		});
+	}
+
+	/** List the webhooks configured on a repository. */
+	async listWebhooks(owner: string, repo: string): Promise<GitHubHook[]> {
+		return this.request<GitHubHook[]>(`/repos/${owner}/${repo}/hooks?per_page=100`);
+	}
+
+	/**
+	 * Update an existing webhook on a repository. Ensures it is active and
+	 * points at the given URL with the given secret and events.
+	 */
+	async updateWebhook(params: WebhookUpdateParams): Promise<{ id: number }> {
+		return this.request<{ id: number }>(
+			`/repos/${params.owner}/${params.repo}/hooks/${params.hookId}`,
+			{
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					active: true,
+					events: params.events ?? ['push', 'pull_request'],
+					config: {
+						url: params.webhookUrl,
+						secret: params.secret,
+						content_type: 'json',
+						insecure_ssl: '0'
+					}
+				})
+			}
+		);
 	}
 
 	/**
