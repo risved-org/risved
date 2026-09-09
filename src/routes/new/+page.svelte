@@ -34,6 +34,8 @@
 	let searching = $state(false)
 	let repos = $state<Repo[]>([])
 	let selectedRepo = $state<Repo | null>(null)
+	let listExpanded = $state(false)
+	const showRepoList = $derived(!selectedRepo || listExpanded)
 
 	interface Repo {
 		id: number
@@ -76,6 +78,7 @@
 
 	async function selectRepo(repo: Repo) {
 		selectedRepo = repo
+		listExpanded = false
 		repoUrl = repo.cloneUrl
 		branch = repo.defaultBranch
 		projectName = repo.name
@@ -84,6 +87,7 @@
 
 	function clearSelection() {
 		selectedRepo = null
+		listExpanded = false
 		repoUrl = ''
 		branch = 'main'
 		projectName = ''
@@ -272,44 +276,51 @@
 									type="text"
 									bind:value={searchQuery}
 									placeholder="Filter repositories…"
-									oninput={() => loadRepos()}
+									oninput={() => {
+										listExpanded = true
+										loadRepos()
+									}}
+									onfocus={() => (listExpanded = true)}
+									onclick={() => (listExpanded = true)}
 									data-testid="repo-search"
 								/>
 							</div>
 						</label>
 
-						{#if searching}
-							<p class="search-status">Loading repositories…</p>
-						{:else if repos.length === 0}
-							<p class="search-status">No repositories found.</p>
-						{:else}
-							<div class="repo-list" data-testid="repo-list">
-								{#each repos as repo (repo.id)}
-									<button
-										type="button"
-										class="repo-row"
-										class:selected={selectedRepo?.id === repo.id}
-										onclick={() => selectRepo(repo)}
-										data-testid="repo-row"
-									>
-										<div class="repo-info">
-											<span class="repo-name">{repo.fullName}</span>
-											{#if repo.description}
-												<span class="repo-desc">{repo.description}</span>
-											{/if}
-										</div>
-										<div class="repo-meta">
-											{#if repo.language}
-												<span class="repo-lang">{repo.language}</span>
-											{/if}
-											<span class="repo-date">{formatDate(repo.updatedAt)}</span>
-											{#if repo.private}
-												<span class="repo-private">private</span>
-											{/if}
-										</div>
-									</button>
-								{/each}
-							</div>
+						{#if showRepoList}
+							{#if searching}
+								<p class="search-status">Loading repositories…</p>
+							{:else if repos.length === 0}
+								<p class="search-status">No repositories found.</p>
+							{:else}
+								<div class="repo-list" data-testid="repo-list">
+									{#each repos as repo (repo.id)}
+										<button
+											type="button"
+											class="repo-row"
+											class:selected={selectedRepo?.id === repo.id}
+											onclick={() => selectRepo(repo)}
+											data-testid="repo-row"
+										>
+											<div class="repo-info">
+												<span class="repo-name">{repo.fullName}</span>
+												{#if repo.description}
+													<span class="repo-desc">{repo.description}</span>
+												{/if}
+											</div>
+											<div class="repo-meta">
+												{#if repo.language}
+													<span class="repo-lang">{repo.language}</span>
+												{/if}
+												<span class="repo-date">{formatDate(repo.updatedAt)}</span>
+												{#if repo.private}
+													<span class="repo-private">private</span>
+												{/if}
+											</div>
+										</button>
+									{/each}
+								</div>
+							{/if}
 						{/if}
 
 						{#if selectedRepo}
@@ -730,6 +741,7 @@
 	fieldset {
 		display: flex;
 		flex-direction: column;
+		min-width: 0;
 		gap: var(--space-4);
 		padding: var(--space-4);
 		padding-bottom: var(--space-5);
