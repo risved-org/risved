@@ -185,6 +185,21 @@ export const resourceMetrics = sqliteTable('resource_metrics', {
 		.$defaultFn(() => new Date().toISOString())
 });
 
+export const bandwidthDaily = sqliteTable(
+	'bandwidth_daily',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		projectId: text('project_id').notNull(),
+		day: text('day').notNull(), // UTC calendar day, YYYY-MM-DD
+		rxBytes: integer('rx_bytes').notNull().default(0),
+		txBytes: integer('tx_bytes').notNull().default(0),
+		updatedAt: text('updated_at')
+			.notNull()
+			.$defaultFn(() => new Date().toISOString())
+	},
+	(table) => [uniqueIndex('bandwidth_daily_project_day_idx').on(table.projectId, table.day)]
+);
+
 export const healthEvents = sqliteTable('health_events', {
 	id: text('id')
 		.primaryKey()

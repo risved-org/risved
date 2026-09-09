@@ -3,6 +3,9 @@ import { projects, deployments } from '$lib/server/db/schema';
 import { desc, eq, count } from 'drizzle-orm';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { getCensusReporter } from '$lib/server/census';
+import { getServerIps } from '$lib/server/dns';
+import { getBandwidthBytes } from '$lib/server/metrics';
+import { getBackupBytes } from './usage';
 import { env } from '$env/dynamic/private';
 import { createHmac } from 'node:crypto';
 
@@ -18,6 +21,7 @@ export interface HeartbeatPayload {
 	last_deploy_at: string | null;
 	total_backup_bytes: number;
 	total_bandwidth_bytes_30d: number;
+	control_plane_url: string | null;
 }
 
 /**
@@ -132,6 +136,13 @@ export class HeartbeatReporter {
 			.limit(1);
 
 		const lastDeployAt = latestDeploy[0]?.finishedAt ?? null;
+		const controlPlaneUrl = await this.getControlPlaneUrl();
+
+		/* Usage figures are best-effort: a failed probe reports 0, not a missed heartbeat */
+		const [totalBackupBytes, totalBandwidthBytes] = await Promise.all([
+			getBackupBytes().catch(() => 0),
+			getBandwidthBytes(30).catch(() => 0)
+		]);
 
 		return {
 			instance_id: instanceId,
@@ -140,9 +151,40 @@ export class HeartbeatReporter {
 			uptime_seconds: uptimeSeconds,
 			project_count: projectCountResult.value,
 			last_deploy_at: lastDeployAt,
-			total_backup_bytes: 0,
-			total_bandwidth_bytes_30d: 0
+			total_backup_bytes: totalBackupBytes,
+			total_bandwidth_bytes_30d: totalBandwidthBytes,
+			control_plane_url: controlPlaneUrl
 		};
+	}
+
+	/**
+	 * Public URL of this control plane's dashboard, so risved.com can link to it.
+	 * Uses the configured hostname (set during onboarding), then the public IP
+	 * when onboarding chose IP-only mode, falling back to ORIGIN.
+	 */
+	async getControlPlaneUrl(): Promise<string | null> {
+		const hostname = (await getSetting('hostname'))?.trim();
+		if (hostname) return `https://${hostname}`;
+
+		if (await this.isIpOnlyMode()) {
+			const { ipv4 } = await getServerIps();
+			if (ipv4) return `http://${ipv4}`;
+		}
+
+		const origin = env.ORIGIN?.trim().replace(/\/+$/, '');
+		return origin || null;
+	}
+
+	private async isIpOnlyMode(): Promise<boolean> {
+		const raw = await getSetting('domain_config');
+		if (!raw) return false;
+
+		try {
+			const config = JSON.parse(raw) as { mode?: unknown };
+			return config.mode === 'ip';
+		} catch {
+			return false;
+		}
 	}
 
 	/** Send the heartbeat. Silently swallows errors. */

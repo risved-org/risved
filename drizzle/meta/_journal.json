@@ -43,6 +43,13 @@
       "when": 1781708784000,
       "tag": "0005_managed_postgres",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788960468118,
+      "tag": "0006_bandwidth_daily",
+      "breakpoints": true
     }
   ]
 }
