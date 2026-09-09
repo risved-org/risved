@@ -3,6 +3,7 @@ import { projects, deployments } from '$lib/server/db/schema';
 import { desc, eq, count } from 'drizzle-orm';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { getCensusReporter } from '$lib/server/census';
+import { getServerIps } from '$lib/server/dns';
 import { env } from '$env/dynamic/private';
 import { createHmac } from 'node:crypto';
 
@@ -150,14 +151,32 @@ export class HeartbeatReporter {
 
 	/**
 	 * Public URL of this control plane's dashboard, so risved.com can link to it.
-	 * Uses the configured hostname (set during onboarding), falling back to ORIGIN.
+	 * Uses the configured hostname (set during onboarding), then the public IP
+	 * when onboarding chose IP-only mode, falling back to ORIGIN.
 	 */
 	async getControlPlaneUrl(): Promise<string | null> {
 		const hostname = (await getSetting('hostname'))?.trim();
 		if (hostname) return `https://${hostname}`;
 
+		if (await this.isIpOnlyMode()) {
+			const { ipv4 } = await getServerIps();
+			if (ipv4) return `http://${ipv4}`;
+		}
+
 		const origin = env.ORIGIN?.trim().replace(/\/+$/, '');
 		return origin || null;
+	}
+
+	private async isIpOnlyMode(): Promise<boolean> {
+		const raw = await getSetting('domain_config');
+		if (!raw) return false;
+
+		try {
+			const config = JSON.parse(raw) as { mode?: unknown };
+			return config.mode === 'ip';
+		} catch {
+			return false;
+		}
 	}
 
 	/** Send the heartbeat. Silently swallows errors. */

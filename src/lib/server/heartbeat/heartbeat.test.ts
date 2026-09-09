@@ -25,6 +25,11 @@ vi.mock('$lib/server/census', () => ({
 	})
 }));
 
+/* Mock public IP lookup */
+vi.mock('$lib/server/dns', () => ({
+	getServerIps: vi.fn(() => Promise.resolve({ ipv4: null, ipv6: null }))
+}));
+
 /* Mock database */
 vi.mock('$lib/server/db', () => ({
 	db: {
@@ -58,8 +63,11 @@ vi.mock('drizzle-orm', () => ({
 describe('HeartbeatReporter', () => {
 	let reporter: HeartbeatReporter;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		store.clear();
+		const { getServerIps } = await import('$lib/server/dns');
+		vi.mocked(getServerIps).mockReset();
+		vi.mocked(getServerIps).mockResolvedValue({ ipv4: null, ipv6: null });
 		delete env.RISVED_MODE;
 		delete env.RISVED_INSTANCE_ID;
 		delete env.RISVED_HEARTBEAT_ENDPOINT;
@@ -332,6 +340,99 @@ describe('HeartbeatReporter', () => {
 
 			const payload = await reporter.buildPayload();
 			expect(payload.control_plane_url).toBe('https://dashboard.example.com');
+		});
+
+		it('builds control_plane_url from the public IP in IP-only mode', async () => {
+			store.set('domain_config', JSON.stringify({ mode: 'ip', baseDomain: '', prefix: '' }));
+			const { getServerIps } = await import('$lib/server/dns');
+			vi.mocked(getServerIps).mockResolvedValueOnce({ ipv4: '1.2.3.4', ipv6: null });
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.control_plane_url).toBe('http://1.2.3.4');
+		});
+
+		it('prefers the configured hostname over the public IP', async () => {
+			store.set('hostname', 'dashboard.example.com');
+			store.set('domain_config', JSON.stringify({ mode: 'ip', baseDomain: '', prefix: '' }));
+			const { getServerIps } = await import('$lib/server/dns');
+			vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.control_plane_url).toBe('https://dashboard.example.com');
+			expect(getServerIps).not.toHaveBeenCalled();
+		});
+
+		it('does not use the public IP when a domain mode was chosen', async () => {
+			store.set(
+				'domain_config',
+				JSON.stringify({ mode: 'subdomain', baseDomain: 'example.com', prefix: 'risved' })
+			);
+			const { getServerIps } = await import('$lib/server/dns');
+			vi.mocked(getServerIps).mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null });
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.control_plane_url).toBeNull();
+			expect(getServerIps).not.toHaveBeenCalled();
+		});
+
+		it('falls back to ORIGIN when the public IP is unavailable in IP-only mode', async () => {
+			store.set('domain_config', JSON.stringify({ mode: 'ip', baseDomain: '', prefix: '' }));
+			env.ORIGIN = 'https://origin.example.com';
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.control_plane_url).toBe('https://origin.example.com');
 		});
 
 		it('falls back to ORIGIN for control_plane_url when no hostname is set', async () => {
