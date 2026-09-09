@@ -4,6 +4,12 @@ export interface ContainerStats {
 	cpuPercent: number;
 	memoryMb: number;
 	memoryLimitMb: number;
+	/** Short container ID, used to notice when a container was replaced */
+	containerId?: string;
+	/** Cumulative bytes received since the container started */
+	netRxBytes?: number;
+	/** Cumulative bytes sent since the container started */
+	netTxBytes?: number;
 }
 
 export interface MetricPoint {

@@ -4,6 +4,8 @@ import { desc, eq, count } from 'drizzle-orm';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { getCensusReporter } from '$lib/server/census';
 import { getServerIps } from '$lib/server/dns';
+import { getBandwidthBytes } from '$lib/server/metrics';
+import { getBackupBytes } from './usage';
 import { env } from '$env/dynamic/private';
 import { createHmac } from 'node:crypto';
 
@@ -136,6 +138,12 @@ export class HeartbeatReporter {
 		const lastDeployAt = latestDeploy[0]?.finishedAt ?? null;
 		const controlPlaneUrl = await this.getControlPlaneUrl();
 
+		/* Usage figures are best-effort: a failed probe reports 0, not a missed heartbeat */
+		const [totalBackupBytes, totalBandwidthBytes] = await Promise.all([
+			getBackupBytes().catch(() => 0),
+			getBandwidthBytes(30).catch(() => 0)
+		]);
+
 		return {
 			instance_id: instanceId,
 			version,
@@ -143,8 +151,8 @@ export class HeartbeatReporter {
 			uptime_seconds: uptimeSeconds,
 			project_count: projectCountResult.value,
 			last_deploy_at: lastDeployAt,
-			total_backup_bytes: 0,
-			total_bandwidth_bytes_30d: 0,
+			total_backup_bytes: totalBackupBytes,
+			total_bandwidth_bytes_30d: totalBandwidthBytes,
 			control_plane_url: controlPlaneUrl
 		};
 	}

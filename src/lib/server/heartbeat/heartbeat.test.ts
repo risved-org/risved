@@ -30,6 +30,15 @@ vi.mock('$lib/server/dns', () => ({
 	getServerIps: vi.fn(() => Promise.resolve({ ipv4: null, ipv6: null }))
 }));
 
+/* Mock usage probes */
+vi.mock('$lib/server/metrics', () => ({
+	getBandwidthBytes: vi.fn(() => Promise.resolve(0))
+}));
+
+vi.mock('./usage', () => ({
+	getBackupBytes: vi.fn(() => Promise.resolve(0))
+}));
+
 /* Mock database */
 vi.mock('$lib/server/db', () => ({
 	db: {
@@ -302,7 +311,36 @@ describe('HeartbeatReporter', () => {
 			expect(payload.last_deploy_at).toBeNull();
 		});
 
-		it('sets backup and bandwidth to 0 (not yet tracked)', async () => {
+		it('reports backup size and 30-day bandwidth from the usage probes', async () => {
+			const { getBackupBytes } = await import('./usage');
+			const { getBandwidthBytes } = await import('$lib/server/metrics');
+			vi.mocked(getBackupBytes).mockResolvedValueOnce(123_456_789);
+			vi.mocked(getBandwidthBytes).mockResolvedValueOnce(987_654_321);
+			const { db } = await import('$lib/server/db');
+			vi.mocked(db.select).mockReturnValue({
+				from: vi
+					.fn()
+					.mockReturnValueOnce(Promise.resolve([{ value: 0 }]))
+					.mockReturnValueOnce({
+						where: vi.fn().mockReturnValue({
+							orderBy: vi.fn().mockReturnValue({
+								limit: vi.fn().mockResolvedValue([])
+							})
+						})
+					})
+			} as any);
+
+			const payload = await reporter.buildPayload();
+			expect(payload.total_backup_bytes).toBe(123_456_789);
+			expect(payload.total_bandwidth_bytes_30d).toBe(987_654_321);
+			expect(getBandwidthBytes).toHaveBeenCalledWith(30);
+		});
+
+		it('falls back to 0 when a usage probe fails', async () => {
+			const { getBackupBytes } = await import('./usage');
+			const { getBandwidthBytes } = await import('$lib/server/metrics');
+			vi.mocked(getBackupBytes).mockRejectedValueOnce(new Error('docker unavailable'));
+			vi.mocked(getBandwidthBytes).mockRejectedValueOnce(new Error('no such table'));
 			const { db } = await import('$lib/server/db');
 			vi.mocked(db.select).mockReturnValue({
 				from: vi

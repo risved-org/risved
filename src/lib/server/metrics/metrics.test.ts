@@ -13,6 +13,13 @@ vi.mock('$lib/server/db/schema', () => ({
 		projectId: 'project_id',
 		bucket: 'bucket',
 		id: 'id'
+	},
+	bandwidthDaily: {
+		projectId: 'project_id',
+		day: 'day',
+		rxBytes: 'rx_bytes',
+		txBytes: 'tx_bytes',
+		updatedAt: 'updated_at'
 	}
 }));
 
@@ -21,7 +28,8 @@ vi.mock('drizzle-orm', () => ({
 	and: vi.fn((...args: unknown[]) => ({ type: 'and', args })),
 	desc: vi.fn(() => 'desc_fn'),
 	gte: vi.fn(() => 'gte_fn'),
-	lt: vi.fn(() => 'lt_fn')
+	lt: vi.fn(() => 'lt_fn'),
+	sql: vi.fn(() => 'sql_fn')
 }));
 
 vi.mock('node:child_process', () => ({
@@ -33,7 +41,11 @@ import {
 	MetricsCollector,
 	parseDockerStats,
 	parseStatsOutput,
+	parseNetIo,
+	parseDockerSize,
 	toBucket,
+	toDay,
+	getBandwidthBytes,
 	getProjectMetrics,
 	getServerMetrics,
 	getMetricsCollector,
@@ -75,7 +87,9 @@ function setupCollectMocks(
 		});
 
 	mockDb.insert.mockReturnValue({
-		values: vi.fn().mockResolvedValue(undefined)
+		values: vi.fn().mockReturnValue({
+			onConflictDoUpdate: vi.fn().mockResolvedValue(undefined)
+		})
 	});
 
 	mockDb.update.mockReturnValue({
@@ -150,6 +164,23 @@ describe('parseStatsOutput', () => {
 		expect(stats[0].memoryMb).toBe(2); // 2048/1024 = 2 MB
 	});
 
+	it('parses optional NetIO and container ID columns', () => {
+		const output = 'myapp|1.00%|64MiB / 1GiB|98.7MB / 57.7MB|aca3ac3f8647\n';
+		const containerMap = new Map([['myapp', 'p-1']]);
+
+		const stats = parseStatsOutput(output, containerMap);
+		expect(stats).toHaveLength(1);
+		expect(stats[0].netRxBytes).toBe(98_700_000);
+		expect(stats[0].netTxBytes).toBe(57_700_000);
+		expect(stats[0].containerId).toBe('aca3ac3f8647');
+	});
+
+	it('leaves network fields undefined for the three-column format', () => {
+		const stats = parseStatsOutput('myapp|1.00%|64MiB / 1GiB\n', new Map([['myapp', 'p-1']]));
+		expect(stats[0].netRxBytes).toBeUndefined();
+		expect(stats[0].containerId).toBeUndefined();
+	});
+
 	it('returns 0 for unrecognised memory units (bytes)', () => {
 		const output = 'app|1.00%|512B / 1GiB\n';
 		const stats = parseStatsOutput(output, new Map([['app', 'p-1']]));
@@ -157,11 +188,44 @@ describe('parseStatsOutput', () => {
 	});
 });
 
+describe('parseNetIo', () => {
+	it('parses received and sent bytes with decimal units', () => {
+		expect(parseNetIo('1.88kB / 126B')).toEqual([1880, 126]);
+		expect(parseNetIo('0B / 0B')).toEqual([0, 0]);
+	});
+
+	it('returns zeros for malformed input', () => {
+		expect(parseNetIo('garbage')).toEqual([0, 0]);
+	});
+});
+
+describe('parseDockerSize', () => {
+	it('handles decimal and binary units', () => {
+		expect(parseDockerSize('453MB')).toBe(453_000_000);
+		expect(parseDockerSize('1.5GB')).toBe(1_500_000_000);
+		expect(parseDockerSize('65.47MB')).toBe(65_470_000);
+		expect(parseDockerSize('1KiB')).toBe(1024);
+		expect(parseDockerSize('126B')).toBe(126);
+	});
+
+	it('returns 0 for unknown units or garbage', () => {
+		expect(parseDockerSize('12 parsecs')).toBe(0);
+		expect(parseDockerSize('')).toBe(0);
+	});
+});
+
+describe('toDay', () => {
+	it('formats the UTC calendar day', () => {
+		expect(toDay(new Date('2026-03-13T23:59:59.000Z'))).toBe('2026-03-13');
+	});
+});
+
 describe('MetricsCollector', () => {
 	let collector: MetricsCollector;
 
 	beforeEach(() => {
-		vi.clearAllMocks();
+		/* Reset (not just clear) so queued mockReturnValueOnce values never leak between tests */
+		vi.resetAllMocks();
 	});
 
 	afterEach(() => {
@@ -249,6 +313,115 @@ describe('MetricsCollector', () => {
 
 			await collector.collect();
 			expect(execFn).not.toHaveBeenCalled();
+		});
+
+		it('records bandwidth as the delta between consecutive samples', async () => {
+			const execFn = vi
+				.fn()
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|1MB / 2MB|abc123\n')
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|1.5MB / 2.25MB|abc123\n');
+			collector = new MetricsCollector({ execFn });
+			const project = [{ id: 'p-1', slug: 'myapp', port: 3001 }];
+			const live = [{ projectId: 'p-1', status: 'live', createdAt: '2026-01-01' }];
+			const existing = [
+				{ id: 1, cpuPercent: 100, memoryMb: 64, memoryLimitMb: 1024, sampleCount: 1 }
+			];
+
+			/* First sample only sets the baseline */
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+			expect(mockDb.insert).not.toHaveBeenCalled();
+
+			/* Second sample writes the delta into today's bucket */
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+			expect(mockDb.insert).toHaveBeenCalledTimes(1);
+			const valuesFn = mockDb.insert.mock.results[0].value.values;
+			expect(valuesFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					projectId: 'p-1',
+					day: toDay(new Date()),
+					rxBytes: 500_000,
+					txBytes: 250_000
+				})
+			);
+		});
+
+		it('counts the whole counter when the container was replaced', async () => {
+			const execFn = vi
+				.fn()
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|9MB / 9MB|old111\n')
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|300kB / 100kB|new222\n');
+			collector = new MetricsCollector({ execFn });
+			const project = [{ id: 'p-1', slug: 'myapp', port: 3001 }];
+			const live = [{ projectId: 'p-1', status: 'live', createdAt: '2026-01-01' }];
+			const existing = [
+				{ id: 1, cpuPercent: 100, memoryMb: 64, memoryLimitMb: 1024, sampleCount: 1 }
+			];
+
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+
+			const valuesFn = mockDb.insert.mock.results[0].value.values;
+			expect(valuesFn).toHaveBeenCalledWith(
+				expect.objectContaining({ rxBytes: 300_000, txBytes: 100_000 })
+			);
+		});
+
+		it('counts the whole counter when it went backwards after a restart', async () => {
+			const execFn = vi
+				.fn()
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|9MB / 9MB|abc123\n')
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|10kB / 5kB|abc123\n');
+			collector = new MetricsCollector({ execFn });
+			const project = [{ id: 'p-1', slug: 'myapp', port: 3001 }];
+			const live = [{ projectId: 'p-1', status: 'live', createdAt: '2026-01-01' }];
+			const existing = [
+				{ id: 1, cpuPercent: 100, memoryMb: 64, memoryLimitMb: 1024, sampleCount: 1 }
+			];
+
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+
+			const valuesFn = mockDb.insert.mock.results[0].value.values;
+			expect(valuesFn).toHaveBeenCalledWith(
+				expect.objectContaining({ rxBytes: 10_000, txBytes: 5_000 })
+			);
+		});
+
+		it('skips the write when nothing was transferred', async () => {
+			const execFn = vi.fn().mockReturnValue('myapp|1.00%|64MiB / 1GiB|5MB / 5MB|abc123\n');
+			collector = new MetricsCollector({ execFn });
+			const project = [{ id: 'p-1', slug: 'myapp', port: 3001 }];
+			const live = [{ projectId: 'p-1', status: 'live', createdAt: '2026-01-01' }];
+			const existing = [
+				{ id: 1, cpuPercent: 100, memoryMb: 64, memoryLimitMb: 1024, sampleCount: 1 }
+			];
+
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+			setupCollectMocks(project, live, existing);
+			await collector.collect();
+
+			expect(mockDb.insert).not.toHaveBeenCalled();
+		});
+
+		it('prunes both resource metrics and old bandwidth days', async () => {
+			const execFn = vi.fn().mockReturnValue('myapp|1.00%|64MiB / 1GiB\n');
+			collector = new MetricsCollector({ execFn });
+
+			setupCollectMocks(
+				[{ id: 'p-1', slug: 'myapp', port: 3001 }],
+				[{ projectId: 'p-1', status: 'live', createdAt: '2026-01-01' }],
+				[{ id: 1, cpuPercent: 100, memoryMb: 64, memoryLimitMb: 1024, sampleCount: 1 }]
+			);
+			await collector.collect();
+
+			expect(mockDb.delete).toHaveBeenCalledTimes(2);
 		});
 
 		it('excludes projects whose latest deployment is not live', async () => {
@@ -358,6 +531,43 @@ describe('getServerMetrics', () => {
 	});
 });
 
+describe('getBandwidthBytes', () => {
+	beforeEach(() => {
+		vi.resetAllMocks();
+	});
+
+	function setupBandwidthMock(rows: unknown[]) {
+		const whereFn = vi.fn().mockResolvedValue(rows);
+		const fromFn = vi.fn().mockReturnValue({ where: whereFn });
+		mockDb.select.mockReturnValueOnce({ from: fromFn });
+		return whereFn;
+	}
+
+	it('sums received and sent bytes across all rows', async () => {
+		setupBandwidthMock([
+			{ rxBytes: 1_000, txBytes: 2_000 },
+			{ rxBytes: 10, txBytes: 20 }
+		]);
+
+		expect(await getBandwidthBytes(30)).toBe(3_030);
+	});
+
+	it('returns 0 when there are no rows', async () => {
+		setupBandwidthMock([]);
+		expect(await getBandwidthBytes()).toBe(0);
+	});
+
+	it('queries from the first day of the window', async () => {
+		const { gte } = await import('drizzle-orm');
+		setupBandwidthMock([]);
+		const since = new Date();
+		since.setUTCDate(since.getUTCDate() - 29);
+
+		await getBandwidthBytes(30);
+		expect(gte).toHaveBeenCalledWith('day', toDay(since));
+	});
+});
+
 describe('getMetricsCollector / _resetMetricsCollector', () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
@@ -394,61 +604,61 @@ describe('getMetricsCollector / _resetMetricsCollector', () => {
 
 describe('parseDockerStats (four-column format)', () => {
 	it('parses valid output with MiB units', () => {
-		const output = 'myapp|12.50%|256MiB|1GiB\n'
-		const map = new Map([['myapp', 'p-1']])
-		const stats = parseDockerStats(output, map)
-		expect(stats).toHaveLength(1)
+		const output = 'myapp|12.50%|256MiB|1GiB\n';
+		const map = new Map([['myapp', 'p-1']]);
+		const stats = parseDockerStats(output, map);
+		expect(stats).toHaveLength(1);
 		expect(stats[0]).toMatchObject({
 			projectId: 'p-1',
 			containerName: 'myapp',
 			cpuPercent: 12.5,
 			memoryMb: 256,
 			memoryLimitMb: 1024
-		})
-	})
+		});
+	});
 
 	it('parses GiB memory fields', () => {
-		const output = 'app|2.00%|1.5GiB|4GiB\n'
-		const map = new Map([['app', 'p-1']])
-		const stats = parseDockerStats(output, map)
-		expect(stats[0].memoryMb).toBe(1536)
-		expect(stats[0].memoryLimitMb).toBe(4096)
-	})
+		const output = 'app|2.00%|1.5GiB|4GiB\n';
+		const map = new Map([['app', 'p-1']]);
+		const stats = parseDockerStats(output, map);
+		expect(stats[0].memoryMb).toBe(1536);
+		expect(stats[0].memoryLimitMb).toBe(4096);
+	});
 
 	it('skips unknown container names', () => {
-		const output = 'unknown|5.00%|100MiB|1GiB\n'
-		const map = new Map([['myapp', 'p-1']])
-		expect(parseDockerStats(output, map)).toHaveLength(0)
-	})
+		const output = 'unknown|5.00%|100MiB|1GiB\n';
+		const map = new Map([['myapp', 'p-1']]);
+		expect(parseDockerStats(output, map)).toHaveLength(0);
+	});
 
 	it('skips lines with fewer than four parts', () => {
-		const output = 'myapp|5.00%|100MiB\n'
-		const map = new Map([['myapp', 'p-1']])
-		expect(parseDockerStats(output, map)).toHaveLength(0)
-	})
+		const output = 'myapp|5.00%|100MiB\n';
+		const map = new Map([['myapp', 'p-1']]);
+		expect(parseDockerStats(output, map)).toHaveLength(0);
+	});
 
 	it('skips blank lines', () => {
-		const output = '\n\nmyapp|1.00%|128MiB|2GiB\n\n'
-		const map = new Map([['myapp', 'p-1']])
-		expect(parseDockerStats(output, map)).toHaveLength(1)
-	})
+		const output = '\n\nmyapp|1.00%|128MiB|2GiB\n\n';
+		const map = new Map([['myapp', 'p-1']]);
+		expect(parseDockerStats(output, map)).toHaveLength(1);
+	});
 
 	it('handles multiple containers', () => {
-		const output = 'app1|1.00%|100MiB|1GiB\napp2|2.00%|200MiB|2GiB\n'
+		const output = 'app1|1.00%|100MiB|1GiB\napp2|2.00%|200MiB|2GiB\n';
 		const map = new Map([
 			['app1', 'p-1'],
 			['app2', 'p-2']
-		])
-		const stats = parseDockerStats(output, map)
-		expect(stats).toHaveLength(2)
-		expect(stats[0].projectId).toBe('p-1')
-		expect(stats[1].projectId).toBe('p-2')
-	})
-})
+		]);
+		const stats = parseDockerStats(output, map);
+		expect(stats).toHaveLength(2);
+		expect(stats[0].projectId).toBe('p-1');
+		expect(stats[1].projectId).toBe('p-2');
+	});
+});
 
 describe('MetricsCollector default execFn', () => {
 	it('uses execSync as the default when no execFn is provided', () => {
-		const collector = new MetricsCollector()
-		expect(collector).toBeInstanceOf(MetricsCollector)
-	})
-})
+		const collector = new MetricsCollector();
+		expect(collector).toBeInstanceOf(MetricsCollector);
+	});
+});
