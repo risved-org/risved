@@ -102,6 +102,30 @@ describe('delivery detail load', () => {
 		expect(result.delivery.headers['content-type']).toBe('application/json');
 		expect((result.delivery.payload as Record<string, string>).ref).toBe('refs/heads/main');
 	});
+
+	it('falls back to the raw payload when it is not valid JSON', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1', name: 'App', slug: 'app' }])
+			.mockResolvedValueOnce([
+				{
+					id: 'del-1',
+					event: 'push',
+					signatureValid: true,
+					actionTaken: 'triggered deployment',
+					createdAt: '2026-03-12T00:00:00Z',
+					headers: '{"content-type":"text/plain"}',
+					payload: 'not-json-payload'
+				}
+			]);
+
+		const result = (await load({
+			params: { slug: 'app', did: 'del-1' }
+		} as Parameters<typeof load>[0])) as {
+			delivery: { payload: unknown };
+		};
+
+		expect(result.delivery.payload).toBe('not-json-payload');
+	});
 });
 
 describe('delivery detail redeliver action', () => {
@@ -115,6 +139,18 @@ describe('delivery detail redeliver action', () => {
 		await expect(
 			actions.redeliver({
 				params: { slug: 'nonexistent', did: 'del-1' }
+			} as Parameters<typeof actions.redeliver>[0])
+		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('throws 404 when delivery not found', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1', name: 'App', slug: 'app' }])
+			.mockResolvedValueOnce([]);
+
+		await expect(
+			actions.redeliver({
+				params: { slug: 'app', did: 'missing' }
 			} as Parameters<typeof actions.redeliver>[0])
 		).rejects.toMatchObject({ status: 404 });
 	});

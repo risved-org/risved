@@ -218,6 +218,50 @@ describe('settings load', () => {
 		expect(result.lastWebhookAt).toBe('2026-05-01T10:00:00Z')
 	})
 
+	it('includes cron jobs with last run info', async () => {
+		const cron = {
+			id: 'cron-1',
+			name: 'Nightly',
+			route: '/api/cron',
+			method: 'GET',
+			schedule: '0 0 * * *',
+			timezone: 'UTC',
+			enabled: true
+		}
+		const lastRun = { status: 'success', statusCode: 200, startedAt: '2026-05-01T00:00:00Z', durationMs: 120 }
+
+		whereMock.mockReturnValueOnce({ limit: limitMock, orderBy: orderByMock })
+		limitMock.mockResolvedValueOnce([sampleProject])
+		whereMock.mockReturnValueOnce([])
+		whereMock.mockReturnValueOnce([])
+		whereMock.mockReturnValueOnce([cron])
+		whereMock.mockReturnValueOnce({ limit: limitMock, orderBy: orderByMock })
+		orderByMock.mockReturnValueOnce({ limit: vi.fn().mockResolvedValue([lastRun]) })
+		orderByMock.mockReturnValueOnce({ limit: vi.fn().mockResolvedValue([]) })
+
+		const result = (await load({ params: { slug: 'test-app' } } as never)) as {
+			cronJobs: Array<{ id: string; lastRun: unknown }>
+		}
+		expect(result.cronJobs).toHaveLength(1)
+		expect(result.cronJobs[0].lastRun).toMatchObject({ status: 'success', statusCode: 200 })
+	})
+
+	it('includes postgres metadata when postgres is enabled', async () => {
+		setupLoadMocks({
+			...sampleProject,
+			postgresEnabled: true,
+			postgresCreatedAt: '2026-01-01T00:00:00Z',
+			postgresPassword: 'enc:stored-pass'
+		} as unknown as typeof sampleProject)
+
+		const result = (await load({ params: { slug: 'test-app' } } as never)) as {
+			postgres: { database: string; urlPreview: string } | null
+		}
+		expect(result.postgres).not.toBeNull()
+		expect(result.postgres?.database).toBe('risved_proj1')
+		expect(result.postgres?.urlPreview).toContain('••••••••')
+	})
+
 	it('webhookActive is false when no webhook secret', async () => {
 		setupLoadMocks({ ...sampleProject, webhookSecret: null } as unknown as typeof sampleProject)
 
