@@ -58,7 +58,18 @@ vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn().mockResolvedValue('example.com')
 }));
 
+vi.mock('$lib/server/crypto', () => ({
+	encrypt: vi.fn((value: string) => `encrypted:${value}`)
+}));
+
+vi.mock('$lib/server/auto-webhook', () => ({
+	registerWebhook: vi.fn()
+}));
+
 import { db } from '$lib/server/db';
+import { getSetting } from '$lib/server/settings';
+import { encrypt } from '$lib/server/crypto';
+import { registerWebhook } from '$lib/server/auto-webhook';
 import { load, actions } from './+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
@@ -75,7 +86,8 @@ function makeActionEvent(formEntries: Record<string, string>) {
 	return {
 		request: {
 			formData: () => Promise.resolve(formData)
-		}
+		},
+		url: new URL('http://localhost/new')
 	} as Parameters<typeof actions.default>[0];
 }
 
@@ -149,6 +161,127 @@ describe('new project action', () => {
 		await expect(
 			actions.default(makeActionEvent({ repoUrl: 'https://github.com/user/my-app.git' }))
 		).rejects.toMatchObject({ status: 303 });
+	});
+
+	it('fails if a project name cannot be derived from the URL', async () => {
+		const result = await actions.default(makeActionEvent({ repoUrl: '/' }));
+		expect(result).toMatchObject({ status: 400 });
+		expect(result?.data?.error).toContain('Could not determine project name');
+	});
+
+	it('fails if the derived slug has no alphanumeric characters', async () => {
+		const result = await actions.default(
+			makeActionEvent({ repoUrl: 'https://github.com/user/test-repo.git', projectName: '!!!' })
+		);
+		expect(result).toMatchObject({ status: 400 });
+		expect(result?.data?.error).toContain('at least one alphanumeric character');
+	});
+
+	it('sets the project domain from a valid domain_config setting', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'domain_config') return JSON.stringify({ baseDomain: 'example.com' });
+			return 'example.com';
+		});
+
+		await expect(
+			actions.default(makeActionEvent({ repoUrl: 'https://github.com/user/test-repo.git' }))
+		).rejects.toMatchObject({ status: 303 });
+
+		expect(dbAny.__valuesMock).toHaveBeenCalledWith(
+			expect.objectContaining({ domain: 'test-repo.example.com' })
+		);
+	});
+
+	it('ignores a corrupt domain_config setting', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'domain_config') return 'not-json';
+			return 'example.com';
+		});
+
+		await expect(
+			actions.default(makeActionEvent({ repoUrl: 'https://github.com/user/test-repo.git' }))
+		).rejects.toMatchObject({ status: 303 });
+
+		expect(dbAny.__valuesMock).toHaveBeenCalledWith(
+			expect.objectContaining({ domain: undefined })
+		);
+	});
+
+	it('matches the tier for a recognized frameworkId', async () => {
+		await expect(
+			actions.default(
+				makeActionEvent({
+					repoUrl: 'https://github.com/user/test-repo.git',
+					frameworkId: 'sveltekit'
+				})
+			)
+		).rejects.toMatchObject({ status: 303 });
+
+		expect(dbAny.__valuesMock).toHaveBeenCalledWith(
+			expect.objectContaining({ frameworkId: 'sveltekit' })
+		);
+	});
+
+	it('saves valid environment variables and skips invalid keys', async () => {
+		await expect(
+			actions.default(
+				makeActionEvent({
+					repoUrl: 'https://github.com/user/test-repo.git',
+					envKeys: 'API_KEY\x1F1bad-key',
+					envValues: 'secretvalue\x1Fnope',
+					envSecrets: '1\x1F0'
+				})
+			)
+		).rejects.toMatchObject({ status: 303 });
+
+		expect(encrypt).toHaveBeenCalledWith('secretvalue');
+		expect(encrypt).toHaveBeenCalledTimes(1);
+		expect(dbAny.__valuesMock).toHaveBeenCalledWith(
+			expect.objectContaining({ key: 'API_KEY', isSecret: true })
+		);
+	});
+
+	it('registers a webhook and uses the configured hostname when a connection is set', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'hostname') return 'risved.example.com';
+			return 'example.com';
+		});
+
+		await expect(
+			actions.default(
+				makeActionEvent({
+					repoUrl: 'https://github.com/user/test-repo.git',
+					connectionId: 'conn-1'
+				})
+			)
+		).rejects.toMatchObject({ status: 303 });
+
+		expect(registerWebhook).toHaveBeenCalledWith(
+			expect.objectContaining({
+				connectionId: 'conn-1',
+				origin: 'https://risved.example.com'
+			})
+		);
+	});
+
+	it('falls back to the request origin when no hostname setting is configured', async () => {
+		vi.mocked(getSetting).mockImplementation(async (key: string) => {
+			if (key === 'hostname') return null;
+			return 'example.com';
+		});
+
+		await expect(
+			actions.default(
+				makeActionEvent({
+					repoUrl: 'https://github.com/user/test-repo.git',
+					connectionId: 'conn-1'
+				})
+			)
+		).rejects.toMatchObject({ status: 303 });
+
+		expect(registerWebhook).toHaveBeenCalledWith(
+			expect.objectContaining({ connectionId: 'conn-1', origin: 'http://localhost' })
+		);
 	});
 });
 
