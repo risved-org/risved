@@ -39,6 +39,19 @@
 	let revokingToken = $state(false);
 	let tokenCopied = $state(false);
 	let newlyGeneratedToken = $state<string | null>(null);
+
+	/* MCP access keys */
+	let mcpKeyLabel = $state('');
+	let creatingMcpKey = $state(false);
+	let newMcpKey = $state<string | null>(null);
+	let mcpKeyCopied = $state(false);
+
+	async function copyMcpKey() {
+		if (!newMcpKey) return;
+		await navigator.clipboard.writeText(newMcpKey);
+		mcpKeyCopied = true;
+		setTimeout(() => (mcpKeyCopied = false), 2000);
+	}
 	// svelte-ignore state_referenced_locally
 	let retentionDays = $state(data.retentionDays ?? 30);
 	let retentionSaving = $state(false);
@@ -741,6 +754,94 @@
 					</form>
 				{/if}
 			</div>
+		</div>
+	</section>
+
+	<!-- MCP access keys -->
+	<section class="section" data-testid="mcp-keys-section">
+		<h2 class="section-title">MCP access keys</h2>
+		<div class="form-card">
+			<p class="field-note">
+				Bearer keys for agents and CI that cannot do the browser OAuth flow. Send one as
+				<code class="mono">Authorization: Bearer rsv_…</code> to
+				<code class="mono">/mcp</code>.
+			</p>
+
+			{#if newMcpKey}
+				<div class="token-display" data-testid="new-mcp-key-display">
+					<p class="token-warning">Copy this key now – it won't be shown again.</p>
+					<div class="token-row">
+						<code class="token-value mono" data-testid="mcp-key-value">{newMcpKey}</code>
+						<button class="btn-copy" onclick={copyMcpKey} data-testid="copy-mcp-key-btn">
+							{mcpKeyCopied ? 'Copied' : 'Copy'}
+						</button>
+					</div>
+				</div>
+			{/if}
+
+			{#if data.apiKeys.length > 0}
+				<ul class="mcp-key-list" data-testid="mcp-key-list">
+					{#each data.apiKeys as key (key.id)}
+						<li class="mcp-key-row">
+							<span class="mcp-key-label">{key.label}</span>
+							<code class="token-masked mono">{key.keyPrefix}…</code>
+							<span class="mcp-key-used">
+								{#if key.lastUsedAt}
+									last used <TimeAgo value={key.lastUsedAt} />
+								{:else}
+									never used
+								{/if}
+							</span>
+							<form method="post" action="?/revokeMcpKey" use:enhance>
+								<input type="hidden" name="keyId" value={key.id} />
+								<button type="submit" class="btn-danger-sm" data-testid="revoke-mcp-key-btn">
+									Revoke
+								</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="empty-text" data-testid="no-mcp-keys">No access keys.</p>
+			{/if}
+
+			<form
+				method="post"
+				action="?/createMcpKey"
+				class="mcp-key-form"
+				use:enhance={() => {
+					creatingMcpKey = true;
+					return async ({ update, result }) => {
+						creatingMcpKey = false;
+						if (result.type === 'success' && result.data?.newMcpKey) {
+							newMcpKey = result.data.newMcpKey as string;
+							mcpKeyLabel = '';
+						}
+						await update({ reset: false });
+					};
+				}}
+			>
+				<input
+					type="text"
+					name="label"
+					bind:value={mcpKeyLabel}
+					placeholder="CI pipeline"
+					maxlength="60"
+					data-testid="mcp-key-label-input"
+				/>
+				<button
+					type="submit"
+					class="btn-secondary btn-lg"
+					disabled={creatingMcpKey || !mcpKeyLabel.trim()}
+					data-testid="create-mcp-key-btn"
+				>
+					{creatingMcpKey ? 'Creating…' : 'Create key'}
+				</button>
+			</form>
+
+			{#if form?.mcpKeyError}
+				<span class="form-error" data-testid="mcp-key-error">{form.mcpKeyError}</span>
+			{/if}
 		</div>
 	</section>
 
@@ -1468,5 +1569,48 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
+	}
+	.field-note {
+		font-size: 0.875rem;
+		color: var(--color-text-2);
+		margin: 0 0 var(--space-3);
+	}
+	.mcp-key-list {
+		list-style: none;
+		margin: 0 0 var(--space-3);
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.mcp-key-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+	}
+	.mcp-key-row:last-child {
+		border-bottom: none;
+	}
+	.mcp-key-label {
+		font-weight: 500;
+		color: var(--color-text-0);
+	}
+	.mcp-key-used {
+		font-size: 0.875rem;
+		color: var(--color-text-2);
+		margin-inline-start: auto;
+	}
+	.mcp-key-form {
+		display: flex;
+		gap: var(--space-2);
+		flex-wrap: wrap;
+		align-items: center;
+	}
+	.mcp-key-form input {
+		flex: 1 1 12rem;
+		min-width: 0;
 	}
 </style>

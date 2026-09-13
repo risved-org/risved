@@ -18,6 +18,11 @@
 			await authClient.signIn.passkey({
 				fetchOptions: {
 					onSuccess() {
+						/* A full load, not goto: the OAuth continuation is a server route. */
+						if (data.postLogin !== '/') {
+							window.location.href = data.postLogin;
+							return;
+						}
 						goto(resolve('/'));
 					},
 					onError(ctx) {

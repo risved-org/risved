@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { user as userTable, gitConnections } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting, setSetting } from '$lib/server/settings';
+import { createApiKey, listApiKeys, revokeApiKey } from '$lib/server/api-keys';
 import { auth } from '$lib/server/auth';
 import { getUpdateChecker } from '$lib/server/update';
 import { getCensusReporter } from '$lib/server/census';
@@ -19,6 +20,7 @@ export const load = (async ({ locals }) => {
 			hostname: null,
 			timezone: null,
 			apiToken: null,
+			apiKeys: [],
 			retentionDays: 30,
 			connections: []
 		};
@@ -62,6 +64,7 @@ export const load = (async ({ locals }) => {
 		hostname: hostname ?? '',
 		timezone: timezone ?? '',
 		apiToken: apiToken ? maskToken(apiToken) : null,
+		apiKeys: await listApiKeys(currentUser.id),
 		retentionDays: isNaN(retentionDays) ? 30 : retentionDays,
 		connections,
 		domainConfig,
@@ -161,6 +164,35 @@ export const actions: Actions = {
 		await setSetting('api_token', '');
 
 		return { tokenRevoked: true };
+	},
+
+	/** Mint an MCP access key. The plaintext is returned once and never stored. */
+	createMcpKey: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { mcpKeyError: 'Not signed in' });
+
+		const formData = await request.formData();
+		const label = ((formData.get('label') as string) ?? '').trim();
+		if (!label) return fail(400, { mcpKeyError: 'Give the key a label' });
+		if (label.length > 60)
+			return fail(400, { mcpKeyError: 'Label must be 60 characters or fewer' });
+
+		const { key } = await createApiKey(locals.user.id, label);
+
+		return { mcpKeyCreated: true, newMcpKey: key };
+	},
+
+	/** Revoke an MCP access key. Scoped to the signed-in user. */
+	revokeMcpKey: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { mcpKeyError: 'Not signed in' });
+
+		const formData = await request.formData();
+		const id = ((formData.get('keyId') as string) ?? '').trim();
+		if (!id) return fail(400, { mcpKeyError: 'Missing key id' });
+
+		const revoked = await revokeApiKey(locals.user.id, id);
+		if (!revoked) return fail(404, { mcpKeyError: 'That key no longer exists' });
+
+		return { mcpKeyRevoked: true };
 	},
 
 	/** Update build log retention period. */

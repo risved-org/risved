@@ -1,62 +1,37 @@
-import { json } from '@sveltejs/kit'
-import { db } from '$lib/server/db'
-import { projects, deployments } from '$lib/server/db/schema'
-import { eq } from 'drizzle-orm'
-import { requireAuth, jsonError } from '$lib/server/api-utils'
-import { runPipeline } from '$lib/server/pipeline'
-import { createCommandRunner } from '$lib/server/pipeline/docker'
-import type { FrameworkId, Tier } from '$lib/server/detection/types'
-import type { RequestHandler } from './$types'
+import { json } from '@sveltejs/kit';
+import { requireAuth, jsonError } from '$lib/server/api-utils';
+import { deployProject, ServiceError } from '$lib/server/projects';
+import type { RequestHandler } from './$types';
+
+/** Map a service error onto the status codes this API already returns. */
+const STATUS: Record<string, number> = {
+	not_found: 404,
+	validation: 400,
+	forbidden: 403,
+	deploy_in_progress: 409,
+	github_app_not_installed: 400,
+	internal: 500
+};
 
 /**
  * POST /api/projects/:id/deploy — trigger a manual deployment.
+ *
+ * `allowConcurrent` keeps the dashboard's behaviour: pressing Deploy while a
+ * build runs queues another rather than refusing. The MCP `deploy` tool does
+ * not, so an agent polling a slow build cannot stack them up.
  */
 export const POST: RequestHandler = async (event) => {
-	await requireAuth(event)
+	await requireAuth(event);
 
-	const { id } = event.params
-	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
+	const { id } = event.params;
 
-	if (rows.length === 0) {
-		return jsonError(404, 'Project not found')
+	try {
+		const result = await deployProject(id, { allowConcurrent: true });
+		return json({ success: true, deploymentId: result.deploymentId });
+	} catch (err) {
+		if (err instanceof ServiceError) {
+			return jsonError(STATUS[err.code] ?? 500, err.message);
+		}
+		throw err;
 	}
-
-	const project = rows[0]
-
-	if (!project.port) {
-		return jsonError(400, 'Project has no port allocated')
-	}
-
-	const config = {
-		projectId: project.id,
-		projectSlug: project.slug,
-		repoUrl: project.repoUrl,
-		branch: project.branch,
-		gitConnectionId: project.gitConnectionId,
-		port: project.port,
-		domain: project.domain ?? undefined,
-		frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
-		tier: (project.tier as Tier) ?? undefined,
-		buildCommand: project.buildCommand,
-		startCommand: project.startCommand,
-		releaseCommand: project.releaseCommand,
-		postgresEnabled: project.postgresEnabled,
-		postgresPassword: project.postgresPassword
-	}
-
-	/* Create deployment record now so the client can navigate to it immediately */
-	const deploymentId = crypto.randomUUID()
-	await db.insert(deployments).values({
-		id: deploymentId,
-		projectId: project.id,
-		status: 'running',
-		startedAt: new Date().toISOString()
-	})
-
-	/* Start pipeline in background so the API responds immediately */
-	runPipeline(config, createCommandRunner(), { deploymentId }).catch((err) => {
-		console.error(`[deploy] Pipeline error for ${project.slug}:`, err)
-	})
-
-	return json({ success: true, deploymentId })
-}
+};

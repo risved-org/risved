@@ -229,4 +229,28 @@ export const cronRuns = sqliteTable('cron_runs', {
 	completedAt: text('completed_at')
 });
 
+/**
+ * Bearer keys for headless clients (CI, agents over the MCP server).
+ * Only the SHA-256 hash of the key is stored — the plaintext `rsv_…` value is
+ * shown once at creation and never again.
+ */
+export const apiKeys = sqliteTable('api_keys', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	/** Owning user. Tools run with this user's permissions. */
+	userId: text('user_id').notNull(),
+	/** Human label so a key can be recognised in the UI before revoking it. */
+	label: text('label').notNull(),
+	/** SHA-256 hex digest of the plaintext key. */
+	keyHash: text('key_hash').notNull().unique(),
+	/** First characters of the key, for display (e.g. `rsv_a1b2c3`). */
+	keyPrefix: text('key_prefix').notNull(),
+	lastUsedAt: text('last_used_at'),
+	revokedAt: text('revoked_at'),
+	createdAt: text('created_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
+});
+
 export * from './auth.schema';

@@ -51,7 +51,23 @@ if (!building) {
 	process.on('SIGTERM', shutdown)
 }
 
-const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks', '/api/git'];
+/*
+ * Paths that must not be bounced to /login by the session guard.
+ *
+ * /mcp and the .well-known discovery documents authenticate themselves: an
+ * unauthenticated MCP request has to come back as a 401 carrying
+ * WWW-Authenticate, because that header is what makes an agent start the OAuth
+ * flow. A 303 to /login would just look like success with an HTML body.
+ */
+const PUBLIC_PATHS = [
+	'/onboarding',
+	'/login',
+	'/api/auth',
+	'/api/webhooks',
+	'/api/git',
+	'/mcp',
+	'/.well-known'
+];
 
 function isPublicPath(pathname: string): boolean {
 	return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));

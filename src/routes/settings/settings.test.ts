@@ -45,6 +45,13 @@ vi.mock('$lib/server/auth', () => ({
 	}
 }));
 
+vi.mock('$lib/server/api-keys', () => ({
+	createApiKey: vi.fn().mockResolvedValue({ key: 'rsv_plaintext', record: { id: 'k-1' } }),
+	listApiKeys: vi.fn().mockResolvedValue([]),
+	revokeApiKey: vi.fn().mockResolvedValue(true)
+}));
+
+import { createApiKey, listApiKeys, revokeApiKey } from '$lib/server/api-keys';
 import { getSetting, setSetting } from '$lib/server/settings';
 import { env } from '$env/dynamic/private';
 import { load, actions } from '../(dashboard)/settings/+page.server';
@@ -345,5 +352,79 @@ describe('settings page source', () => {
 		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
 		expect(mod.default).toContain('TimezonePicker');
 		expect(mod.default).toContain('name="timezone"');
+	});
+});
+
+describe('MCP access keys', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	function formEvent(entries: Record<string, string>, user: { id: string } | null = { id: 'u-1' }) {
+		const formData = new FormData();
+		for (const [key, value] of Object.entries(entries)) formData.append(key, value);
+		return {
+			request: { formData: () => Promise.resolve(formData) },
+			locals: { user }
+		} as unknown as Parameters<NonNullable<typeof actions.createMcpKey>>[0];
+	}
+
+	it('returns the plaintext key once on creation', async () => {
+		const result = await actions.createMcpKey!(formEvent({ label: 'CI' }));
+
+		expect(result).toMatchObject({ mcpKeyCreated: true, newMcpKey: 'rsv_plaintext' });
+		expect(createApiKey).toHaveBeenCalledWith('u-1', 'CI');
+	});
+
+	it('rejects a blank label', async () => {
+		const result = await actions.createMcpKey!(formEvent({ label: '  ' }));
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(createApiKey).not.toHaveBeenCalled();
+	});
+
+	it('refuses to mint a key without a signed-in user', async () => {
+		const result = await actions.createMcpKey!(formEvent({ label: 'CI' }, null));
+
+		expect(result).toMatchObject({ status: 401 });
+	});
+
+	it('revokes a key for its owner', async () => {
+		const result = await actions.revokeMcpKey!(formEvent({ keyId: 'k-1' }));
+
+		expect(result).toMatchObject({ mcpKeyRevoked: true });
+		expect(revokeApiKey).toHaveBeenCalledWith('u-1', 'k-1');
+	});
+
+	it('reports a key that is already gone', async () => {
+		vi.mocked(revokeApiKey).mockResolvedValueOnce(false);
+
+		const result = await actions.revokeMcpKey!(formEvent({ keyId: 'k-1' }));
+
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it("lists the signed-in user's keys", async () => {
+		vi.mocked(listApiKeys).mockResolvedValueOnce([
+			{
+				id: 'k-1',
+				userId: 'u-1',
+				label: 'CI',
+				keyPrefix: 'rsv_abc123',
+				lastUsedAt: null,
+				revokedAt: null,
+				createdAt: '2026-01-01T00:00:00.000Z'
+			}
+		]);
+
+		const result = (await load({
+			locals: { user: { id: 'u-1', email: 'a@b.com', name: 'A' } }
+		} as unknown as Parameters<typeof load>[0])) as { apiKeys: unknown[] };
+
+		expect(result.apiKeys).toHaveLength(1);
+	});
+
+	it('has an MCP keys section in the markup', async () => {
+		const mod = await import('../(dashboard)/settings/+page.svelte?raw');
+		expect(mod.default).toContain('mcp-keys-section');
+		expect(mod.default).toContain('create-mcp-key-btn');
 	});
 });

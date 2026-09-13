@@ -44,6 +44,24 @@ export class GitHubClient {
 		return this.request<GitHubUser>('/user');
 	}
 
+	/**
+	 * Fetch a single repository. Returns null when the token cannot see it —
+	 * GitHub answers 404 for both "missing" and "not authorised", and from our
+	 * side the two are the same thing: this connection cannot deploy it.
+	 */
+	async getRepo(owner: string, repo: string): Promise<GitHubRepo | null> {
+		const res = await this.fetchFn(`${GITHUB_API}/repos/${owner}/${repo}`, {
+			headers: {
+				Authorization: `Bearer ${this.accessToken}`,
+				Accept: 'application/vnd.github+json',
+				'X-GitHub-Api-Version': '2022-11-28'
+			}
+		});
+		if (res.status === 404 || res.status === 403) return null;
+		if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+		return (await res.json()) as GitHubRepo;
+	}
+
 	/** List repositories accessible to the authenticated user. */
 	async listRepos(page = 1, perPage = 30): Promise<GitHubRepo[]> {
 		return this.request<GitHubRepo[]>(

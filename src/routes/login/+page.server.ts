@@ -6,9 +6,23 @@ import { projects, deployments } from '$lib/server/db/schema';
 import { count, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 
+/**
+ * Where to send the user after signing in.
+ *
+ * The MCP OAuth flow parks an unauthenticated client here with the original
+ * authorize query still attached; signing in has to hand that query back to
+ * BetterAuth's authorize endpoint or the waiting agent never gets its code.
+ * Only the query is carried over — the path is ours — so this can't be turned
+ * into an open redirect.
+ */
+export function _resolvePostLogin(url: URL): string {
+	if (!url.searchParams.get('client_id') || !url.searchParams.get('redirect_uri')) return '/';
+	return `/api/auth/mcp/authorize?${url.searchParams.toString()}`;
+}
+
 export const load = (async (event) => {
 	if (event.locals.user) {
-		redirect(302, '/');
+		redirect(302, _resolvePostLogin(event.url));
 	}
 
 	const [projectCount] = await db.select({ count: count() }).from(projects);
@@ -19,7 +33,9 @@ export const load = (async (event) => {
 
 	return {
 		projectCount: projectCount.count,
-		runningCount: runningCount.count
+		runningCount: runningCount.count,
+		/* '/' unless an MCP client is waiting on the OAuth flow. */
+		postLogin: _resolvePostLogin(event.url)
 	};
 }) satisfies PageServerLoad;
 
@@ -40,6 +56,6 @@ export const actions: Actions = {
 			return fail(500, { email, error: 'An unexpected error occurred' });
 		}
 
-		redirect(302, '/');
+		redirect(302, _resolvePostLogin(event.url));
 	}
 };

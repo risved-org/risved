@@ -26,13 +26,14 @@ vi.mock('$lib/server/auth', () => ({
 
 import { db } from '$lib/server/db';
 import { auth } from '$lib/server/auth';
-import { actions, load } from './+page.server';
+import { actions, load, _resolvePostLogin } from './+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
 
-function makeLoadEvent(user?: { id: string; email: string }) {
+function makeLoadEvent(user?: { id: string; email: string }, search = '') {
 	return {
-		locals: { user: user ?? null }
+		locals: { user: user ?? null },
+		url: new URL(`http://localhost/login${search}`)
 	} as unknown as Parameters<typeof load>[0];
 }
 
@@ -68,6 +69,34 @@ describe('login load', () => {
 		const result = await load(makeLoadEvent());
 		expect(result).toHaveProperty('projectCount');
 		expect(result).toHaveProperty('runningCount');
+	});
+
+	it('sends a signed-in user back to the MCP authorize endpoint', async () => {
+		const search = '?client_id=abc&redirect_uri=http%3A%2F%2Flocalhost%2Fcb&state=xyz';
+		await expect(load(makeLoadEvent({ id: '1', email: 'a@b.com' }, search))).rejects.toMatchObject({
+			status: 302,
+			location: expect.stringContaining('/api/auth/mcp/authorize?')
+		});
+	});
+
+	it('exposes postLogin as / when no OAuth flow is in progress', async () => {
+		const result = await load(makeLoadEvent());
+		expect(result).toMatchObject({ postLogin: '/' });
+	});
+});
+
+describe('_resolvePostLogin', () => {
+	it('ignores a client_id without a redirect_uri', () => {
+		expect(_resolvePostLogin(new URL('http://localhost/login?client_id=abc'))).toBe('/');
+	});
+
+	it('carries the whole authorize query through', () => {
+		const url = new URL(
+			'http://localhost/login?client_id=abc&redirect_uri=http%3A%2F%2Fcb&code_challenge=xyz'
+		);
+		const target = _resolvePostLogin(url);
+		expect(target).toContain('code_challenge=xyz');
+		expect(target.startsWith('/api/auth/mcp/authorize?')).toBe(true);
 	});
 });
 

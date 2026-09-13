@@ -43,6 +43,13 @@
       "when": 1781708784000,
       "tag": "0005_managed_postgres",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789302156854,
+      "tag": "0006_mcp_oauth_and_api_keys",
+      "breakpoints": true
     }
   ]
 }
