@@ -57,6 +57,13 @@
       "when": 1791417600000,
       "tag": "0007_project_runtime",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792746000000,
+      "tag": "0008_mcp_oauth_and_api_keys",
+      "breakpoints": true
     }
   ]
 }

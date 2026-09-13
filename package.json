@@ -1,7 +1,7 @@
 {
 	"name": "risved",
 	"private": true,
-	"version": "0.22.0",
+	"version": "0.23.0",
 	"type": "module",
 	"bin": {
 		"risved": "scripts/risved.mjs"
@@ -24,7 +24,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"release": "VERSION=$(node -p \"require('./package.json').version\") && git tag -a \"v$VERSION\" -m \"Release v$VERSION\" && git push --follow-tags"
+		"release": "VERSION=$(node -p \"require('./package.json').version\") && git tag -a \"v$VERSION\" -m \"Release v$VERSION\" && git push --follow-tags",
+		"test:mcp": "DATABASE_URL=file:build.db BETTER_AUTH_SECRET=build-placeholder BETTER_AUTH_URL=http://localhost:5188 ORIGIN=http://localhost:5188 bun run build && bunx playwright test --config=e2e/mcp/playwright.config.ts"
 	},
 	"dependencies": {
 		"@better-auth/core": "^1.5.5",
@@ -33,10 +34,12 @@
 		"@fontsource/cascadia-code": "^5.2.3",
 		"@fontsource/mozilla-text": "^5.2.2",
 		"@libsql/client": "^0.17.0",
+		"@modelcontextprotocol/sdk": "^1.30.0",
 		"@sveltejs/adapter-node": "^5.5.4",
 		"croner": "^10.0.1",
 		"drizzle-orm": "^0.45.1",
-		"layerchart": "^1.0.13"
+		"layerchart": "^1.0.13",
+		"zod": "^4.6.4"
 	},
 	"devDependencies": {
 		"@better-auth/cli": "^1.4.21",
