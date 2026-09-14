@@ -91,6 +91,12 @@ function makeUpdateChain() {
 	}
 }
 
+/* createPreview attaches .then/.catch to the fire-and-forget runPipeline
+   promise; flush the microtask queue so those handlers run before assertions. */
+function flushPromises() {
+	return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 const PROJECT = {
 	id: 'proj-1',
 	slug: 'myapp',
@@ -168,6 +174,59 @@ describe('createPreview', () => {
 		expect(result).toMatchObject({ success: true, previewId: 'prev-existing', port: 4005 })
 		expect(mockDb.update).toHaveBeenCalled()
 		expect(mockDb.insert).not.toHaveBeenCalled()
+	})
+
+	it('marks the preview active once the background pipeline succeeds', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+		const updateChain = makeUpdateChain()
+		mockDb.update.mockReturnValue(updateChain)
+		mockRunPipeline.mockResolvedValue({ success: true, deploymentId: 'dep-1', commitSha: 'abc123' })
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+		await flushPromises()
+
+		expect(updateChain.set).toHaveBeenCalledWith(
+			expect.objectContaining({ status: 'active', deploymentId: 'dep-1' })
+		)
+	})
+
+	it('marks the preview failed when the pipeline result is unsuccessful', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+		const updateChain = makeUpdateChain()
+		mockDb.update.mockReturnValue(updateChain)
+		mockRunPipeline.mockResolvedValue({ success: false })
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+		await flushPromises()
+
+		expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
+	})
+
+	it('marks the preview failed when the background pipeline throws', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+		const updateChain = makeUpdateChain()
+		mockDb.update.mockReturnValue(updateChain)
+		mockRunPipeline.mockRejectedValue(new Error('pipeline exploded'))
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+		await flushPromises()
+
+		expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
 	})
 })
 
