@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
 import {
 	dockerBuild,
 	dockerRun,
@@ -11,9 +12,34 @@ import {
 	toSshUrl,
 	getCommitSha,
 	gitClone,
-	waitForHealthy
+	waitForHealthy,
+	createCommandRunner
 } from './docker';
 import type { CommandRunner } from './types';
+
+vi.mock('node:child_process', () => ({
+	execFile: vi.fn(),
+	spawn: vi.fn()
+}));
+
+vi.mock('node:util', () => ({
+	promisify: vi.fn((fn: unknown) => fn)
+}));
+
+type FakeChild = EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
+
+function fakeChild(): FakeChild {
+	const child = new EventEmitter() as FakeChild;
+	child.stdout = new EventEmitter();
+	child.stderr = new EventEmitter();
+	return child;
+}
+
+/* createCommandRunner's spawn path awaits a dynamic import before calling
+   spawn(), so listeners attach a tick after runner.exec() is invoked. */
+function flushMicrotasks(): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 function mockRunner(
 	responses: Record<string, { exitCode: number; stdout: string; stderr: string }>
@@ -93,6 +119,74 @@ describe('gitClone', () => {
 		const result = await gitClone(runner, 'bad-url', 'main', '/tmp/dest');
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('repository not found');
+	});
+
+	it('writes a temp key file and clones over ssh when a key is provided', async () => {
+		const calls: { cmd: string; args: string[]; env?: Record<string, string> }[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args, options) {
+				calls.push({ cmd, args, env: options?.env as Record<string, string> | undefined });
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const keyB64 = btoa('-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----');
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			keyB64
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls[0].args).toContain('git@github.com:user/repo.git');
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('-i ');
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('StrictHostKeyChecking=accept-new');
+	});
+
+	it('returns an error when the ssh clone fails', async () => {
+		const runner: CommandRunner = {
+			async exec() {
+				return { exitCode: 128, stdout: '', stderr: 'Permission denied (publickey)' };
+			}
+		};
+
+		const keyB64 = btoa('fake-key');
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			keyB64
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Permission denied');
+	});
+
+	it('checks out a rebuild ref over ssh and surfaces a failed checkout', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				if (args[0] === 'checkout') {
+					return { exitCode: 1, stdout: '', stderr: 'reference not found' };
+				}
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const keyB64 = btoa('fake-key');
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			keyB64,
+			'deadbee'
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('reference not found');
 	});
 });
 
@@ -492,6 +586,96 @@ describe('getContainerLogs', () => {
 		};
 		await getContainerLogs(runner, 'my-app', 50);
 		expect(calls[0]).toContain('50');
+	});
+});
+
+describe('createCommandRunner', () => {
+	it('runs a command via execFile when no onLine is given', async () => {
+		const { execFile } = await import('node:child_process');
+		vi.mocked(execFile).mockResolvedValueOnce({ stdout: 'ok\n', stderr: '' } as never);
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['ps']);
+
+		expect(result).toEqual({ exitCode: 0, stdout: 'ok\n', stderr: '' });
+		expect(execFile).toHaveBeenCalledWith(
+			'docker',
+			['ps'],
+			expect.objectContaining({ maxBuffer: 10 * 1024 * 1024 })
+		);
+	});
+
+	it('returns the exit code and output when execFile rejects', async () => {
+		const { execFile } = await import('node:child_process');
+		vi.mocked(execFile).mockRejectedValueOnce(
+			Object.assign(new Error('fail'), { code: 127, stdout: 'partial', stderr: 'not found' })
+		);
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['bogus']);
+
+		expect(result).toEqual({ exitCode: 127, stdout: 'partial', stderr: 'not found' });
+	});
+
+	it('defaults to exit code 1 when the rejection carries no code or output', async () => {
+		const { execFile } = await import('node:child_process');
+		vi.mocked(execFile).mockRejectedValueOnce(new Error('boom'));
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['bogus']);
+
+		expect(result).toEqual({ exitCode: 1, stdout: '', stderr: '' });
+	});
+
+	it('streams output line by line via spawn when onLine is given', async () => {
+		const { spawn } = await import('node:child_process');
+		const child = fakeChild();
+		vi.mocked(spawn).mockReturnValue(child as never);
+
+		const lines: string[] = [];
+		const runner = createCommandRunner();
+		const resultPromise = runner.exec('docker', ['build', '.'], {
+			onLine: (line) => lines.push(line)
+		});
+
+		await flushMicrotasks();
+		child.stdout.emit('data', Buffer.from('line one\nline two\n'));
+		child.stderr.emit('data', Buffer.from('a warning\n'));
+		child.emit('close', 0);
+
+		const result = await resultPromise;
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain('line one');
+		expect(lines).toEqual(['line one', 'line two', 'a warning']);
+	});
+
+	it('resolves with exit code 1 when spawn emits an error', async () => {
+		const { spawn } = await import('node:child_process');
+		const child = fakeChild();
+		vi.mocked(spawn).mockReturnValue(child as never);
+
+		const runner = createCommandRunner();
+		const resultPromise = runner.exec('docker', ['build', '.'], { onLine: () => {} });
+
+		await flushMicrotasks();
+		child.emit('error', new Error('spawn failed'));
+
+		const result = await resultPromise;
+		expect(result).toEqual({ exitCode: 1, stdout: '', stderr: 'spawn failed' });
+	});
+
+	it('defaults exit code to 1 when close fires with a null code', async () => {
+		const { spawn } = await import('node:child_process');
+		const child = fakeChild();
+		vi.mocked(spawn).mockReturnValue(child as never);
+
+		const runner = createCommandRunner();
+		const resultPromise = runner.exec('docker', ['build', '.'], { onLine: () => {} });
+		await flushMicrotasks();
+		child.emit('close', null);
+
+		const result = await resultPromise;
+		expect(result.exitCode).toBe(1);
 	});
 });
 
