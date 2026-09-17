@@ -41,6 +41,12 @@ describe('verifySignature', () => {
 		const sig = `sha256=${hmac(payload, 'wrong-secret')}`;
 		expect(verifySignature(payload, secret, { 'x-hub-signature-256': sig })).toBe(false);
 	});
+
+	it('rejects a token with equal string length but different byte length', () => {
+		/* 'ab'.length === 2, but 'a€' also has .length === 2 while encoding to 4 UTF-8 bytes,
+		 * which makes timingSafeEqual throw a RangeError that safeCompare must catch. */
+		expect(verifySignature(payload, 'ab', { 'x-gitlab-token': 'a€' })).toBe(false);
+	});
 });
 
 describe('parseWebhookPayload', () => {

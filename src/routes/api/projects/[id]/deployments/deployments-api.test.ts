@@ -285,4 +285,38 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 
 		await expect(res.body!.cancel()).resolves.toBeUndefined();
 	});
+
+	it('polls again after 500ms when still not terminal, then closes once it is', async () => {
+		vi.useFakeTimers();
+		try {
+			const deployment = { id: 'd-4', projectId: 'p-1', status: 'building' };
+			let limitCallCount = 0;
+			mockDb.select.mockImplementation(() => ({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockImplementation(() => {
+							limitCallCount++;
+							if (limitCallCount === 1) return Promise.resolve([deployment]);
+							if (limitCallCount === 2) return Promise.resolve([{ ...deployment, status: 'building' }]);
+							return Promise.resolve([{ ...deployment, status: 'live' }]);
+						}),
+						orderBy: vi.fn().mockResolvedValue([])
+					})
+				})
+			}));
+
+			const { GET } = await import('./[did]/logs/+server');
+			const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-4' } }));
+
+			const textPromise = res.text();
+			await vi.advanceTimersByTimeAsync(500);
+			const text = await textPromise;
+
+			expect(text).toContain('event: done');
+			expect(text).toContain('live');
+			expect(limitCallCount).toBe(3);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });
