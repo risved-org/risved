@@ -812,6 +812,7 @@
 	}
 	.env-value {
 		flex: 1;
+		min-width: 0;
 		padding: var(--space-2) var(--space-2);
 		background: transparent;
 		border: none;
@@ -874,6 +875,23 @@
 	.env-secret-toggle:hover,
 	.env-remove:hover {
 		color: var(--color-text-0);
+	}
+	/* On narrow screens the key gets its own line so the value and its controls have room */
+	@media (max-width: 40rem) {
+		.env-row {
+			flex-wrap: wrap;
+		}
+		.env-key {
+			flex: 1 0 100%;
+			border-right: none;
+			border-bottom: 1px solid var(--color-border);
+		}
+		.env-value {
+			flex: 1 1 8rem;
+		}
+		.env-secret {
+			margin-left: auto;
+		}
 	}
 	.env-empty {
 		padding: var(--space-3);
