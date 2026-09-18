@@ -23,6 +23,8 @@ export interface DockerfileOptions {
 	yarnVersion?: 'classic' | 'berry';
 	/** Framework-specific metadata from detection (e.g. nuxt2 srcDir) */
 	meta?: Record<string, string>;
+	/** The pipeline injected a build-time .env that must stay out of the runtime image */
+	stripBuildEnv?: boolean;
 }
 
 /** Result of Dockerfile generation */

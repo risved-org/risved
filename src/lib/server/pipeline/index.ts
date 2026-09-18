@@ -250,7 +250,8 @@ async function _runPipeline(
 			yarnVersion: pmResult.yarnVersion,
 			buildCommand: config.buildCommand || undefined,
 			startCommand: config.startCommand || undefined,
-			meta: frameworkMeta
+			meta: frameworkMeta,
+			stripBuildEnv: Object.keys(envMap).length > 0
 		});
 		const dockerfileContent = dockerfile.content
 
@@ -259,7 +260,9 @@ async function _runPipeline(
 		   - Private vars (BETTER_AUTH_SECRET, DATABASE_URL, etc.) are
 		     available when SvelteKit analyzes server modules during build
 		   The .env file lives only in the builder stage — it is NOT copied
-		   to the runtime image (only copyPaths are). Secrets stay safe.
+		   to the runtime image. Frameworks that ship the whole build context
+		   (Tier 1 Deno, generic) drop it in a throwaway stage first, see
+		   stripBuildEnv in the Dockerfile templates.
 		   At runtime, all env vars are passed via `docker run -e`. */
 		const buildEnv = Object.entries(envMap)
 		if (buildEnv.length > 0) {
