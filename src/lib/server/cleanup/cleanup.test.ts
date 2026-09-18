@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
+/* Never let these tests reach the real Docker daemon on a developer machine */
+vi.mock('node:child_process', () => ({
+	execFile: vi.fn((_cmd: string, _args: string[], cb: (err: Error) => void) =>
+		cb(new Error('docker unavailable'))
+	)
+}));
+
 vi.mock('$lib/server/db', () => ({
 	db: { select: vi.fn(), delete: vi.fn() }
 }));
@@ -22,9 +29,18 @@ vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn()
 }));
 
+vi.mock('./docker-prune', () => ({
+	KEEP_IMAGES_PER_PROJECT: 3,
+	getDiskSpace: vi.fn(),
+	isDiskLow: vi.fn(),
+	pruneDockerResources: vi.fn(),
+	pruneProjectImages: vi.fn()
+}));
+
 import { db } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
 import { inArray } from 'drizzle-orm';
+import { getDiskSpace, isDiskLow, pruneDockerResources } from './docker-prune';
 import { CleanupManager, getCleanupManager, parseDockerSize, formatBytes } from './index';
 
 const mockDb = db as unknown as {
@@ -33,6 +49,9 @@ const mockDb = db as unknown as {
 };
 const mockGetSetting = getSetting as ReturnType<typeof vi.fn>;
 const mockInArray = inArray as ReturnType<typeof vi.fn>;
+const mockGetDiskSpace = getDiskSpace as ReturnType<typeof vi.fn>;
+const mockIsDiskLow = isDiskLow as ReturnType<typeof vi.fn>;
+const mockPruneDockerResources = pruneDockerResources as ReturnType<typeof vi.fn>;
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -313,5 +332,117 @@ describe('getCleanupManager singleton', () => {
 		const b = getCleanupManager();
 		expect(a).toBe(b);
 		a.stop();
+	});
+});
+
+describe('CleanupManager Docker pruning', () => {
+	let manager: CleanupManager;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		manager = new CleanupManager({}, { exec: vi.fn() });
+		mockPruneDockerResources.mockResolvedValue({
+			imagesRemoved: [],
+			danglingReclaimed: '0B',
+			buildCacheReclaimed: '0B'
+		});
+	});
+
+	afterEach(() => {
+		manager.stop();
+	});
+
+	it('pruneDocker keeps three images per project and trims the cache by default', async () => {
+		await manager.pruneDocker();
+		expect(mockPruneDockerResources).toHaveBeenCalledWith(expect.anything(), {
+			aggressive: false,
+			keepPerProject: 3
+		});
+	});
+
+	it('pruneDocker in aggressive mode keeps one image per project', async () => {
+		await manager.pruneDocker(true);
+		expect(mockPruneDockerResources).toHaveBeenCalledWith(expect.anything(), {
+			aggressive: true,
+			keepPerProject: 1
+		});
+	});
+
+	it('pruneDocker returns null instead of throwing when docker fails', async () => {
+		mockPruneDockerResources.mockRejectedValue(new Error('docker down'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		expect(await manager.pruneDocker()).toBeNull();
+	});
+
+	it('checkDiskPressure does nothing when disk is healthy', async () => {
+		mockGetDiskSpace.mockResolvedValue({ totalBytes: 40e9, freeBytes: 20e9, freePercent: 50 });
+		mockIsDiskLow.mockReturnValue(false);
+
+		const result = await manager.checkDiskPressure();
+
+		expect(result.pruned).toBeNull();
+		expect(mockPruneDockerResources).not.toHaveBeenCalled();
+	});
+
+	it('checkDiskPressure prunes aggressively when disk is low', async () => {
+		mockGetDiskSpace.mockResolvedValue({ totalBytes: 40e9, freeBytes: 2e9, freePercent: 5 });
+		mockIsDiskLow.mockReturnValue(true);
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const result = await manager.checkDiskPressure();
+
+		expect(result.pruned).not.toBeNull();
+		expect(mockPruneDockerResources).toHaveBeenCalledWith(expect.anything(), {
+			aggressive: true,
+			keepPerProject: 1
+		});
+	});
+
+	it('checkDiskPressure skips when the disk cannot be probed', async () => {
+		mockGetDiskSpace.mockResolvedValue(null);
+
+		const result = await manager.checkDiskPressure();
+
+		expect(result.space).toBeNull();
+		expect(mockPruneDockerResources).not.toHaveBeenCalled();
+	});
+
+	it('runs a routine prune and disk check shortly after start', async () => {
+		vi.useFakeTimers();
+		try {
+			mockGetSetting.mockResolvedValue(null);
+			mockDb.select.mockReturnValue(createSelectQuery([]));
+			mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue({ changes: 0 }) });
+			mockGetDiskSpace.mockResolvedValue(null);
+			const started = new CleanupManager({}, { exec: vi.fn() });
+			started.start();
+			await vi.advanceTimersByTimeAsync(5100);
+			started.stop();
+			expect(mockPruneDockerResources).toHaveBeenCalledTimes(1);
+			expect(mockPruneDockerResources).toHaveBeenCalledWith(expect.anything(), {
+				aggressive: false,
+				keepPerProject: 3
+			});
+			expect(mockGetDiskSpace).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('runs the disk check on the configured interval', async () => {
+		vi.useFakeTimers();
+		try {
+			mockGetDiskSpace.mockResolvedValue(null);
+			const timed = new CleanupManager(
+				{ diskCheckIntervalMs: 1000, intervalMs: 60000 },
+				{ exec: vi.fn() }
+			);
+			timed.start();
+			await vi.advanceTimersByTimeAsync(2500);
+			timed.stop();
+			expect(mockGetDiskSpace).toHaveBeenCalledTimes(2);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

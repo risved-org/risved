@@ -6,12 +6,10 @@ import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { encrypt, safeDecrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
-/** Mask a secret value, showing only the first 4 chars of the decrypted value. */
+/** Secrets are write-only: return a fixed mask that reveals nothing about the value. */
 function maskValue(value: string, isSecret: boolean): string {
 	if (!isSecret) return safeDecrypt(value);
-	const plain = safeDecrypt(value);
-	if (plain.length <= 4) return '••••';
-	return plain.slice(0, 4) + '••••••••';
+	return '••••••••';
 }
 
 /**
@@ -49,6 +47,10 @@ export const PUT: RequestHandler = async (event) => {
 		updates.value = encrypt(value);
 	}
 	if (is_secret !== undefined) {
+		/* Unmarking a secret without a new value would expose the stored one */
+		if (is_secret !== true && rows[0].isSecret && value === undefined) {
+			return jsonError(400, 'A new value is required to make a secret a plain variable');
+		}
 		updates.isSecret = is_secret === true;
 	}
 

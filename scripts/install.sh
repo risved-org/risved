@@ -18,9 +18,11 @@ RISVED_PORT="${RISVED_PORT:-3000}"
 RISVED_DOCKER_NETWORK="risved"
 CADDY_IMAGE="caddy:2-alpine"
 RISVED_DATA_DIR="/opt/risved"
-MIN_RAM_MB=2048
+# Nominal 2GB servers report ~1.9GB in /proc/meminfo, so keep headroom below 2048
+MIN_RAM_MB=1800
 REC_RAM_MB=4096
 MIN_DISK_MB=10240
+SWAP_SIZE_MB=2048
 
 # ── Output helpers ──────────────────────────────────────────────
 
@@ -160,6 +162,49 @@ install_docker() {
   systemctl enable docker --now
 
   ok "Docker installed: $(docker --version)"
+}
+
+# Cap the systemd journal so host logs can't quietly eat the disk
+# (an uncapped journal was found at 4GB on a production VPS).
+configure_journald() {
+  if [ -f /etc/systemd/journald.conf.d/risved.conf ]; then
+    return
+  fi
+  mkdir -p /etc/systemd/journald.conf.d
+  cat > /etc/systemd/journald.conf.d/risved.conf <<'EOF'
+[Journal]
+SystemMaxUse=500M
+EOF
+  systemctl restart systemd-journald >/dev/null 2>&1 || true
+  ok "systemd journal capped at 500M"
+}
+
+setup_swap() {
+  local total_kb total_mb
+  total_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+  total_mb=$((total_kb / 1024))
+
+  # Servers with the recommended RAM don't need swap for builds
+  if [ "$total_mb" -ge "$REC_RAM_MB" ]; then
+    return
+  fi
+
+  if [ -n "$(swapon --show --noheadings 2>/dev/null)" ]; then
+    ok "Swap already active"
+    return
+  fi
+
+  info "Creating ${SWAP_SIZE_MB}MB swapfile so builds don't run out of memory..."
+  if ! fallocate -l "${SWAP_SIZE_MB}M" /swapfile 2>/dev/null; then
+    dd if=/dev/zero of=/swapfile bs=1M count="$SWAP_SIZE_MB" status=none
+  fi
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null
+  swapon /swapfile
+  if ! grep -q '^/swapfile ' /etc/fstab; then
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  fi
+  ok "Swap: ${SWAP_SIZE_MB}MB swapfile enabled"
 }
 
 install_bun() {
@@ -431,6 +476,8 @@ main() {
   printf "\n"
   info "Installing dependencies..."
   install_docker
+  configure_journald
+  setup_swap
   install_bun
 
   printf "\n"

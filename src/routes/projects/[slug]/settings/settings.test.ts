@@ -14,16 +14,18 @@ const { limitMock, whereMock, orderByMock, updateSetMock, insertValuesMock, ensu
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
-vi.mock('$lib/server/db', () => ({
-	db: {
+vi.mock('$lib/server/db', () => {
+	const db = {
 		select: vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ where: whereMock, orderBy: orderByMock }) }),
 		insert: vi.fn().mockReturnValue({ values: insertValuesMock }),
 		update: vi.fn().mockReturnValue({ set: updateSetMock }),
 		delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+		transaction: vi.fn((cb: (tx: unknown) => Promise<unknown>) => cb(db)),
 		__limitMock: limitMock,
 		__whereMock: whereMock
 	}
-}))
+	return { db }
+})
 
 vi.mock('drizzle-orm', () => ({
 	eq: vi.fn(() => 'eq_fn'),
@@ -190,6 +192,22 @@ describe('settings load', () => {
 		expect(result.envVars[0].isSecret).toBe(true)
 	})
 
+	it('never sends a stored secret value to the browser', async () => {
+		setupLoadMocks(
+			sampleProject,
+			[
+				{ id: 'ev-1', key: 'SECRET_KEY', value: 'enc:mysecret', isSecret: true },
+				{ id: 'ev-2', key: 'NODE_ENV', value: 'enc:production', isSecret: false }
+			]
+		)
+		const result = (await load({ params: { slug: 'test-app' } } as never)) as {
+			envVars: Array<{ key: string; value: string }>
+		}
+		expect(result.envVars[0].value).toBe('')
+		expect(result.envVars[1].value).toBe('production')
+		expect(JSON.stringify(result)).not.toContain('mysecret')
+	})
+
 	it('includes domains list', async () => {
 		setupLoadMocks(
 			sampleProject,
@@ -268,11 +286,21 @@ describe('settings saveEnv action', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		limitMock.mockResolvedValue([])
+		whereMock.mockReset()
 		whereMock.mockReturnValue({ limit: limitMock, orderBy: orderByMock })
 		dbAny.select.mockReturnValue({ from: vi.fn().mockReturnValue({ where: whereMock }) })
 		dbAny.insert.mockReturnValue({ values: insertValuesMock })
 		dbAny.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
 	})
+
+	/** saveEnv selects the project (where().limit()) and then the stored env vars (where()) */
+	function setupSaveMocks(stored: unknown[] = []) {
+		whereMock.mockReturnValueOnce({ limit: limitMock, orderBy: orderByMock })
+		limitMock.mockResolvedValueOnce([sampleProject])
+		whereMock.mockReturnValueOnce(stored)
+	}
+
+	const storedSecret = { id: 'ev-1', projectId: 'proj-1', key: 'API_KEY', value: 'enc:sk-stored', isSecret: true }
 
 	it('returns 404 when project not found', async () => {
 		limitMock.mockResolvedValueOnce([])
@@ -281,7 +309,7 @@ describe('settings saveEnv action', () => {
 	})
 
 	it('deletes existing and inserts new env vars', async () => {
-		limitMock.mockResolvedValueOnce([sampleProject])
+		setupSaveMocks()
 		const result = await actions.saveEnv(
 			makeFormEvent({ slug: 'test-app' }, {
 				envKeys: 'DATABASE_URL\x1FSECRET',
@@ -295,7 +323,7 @@ describe('settings saveEnv action', () => {
 	})
 
 	it('skips invalid key names', async () => {
-		limitMock.mockResolvedValueOnce([sampleProject])
+		setupSaveMocks()
 		await actions.saveEnv(
 			makeFormEvent({ slug: 'test-app' }, {
 				envKeys: '123INVALID\x1FVALID_KEY',
@@ -307,11 +335,87 @@ describe('settings saveEnv action', () => {
 	})
 
 	it('handles empty env submission without inserting', async () => {
-		limitMock.mockResolvedValueOnce([sampleProject])
+		setupSaveMocks()
 		const result = await actions.saveEnv(makeFormEvent({ slug: 'test-app' }))
 		expect(result).toMatchObject({ envSaved: true })
 		expect(dbAny.delete).toHaveBeenCalled()
 		expect(dbAny.insert).not.toHaveBeenCalled()
+	})
+
+	it('carries over the ciphertext of an untouched stored secret', async () => {
+		setupSaveMocks([storedSecret])
+		const result = await actions.saveEnv(
+			makeFormEvent({ slug: 'test-app' }, {
+				envIds: 'ev-1',
+				envKeys: 'API_KEY',
+				envValues: '',
+				envSecrets: '1',
+				envKeep: '1'
+			})
+		)
+		expect(result).toMatchObject({ envSaved: true })
+		expect(insertValuesMock).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'ev-1', key: 'API_KEY', value: 'enc:sk-stored', isSecret: true })
+		)
+	})
+
+	it('encrypts a replacement value for a stored secret', async () => {
+		setupSaveMocks([storedSecret])
+		await actions.saveEnv(
+			makeFormEvent({ slug: 'test-app' }, {
+				envIds: 'ev-1',
+				envKeys: 'API_KEY',
+				envValues: 'sk-new',
+				envSecrets: '1',
+				envKeep: '0'
+			})
+		)
+		expect(insertValuesMock).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'ev-1', value: 'enc:sk-new', isSecret: true })
+		)
+	})
+
+	it('refuses to turn a stored secret into a plain variable without a new value', async () => {
+		setupSaveMocks([storedSecret])
+		const result = await actions.saveEnv(
+			makeFormEvent({ slug: 'test-app' }, {
+				envIds: 'ev-1',
+				envKeys: 'API_KEY',
+				envValues: '',
+				envSecrets: '0',
+				envKeep: '1'
+			})
+		)
+		expect(result).toMatchObject({ status: 400 })
+		expect(dbAny.delete).not.toHaveBeenCalled()
+	})
+
+	it('refuses to keep a value for an id that is not a stored secret of this project', async () => {
+		setupSaveMocks([])
+		const result = await actions.saveEnv(
+			makeFormEvent({ slug: 'test-app' }, {
+				envIds: 'ev-from-another-project',
+				envKeys: 'API_KEY',
+				envValues: '',
+				envSecrets: '1',
+				envKeep: '1'
+			})
+		)
+		expect(result).toMatchObject({ status: 400 })
+		expect(dbAny.delete).not.toHaveBeenCalled()
+	})
+
+	it('rejects duplicate keys before touching the database', async () => {
+		setupSaveMocks()
+		const result = await actions.saveEnv(
+			makeFormEvent({ slug: 'test-app' }, {
+				envKeys: 'PORT\x1FPORT',
+				envValues: '3000\x1F4000',
+				envSecrets: '0\x1F0'
+			})
+		)
+		expect(result).toMatchObject({ status: 400 })
+		expect(dbAny.delete).not.toHaveBeenCalled()
 	})
 })
 

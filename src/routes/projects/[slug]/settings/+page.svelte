@@ -16,50 +16,74 @@
 	let savingScripts = $state(false)
 
 	/* --- Environment Variables --- */
-	// svelte-ignore state_referenced_locally
-	let envRows = $state(
-		data.envVars.map((e) => ({ key: e.key, value: e.value, isSecret: e.isSecret }))
-	)
-	// svelte-ignore state_referenced_locally
-	let revealed = $state<boolean[]>(envRows.map(() => false))
+	type EnvRow = {
+		id: string
+		key: string
+		value: string
+		isSecret: boolean
+		/* saved secret: the value stays on the server and can only be replaced */
+		stored: boolean
+		/* stored secret left untouched, so the server keeps its current value */
+		locked: boolean
+		revealed: boolean
+	}
+
+	function rowsFromData(): EnvRow[] {
+		return data.envVars.map((e) => ({
+			id: e.id,
+			key: e.key,
+			value: e.value,
+			isSecret: e.isSecret,
+			stored: e.isSecret,
+			locked: e.isSecret,
+			revealed: false
+		}))
+	}
+
+	function newEnvRow(key = '', value = ''): EnvRow {
+		return { id: '', key, value, isSecret: true, stored: false, locked: false, revealed: false }
+	}
+
+	let envRows = $state(rowsFromData())
 	let savingEnv = $state(false)
 	let deploying = $state(false)
 	let addingPostgres = $state(false)
 	let confirmRemovePostgres = $state(false)
 	let removingPostgres = $state(false)
 
+	const envIdsValue = $derived(envRows.map((r) => r.id).join('\x1F'))
 	const envKeysValue = $derived(envRows.map((r) => r.key).join('\x1F'))
-	const envValuesValue = $derived(envRows.map((r) => r.value).join('\x1F'))
+	const envValuesValue = $derived(envRows.map((r) => (r.locked ? '' : r.value)).join('\x1F'))
 	const envSecretsValue = $derived(envRows.map((r) => (r.isSecret ? '1' : '0')).join('\x1F'))
-
-	const revealedStorageKey = $derived(`env-revealed-${data.project.id}`)
-
-	$effect(() => {
-		if (typeof sessionStorage === 'undefined') return
-		const raw = sessionStorage.getItem(revealedStorageKey)
-		if (!raw) return
-		try {
-			const parsed = JSON.parse(raw) as boolean[]
-			const next = envRows.map((_, i) => parsed[i] ?? false)
-			revealed = next
-		} catch {
-			/* ignore corrupt state */
-		}
-	})
-
-	$effect(() => {
-		if (typeof sessionStorage === 'undefined') return
-		sessionStorage.setItem(revealedStorageKey, JSON.stringify(revealed))
-	})
+	const envKeepValue = $derived(envRows.map((r) => (r.locked ? '1' : '0')).join('\x1F'))
 
 	function addEnvRow() {
-		envRows = [...envRows, { key: '', value: '', isSecret: true }]
-		revealed = [...revealed, false]
+		envRows = [...envRows, newEnvRow()]
 	}
 
 	function removeEnvRow(index: number) {
 		envRows = envRows.filter((_, i) => i !== index)
-		revealed = revealed.filter((_, i) => i !== index)
+	}
+
+	/* A stored secret can't be shown, so turning it into a plain variable means entering a new value */
+	function toggleSecret(row: EnvRow) {
+		row.isSecret = !row.isSecret
+		if (!row.isSecret) {
+			row.locked = false
+			row.revealed = false
+		}
+	}
+
+	function replaceSecret(row: EnvRow) {
+		row.locked = false
+		row.value = ''
+	}
+
+	function keepSecret(row: EnvRow) {
+		row.locked = true
+		row.isSecret = true
+		row.value = ''
+		row.revealed = false
 	}
 
 	function handleEnvPaste(event: ClipboardEvent, index: number) {
@@ -70,25 +94,21 @@
 		const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'))
 		const parsed = lines.map((line) => {
 			const eqIndex = line.indexOf('=')
-			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: true }
+			if (eqIndex === -1) return { key: line.trim(), value: '' }
 			return {
 				key: line.slice(0, eqIndex).trim(),
-				value: line.slice(eqIndex + 1).trim(),
-				isSecret: true
+				value: line.slice(eqIndex + 1).trim()
 			}
 		})
 
 		if (parsed.length === 0) return
 
 		const updated = [...envRows]
-		updated[index] = { ...updated[index], ...parsed[0] }
-		const updatedRevealed = [...revealed]
+		updated[index] = { ...updated[index], ...parsed[0], locked: false }
 		for (let j = 1; j < parsed.length; j++) {
-			updated.splice(index + j, 0, parsed[j])
-			updatedRevealed.splice(index + j, 0, false)
+			updated.splice(index + j, 0, newEnvRow(parsed[j].key, parsed[j].value))
 		}
 		envRows = updated
-		revealed = updatedRevealed
 	}
 
 	async function triggerDeploy() {
@@ -219,8 +239,10 @@
 		action="?/saveEnv"
 		use:enhance={() => {
 			savingEnv = true
-			return async ({ update }) => {
+			return async ({ result, update }) => {
 				await update({ reset: false })
+				/* Re-sync so saved secrets lock and new rows pick up their ids */
+				if (result.type === 'success') envRows = rowsFromData()
 				savingEnv = false
 			}
 		}}
@@ -237,12 +259,22 @@
 						data-testid="env-key-input"
 					/>
 					<span class="env-eq">=</span>
-					{#if !revealed[i]}
+					{#if row.locked}
+						<input
+							class="env-value secret"
+							type="text"
+							value="••••••••"
+							disabled
+							aria-label="Stored secret value"
+							data-testid="env-value-locked"
+						/>
+					{:else if row.isSecret && !row.revealed}
 						<input
 							class="env-value secret"
 							type="password"
 							bind:value={row.value}
-							placeholder="value"
+							placeholder={row.stored ? 'new value' : 'value'}
+							autocomplete="off"
 							data-testid="env-value-input"
 						/>
 					{:else}
@@ -250,19 +282,53 @@
 							class="env-value"
 							type="text"
 							bind:value={row.value}
-							placeholder="value"
+							placeholder={row.stored ? 'new value' : 'value'}
 							data-testid="env-value-input"
 						/>
 					{/if}
-					<button
-						type="button"
-						class="env-secret-toggle"
-						title={revealed[i] ? 'Hide value' : 'View value'}
-						onclick={() => (revealed[i] = !revealed[i])}
-						data-testid="env-secret-toggle"
-					>
-						{revealed[i] ? 'Hide' : 'View'}
-					</button>
+					{#if row.locked}
+						<button
+							type="button"
+							class="env-secret-toggle"
+							title="Enter a new value for this secret"
+							onclick={() => replaceSecret(row)}
+							data-testid="env-replace-btn"
+						>
+							Replace
+						</button>
+					{:else}
+						{#if row.isSecret}
+							<button
+								type="button"
+								class="env-secret-toggle"
+								title={row.revealed ? 'Hide value' : 'View value'}
+								onclick={() => (row.revealed = !row.revealed)}
+								data-testid="env-secret-toggle"
+							>
+								{row.revealed ? 'Hide' : 'View'}
+							</button>
+						{/if}
+						{#if row.stored}
+							<button
+								type="button"
+								class="env-secret-toggle"
+								title="Keep the stored secret value"
+								onclick={() => keepSecret(row)}
+								data-testid="env-keep-btn"
+							>
+								Keep current
+							</button>
+						{/if}
+					{/if}
+					<label class="env-secret" title="Secrets are write-only: once saved, the value can be replaced but never viewed">
+						<input
+							type="checkbox"
+							checked={row.isSecret}
+							onchange={() => toggleSecret(row)}
+							data-testid="env-secret-checkbox"
+						/>
+						Secret
+					</label>
 					<button
 						type="button"
 						class="env-remove"
@@ -289,10 +355,16 @@
 				{/if}
 			</div>
 		</div>
+		<p class="field-hint env-hint" data-testid="env-hint">
+			All values are encrypted at rest. A secret is write-only: once saved it can be replaced, but never viewed
+			again. Untick Secret for plain variables you want to keep readable.
+		</p>
 
+		<input type="hidden" name="envIds" value={envIdsValue} />
 		<input type="hidden" name="envKeys" value={envKeysValue} />
 		<input type="hidden" name="envValues" value={envValuesValue} />
 		<input type="hidden" name="envSecrets" value={envSecretsValue} />
+		<input type="hidden" name="envKeep" value={envKeepValue} />
 	</form>
 
 	{#if form?.envSaved}
@@ -740,6 +812,7 @@
 	}
 	.env-value {
 		flex: 1;
+		min-width: 0;
 		padding: var(--space-2) var(--space-2);
 		background: transparent;
 		border: none;
@@ -770,6 +843,21 @@
 		line-height: 1.34;
 		transition: color 0.1s;
 	}
+	.env-secret {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		height: 2rem;
+		padding: 0 var(--space-2);
+		border-left: 1px solid var(--color-border);
+		color: var(--color-text-2);
+		font-size: .75rem;
+		cursor: pointer;
+	}
+	.env-secret:has(input:checked) {
+		color: var(--color-text-0);
+	}
 	.env-remove {
 		flex-shrink: 0;
 		width: 32px;
@@ -788,6 +876,23 @@
 	.env-remove:hover {
 		color: var(--color-text-0);
 	}
+	/* On narrow screens the key gets its own line so the value and its controls have room */
+	@media (max-width: 40rem) {
+		.env-row {
+			flex-wrap: wrap;
+		}
+		.env-key {
+			flex: 1 0 100%;
+			border-right: none;
+			border-bottom: 1px solid var(--color-border);
+		}
+		.env-value {
+			flex: 1 1 8rem;
+		}
+		.env-secret {
+			margin-left: auto;
+		}
+	}
 	.env-empty {
 		padding: var(--space-3);
 		color: var(--color-text-2);
@@ -805,6 +910,9 @@
 		font-size: .875rem;
 		color: var(--color-failed);
 		margin-left: var(--space-2);
+	}
+	.env-hint {
+		margin: var(--space-2) 0 0;
 	}
 
 	/* Postgres */

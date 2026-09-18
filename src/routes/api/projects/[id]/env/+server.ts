@@ -6,12 +6,10 @@ import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { encrypt, safeDecrypt } from '$lib/server/crypto';
 import type { RequestHandler } from './$types';
 
-/** Mask a secret value, showing only the first 4 chars of the decrypted value. */
+/** Secrets are write-only: return a fixed mask that reveals nothing about the value. */
 function maskValue(value: string, isSecret: boolean): string {
 	if (!isSecret) return safeDecrypt(value);
-	const plain = safeDecrypt(value);
-	if (plain.length <= 4) return '••••';
-	return plain.slice(0, 4) + '••••••••';
+	return '••••••••';
 }
 
 /**

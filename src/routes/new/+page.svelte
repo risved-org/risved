@@ -34,6 +34,8 @@
 	let searching = $state(false)
 	let repos = $state<Repo[]>([])
 	let selectedRepo = $state<Repo | null>(null)
+	let listExpanded = $state(false)
+	const showRepoList = $derived(!selectedRepo || listExpanded)
 
 	interface Repo {
 		id: number
@@ -76,6 +78,7 @@
 
 	async function selectRepo(repo: Repo) {
 		selectedRepo = repo
+		listExpanded = false
 		repoUrl = repo.cloneUrl
 		branch = repo.defaultBranch
 		projectName = repo.name
@@ -84,6 +87,7 @@
 
 	function clearSelection() {
 		selectedRepo = null
+		listExpanded = false
 		repoUrl = ''
 		branch = 'main'
 		projectName = ''
@@ -128,8 +132,8 @@
 		}
 	})
 
-	/* Env vars: array of { key, value, isSecret } */
-	let envRows = $state<{ key: string; value: string; isSecret: boolean }[]>([])
+	/* Env vars: array of { key, value, isSecret, revealed } */
+	let envRows = $state<{ key: string; value: string; isSecret: boolean; revealed: boolean }[]>([])
 
 	/* Auto-derive project name from repo URL */
 	const derivedName = $derived.by(() => {
@@ -154,7 +158,7 @@
 	})
 
 	function addEnvRow() {
-		envRows = [...envRows, { key: '', value: '', isSecret: false }]
+		envRows = [...envRows, { key: '', value: '', isSecret: true, revealed: false }]
 	}
 
 	function removeEnvRow(index: number) {
@@ -170,11 +174,12 @@
 		const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'))
 		const parsed = lines.map((line) => {
 			const eqIndex = line.indexOf('=')
-			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: false }
+			if (eqIndex === -1) return { key: line.trim(), value: '', isSecret: true, revealed: false }
 			return {
 				key: line.slice(0, eqIndex).trim(),
 				value: line.slice(eqIndex + 1).trim(),
-				isSecret: false
+				isSecret: true,
+				revealed: false
 			}
 		})
 
@@ -272,44 +277,51 @@
 									type="text"
 									bind:value={searchQuery}
 									placeholder="Filter repositories…"
-									oninput={() => loadRepos()}
+									oninput={() => {
+										listExpanded = true
+										loadRepos()
+									}}
+									onfocus={() => (listExpanded = true)}
+									onclick={() => (listExpanded = true)}
 									data-testid="repo-search"
 								/>
 							</div>
 						</label>
 
-						{#if searching}
-							<p class="search-status">Loading repositories…</p>
-						{:else if repos.length === 0}
-							<p class="search-status">No repositories found.</p>
-						{:else}
-							<div class="repo-list" data-testid="repo-list">
-								{#each repos as repo (repo.id)}
-									<button
-										type="button"
-										class="repo-row"
-										class:selected={selectedRepo?.id === repo.id}
-										onclick={() => selectRepo(repo)}
-										data-testid="repo-row"
-									>
-										<div class="repo-info">
-											<span class="repo-name">{repo.fullName}</span>
-											{#if repo.description}
-												<span class="repo-desc">{repo.description}</span>
-											{/if}
-										</div>
-										<div class="repo-meta">
-											{#if repo.language}
-												<span class="repo-lang">{repo.language}</span>
-											{/if}
-											<span class="repo-date">{formatDate(repo.updatedAt)}</span>
-											{#if repo.private}
-												<span class="repo-private">private</span>
-											{/if}
-										</div>
-									</button>
-								{/each}
-							</div>
+						{#if showRepoList}
+							{#if searching}
+								<p class="search-status">Loading repositories…</p>
+							{:else if repos.length === 0}
+								<p class="search-status">No repositories found.</p>
+							{:else}
+								<div class="repo-list" data-testid="repo-list">
+									{#each repos as repo (repo.id)}
+										<button
+											type="button"
+											class="repo-row"
+											class:selected={selectedRepo?.id === repo.id}
+											onclick={() => selectRepo(repo)}
+											data-testid="repo-row"
+										>
+											<div class="repo-info">
+												<span class="repo-name">{repo.fullName}</span>
+												{#if repo.description}
+													<span class="repo-desc">{repo.description}</span>
+												{/if}
+											</div>
+											<div class="repo-meta">
+												{#if repo.language}
+													<span class="repo-lang">{repo.language}</span>
+												{/if}
+												<span class="repo-date">{formatDate(repo.updatedAt)}</span>
+												{#if repo.private}
+													<span class="repo-private">private</span>
+												{/if}
+											</div>
+										</button>
+									{/each}
+								</div>
+							{/if}
 						{/if}
 
 						{#if selectedRepo}
@@ -431,7 +443,7 @@
 							data-testid="env-key-input"
 						/>
 						<span class="env-eq">=</span>
-						{#if row.isSecret}
+						{#if row.isSecret && !row.revealed}
 							<input
 								class="env-value secret"
 								type="password"
@@ -448,16 +460,26 @@
 								data-testid="env-value-input"
 							/>
 						{/if}
-						<button
-							type="button"
-							class="env-secret-toggle"
-							class:active={row.isSecret}
-							title={row.isSecret ? 'Unmark as secret' : 'Mark as secret'}
-							onclick={() => (row.isSecret = !row.isSecret)}
-							data-testid="env-secret-toggle"
-						>
-							{row.isSecret ? '🔒' : '🔓'}
-						</button>
+						{#if row.isSecret}
+							<button
+								type="button"
+								class="env-secret-toggle"
+								title={row.revealed ? 'Hide value' : 'View value'}
+								onclick={() => (row.revealed = !row.revealed)}
+								data-testid="env-secret-toggle"
+							>
+								{row.revealed ? 'Hide' : 'View'}
+							</button>
+						{/if}
+						<label class="env-secret" title="Secrets are write-only: once saved, the value can be replaced but never viewed">
+							<input
+								type="checkbox"
+								bind:checked={row.isSecret}
+								onchange={() => (row.revealed = false)}
+								data-testid="env-secret-checkbox"
+							/>
+							Secret
+						</label>
 						<button
 							type="button"
 							class="env-remove"
@@ -476,6 +498,11 @@
 					+ Add variable
 				</button>
 			</fieldset>
+
+			<p class="field-hint env-hint" data-testid="env-hint">
+				All values are encrypted at rest. A secret is write-only: once saved it can be replaced, but never viewed
+				again. Untick Secret for plain variables you want to keep readable.
+			</p>
 
 			<input type="hidden" name="envKeys" value={envKeysValue} />
 			<input type="hidden" name="envValues" value={envValuesValue} />
@@ -730,6 +757,7 @@
 	fieldset {
 		display: flex;
 		flex-direction: column;
+		min-width: 0;
 		gap: var(--space-4);
 		padding: var(--space-4);
 		padding-bottom: var(--space-5);
@@ -793,6 +821,10 @@
 		color: var(--color-text-2);
 	}
 
+	.env-hint {
+		margin: var(--space-2) 0 0;
+	}
+
 	/* Domain preview */
 	.domain-preview {
 		padding: var(--space-2) var(--space-3);
@@ -848,6 +880,7 @@
 
 	.env-value {
 		flex: 1;
+		min-width: 0;
 		padding: var(--space-2) var(--space-2);
 		background: transparent;
 		border: none;
@@ -865,7 +898,41 @@
 		color: var(--color-text-2);
 	}
 
-	.env-secret-toggle,
+	.env-secret-toggle {
+		flex-shrink: 0;
+		padding: 0 var(--space-2);
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: transparent;
+		border: none;
+		border-left: 1px solid var(--color-border);
+		color: var(--color-text-2);
+		cursor: pointer;
+		font-size: .75rem;
+		line-height: 1.34;
+		transition: color 0.1s;
+	}
+
+	.env-secret {
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: var(--space-1);
+		height: 2rem;
+		padding: 0 var(--space-2);
+		border-left: 1px solid var(--color-border);
+		color: var(--color-text-2);
+		font-size: .75rem;
+		cursor: pointer;
+	}
+
+	.env-secret:has(input:checked) {
+		color: var(--color-text-0);
+	}
+
 	.env-remove {
 		flex-shrink: 0;
 		width: 32px;
@@ -886,8 +953,22 @@
 		color: var(--color-text-0);
 	}
 
-	.env-secret-toggle.active {
-		color: var(--color-building);
+	/* On narrow screens the key gets its own line so the value and its controls have room */
+	@media (max-width: 40rem) {
+		.env-row {
+			flex-wrap: wrap;
+		}
+		.env-key {
+			flex: 1 0 100%;
+			border-right: none;
+			border-bottom: 1px solid var(--color-border);
+		}
+		.env-value {
+			flex: 1 1 8rem;
+		}
+		.env-secret {
+			margin-left: auto;
+		}
 	}
 
 	.env-empty {

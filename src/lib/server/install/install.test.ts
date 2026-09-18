@@ -55,6 +55,7 @@ describe('Install Script', () => {
 				'check_disk',
 				'check_ports',
 				'install_docker',
+				'setup_swap',
 				'install_bun',
 				'setup_network',
 				'setup_directories',
@@ -130,8 +131,13 @@ describe('Install Script', () => {
 			expect(stdout).toBe('/opt/risved');
 		});
 
-		it('sets minimum RAM to 2048 MB', () => {
+		it('sets minimum RAM below a nominal 2 GB so 2 GB servers pass', () => {
 			const { stdout } = runBash('echo $MIN_RAM_MB');
+			expect(stdout).toBe('1800');
+		});
+
+		it('sets swap size to 2048 MB', () => {
+			const { stdout } = runBash('echo $SWAP_SIZE_MB');
 			expect(stdout).toBe('2048');
 		});
 
@@ -166,6 +172,14 @@ describe('Install Script', () => {
 
 		it('setup_network checks for existing network', () => {
 			expect(script).toContain('docker network inspect');
+		});
+
+		it('setup_swap skips when swap is already active', () => {
+			expect(script).toContain('swapon --show');
+		});
+
+		it('setup_swap only adds the fstab entry once', () => {
+			expect(script).toContain("grep -q '^/swapfile ' /etc/fstab");
 		});
 
 		it('start_caddy checks for existing container', () => {

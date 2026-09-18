@@ -3,6 +3,8 @@ export interface CleanupConfig {
 	retentionDays: number;
 	/** Interval between cleanup runs in ms (default: 24h) */
 	intervalMs: number;
+	/** Interval between host disk pressure checks in ms (default: 15min) */
+	diskCheckIntervalMs: number;
 }
 
 export interface CleanupResult {

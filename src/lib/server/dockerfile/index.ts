@@ -25,7 +25,8 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 		startCommand,
 		lockfile,
 		yarnVersion,
-		meta
+		meta,
+		stripBuildEnv
 	} = options;
 	let config = getFrameworkConfig(frameworkId);
 
@@ -60,13 +61,13 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 
 	switch (tier) {
 		case 'deno':
-			content = denoTemplate(config, port);
+			content = denoTemplate(config, port, stripBuildEnv);
 			break;
 		case 'hybrid':
-			content = hybridTemplate(config, port, installCommand, buildCommand, lockfile, yarnVersion);
+			content = hybridTemplate(config, port, installCommand, buildCommand, lockfile, yarnVersion, stripBuildEnv);
 			break;
 		case 'node':
-			content = nodeTemplate(config, port, installCommand, buildCommand, lockfile, yarnVersion);
+			content = nodeTemplate(config, port, installCommand, buildCommand, lockfile, yarnVersion, stripBuildEnv);
 			break;
 		default:
 			throw new Error(`Unknown tier: ${tier}`);

@@ -78,10 +78,36 @@ const ALL_LOCKFILES_COPY =
 	'COPY package.json bun.lockb* bun.lock* pnpm-lock.yaml* yarn.lock* package-lock.json* .yarnrc.yml* ./';
 
 /**
- * Tier 1 (Pure Deno): Fresh, Hono, Lume
- * Single stage using denoland/deno image.
+ * The pipeline writes project env vars to a build-time .env in the context.
+ * Emptying it in a throwaway stage and copying from there keeps the values
+ * out of every runtime layer (a plain `RUN` in the same stage would leave
+ * them in the COPY layer), while the `build` target keeps it for release
+ * commands. The file is emptied rather than removed because some start
+ * commands require it to exist (`node --env-file=.env` exits if it doesn't);
+ * at runtime the values come from `docker run -e`.
  */
-export function denoTemplate(config: FrameworkBuildConfig, port: number): string {
+const STRIP_BUILD_ENV_STAGE = (from: string): string[] => [
+	`# Empty the injected build-time .env before anything reaches the runtime image`,
+	`FROM ${from} AS output`,
+	'RUN : > /app/.env'
+]
+
+/** True when the runtime stage copies the whole build context, .env included */
+function copiesWholeContext(config: FrameworkBuildConfig): boolean {
+	return config.copyPaths.includes('.')
+}
+
+/**
+ * Tier 1 (Pure Deno): Fresh, Hono, Lume
+ * Single stage using denoland/deno image — unless the pipeline injected a
+ * build-time .env, in which case the app is copied into a clean runtime
+ * stage so no layer of the final image contains the secrets.
+ */
+export function denoTemplate(
+	config: FrameworkBuildConfig,
+	port: number,
+	stripBuildEnv = false
+): string {
 	const lines: string[] = [`FROM ${DENO_IMAGE} AS build`, '', 'WORKDIR /app', ''];
 
 	// Copy all source files
@@ -93,6 +119,21 @@ export function denoTemplate(config: FrameworkBuildConfig, port: number): string
 	// Build step (Lume has a build, Fresh/Hono do not)
 	if (config.buildCommand) {
 		lines.push(`RUN ${config.buildCommand}`);
+	}
+
+	if (stripBuildEnv) {
+		lines.push(
+			'',
+			...STRIP_BUILD_ENV_STAGE('build'),
+			'',
+			`# Runtime stage`,
+			`FROM ${DENO_IMAGE}`,
+			'',
+			'WORKDIR /app',
+			'',
+			'COPY --from=output /deno-dir /deno-dir',
+			'COPY --from=output /app .'
+		)
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data');
@@ -111,7 +152,8 @@ export function hybridTemplate(
 	installCommand?: string,
 	buildCommand?: string,
 	lockfile?: Lockfile | null,
-	yarnVersion?: 'classic' | 'berry'
+	yarnVersion?: 'classic' | 'berry',
+	stripBuildEnv = false
 ): string {
 	const pm = pmFromLockfile(lockfile, yarnVersion)
 	const install = installCommand ?? pm.install
@@ -134,7 +176,7 @@ export function hybridTemplate(
 	]
 
 	/* Prune in a separate stage so --target build still has dev deps */
-	const copyFrom = needsNodeModules ? 'deps' : 'build'
+	let copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {
 		lines.push(
 			'',
@@ -142,6 +184,11 @@ export function hybridTemplate(
 			`FROM build AS deps`,
 			`RUN ${pm.prune}`
 		)
+	}
+
+	if (stripBuildEnv && copiesWholeContext(config)) {
+		lines.push('', ...STRIP_BUILD_ENV_STAGE(copyFrom))
+		copyFrom = 'output'
 	}
 
 	lines.push(
@@ -179,7 +226,8 @@ export function nodeTemplate(
 	installCommand?: string,
 	buildCommand?: string,
 	lockfile?: Lockfile | null,
-	yarnVersion?: 'classic' | 'berry'
+	yarnVersion?: 'classic' | 'berry',
+	stripBuildEnv = false
 ): string {
 	const pm = pmFromLockfile(lockfile, yarnVersion)
 	const install = installCommand ?? pm.install
@@ -211,7 +259,7 @@ export function nodeTemplate(
 	]
 
 	/* Prune in a separate stage so --target build still has dev deps */
-	const copyFrom = needsNodeModules ? 'deps' : 'build'
+	let copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {
 		lines.push(
 			'',
@@ -219,6 +267,11 @@ export function nodeTemplate(
 			`FROM build AS deps`,
 			`RUN ${pm.prune}`
 		)
+	}
+
+	if (stripBuildEnv && copiesWholeContext(config)) {
+		lines.push('', ...STRIP_BUILD_ENV_STAGE(copyFrom))
+		copyFrom = 'output'
 	}
 
 	lines.push(

@@ -5,6 +5,14 @@ import { db } from '$lib/server/db';
 import { deployments, projects, domains, envVars } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
+import {
+	formatBytes,
+	getDiskSpace,
+	isDiskLow,
+	pruneDockerResources,
+	pruneProjectImages,
+	KEEP_IMAGES_PER_PROJECT
+} from '$lib/server/cleanup'
 import { encrypt, safeDecrypt } from '$lib/server/crypto'
 import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
@@ -242,7 +250,8 @@ async function _runPipeline(
 			yarnVersion: pmResult.yarnVersion,
 			buildCommand: config.buildCommand || undefined,
 			startCommand: config.startCommand || undefined,
-			meta: frameworkMeta
+			meta: frameworkMeta,
+			stripBuildEnv: Object.keys(envMap).length > 0
 		});
 		const dockerfileContent = dockerfile.content
 
@@ -251,7 +260,9 @@ async function _runPipeline(
 		   - Private vars (BETTER_AUTH_SECRET, DATABASE_URL, etc.) are
 		     available when SvelteKit analyzes server modules during build
 		   The .env file lives only in the builder stage — it is NOT copied
-		   to the runtime image (only copyPaths are). Secrets stay safe.
+		   to the runtime image. Frameworks that ship the whole build context
+		   (Tier 1 Deno, generic) empty it in a throwaway stage first, see
+		   stripBuildEnv in the Dockerfile templates.
 		   At runtime, all env vars are passed via `docker run -e`. */
 		const buildEnv = Object.entries(envMap)
 		if (buildEnv.length > 0) {
@@ -277,6 +288,28 @@ async function _runPipeline(
 		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
 
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
+
+		/* A build needs several GB of headroom. If the host disk is nearly
+		   full, prune old images and the build cache first rather than letting
+		   the build fill the disk and take running apps down with it. */
+		const disk = await getDiskSpace(runner)
+		if (disk && isDiskLow(disk)) {
+			emit(
+				'build',
+				`Low disk space (${formatBytes(disk.freeBytes)} free) — pruning unused Docker resources before building…`,
+				'warn'
+			)
+			const pruned = await pruneDockerResources(runner, {
+				aggressive: true,
+				keepPerProject: 1
+			}).catch(() => null)
+			if (pruned) {
+				emit(
+					'build',
+					`Removed ${pruned.imagesRemoved.length} old image(s), reclaimed ${pruned.danglingReclaimed} dangling and ${pruned.buildCacheReclaimed} build cache`
+				)
+			}
+		}
 
 		/* The node and hybrid templates use a locally built warm builder image
 		   (risved-node-build:22). If it is missing we have to build it before
@@ -476,6 +509,17 @@ async function _runPipeline(
 			})
 			.where(eq(deployments.id, deploymentId));
 
+		/* Drop images of older deployments so they don't pile up on disk.
+		   The newest few are kept so rollback keeps working. Best-effort. */
+		try {
+			const removed = await pruneProjectImages(runner, KEEP_IMAGES_PER_PROJECT, config.projectId)
+			if (removed.length > 0) {
+				emit('live', `Removed ${removed.length} old image(s): ${removed.join(', ')}`)
+			}
+			await runner.exec('docker', ['image', 'prune', '-f'])
+		} catch (err) {
+			emit('live', `Image cleanup skipped: ${err instanceof Error ? err.message : 'unknown error'}`, 'warn')
+		}
 
 		return {
 			success: true,

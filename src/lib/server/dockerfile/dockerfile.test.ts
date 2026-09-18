@@ -372,4 +372,60 @@ describe('Dockerfile Generation', () => {
 			expect(hono.content).not.toContain('task build');
 		});
 	});
+
+	describe('build-time .env stripping', () => {
+		it('leaves Dockerfiles untouched when no env vars were injected', () => {
+			for (const opts of [
+				{ frameworkId: 'hono', tier: 'deno' },
+				{ frameworkId: 'generic', tier: 'node' },
+				{ frameworkId: 'sveltekit', tier: 'hybrid' }
+			] as const) {
+				expect(generateDockerfile({ ...opts, stripBuildEnv: false }).content).toBe(
+					generateDockerfile(opts).content
+				);
+				expect(generateDockerfile(opts).content).not.toContain('AS output');
+			}
+		});
+
+		it('Deno tier copies the app into a clean runtime stage with an emptied .env', () => {
+			const { content } = generateDockerfile({
+				frameworkId: 'hono',
+				tier: 'deno',
+				stripBuildEnv: true
+			});
+			const lines = content.split('\n');
+			const strip = lines.indexOf('FROM build AS output');
+			const runtime = lines.lastIndexOf('FROM denoland/deno:latest');
+
+			expect(strip).toBeGreaterThan(lines.indexOf('COPY . .'));
+			expect(lines[strip + 1]).toBe('RUN : > /app/.env');
+			expect(runtime).toBeGreaterThan(strip);
+			/* The runtime stage only ever copies from the stripped stage */
+			expect(lines.slice(runtime)).toContain('COPY --from=output /app .');
+			expect(lines.slice(runtime)).toContain('COPY --from=output /deno-dir /deno-dir');
+			expect(lines.slice(runtime).join('\n')).not.toContain('--from=build');
+			/* Release commands still run against a build stage that has .env */
+			expect(content).toContain('AS build');
+		});
+
+		it('generic Node apps copy the whole context from the stripped stage', () => {
+			const { content } = generateDockerfile({
+				frameworkId: 'generic',
+				tier: 'node',
+				stripBuildEnv: true
+			});
+			expect(content).toContain('FROM build AS output\nRUN : > /app/.env');
+			expect(content).toContain('COPY --from=output /app/. ./.');
+			expect(content).not.toContain('COPY --from=build');
+		});
+
+		it('frameworks that copy specific output paths need no extra stage', () => {
+			const { content } = generateDockerfile({
+				frameworkId: 'sveltekit',
+				tier: 'hybrid',
+				stripBuildEnv: true
+			});
+			expect(content).not.toContain('AS output');
+		});
+	});
 });

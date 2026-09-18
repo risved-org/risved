@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockManager = {
 	getDockerDiskUsage: vi.fn(),
+	getDiskSpace: vi.fn().mockResolvedValue(null),
 	runCleanup: vi.fn(),
 	dockerPrune: vi.fn()
 }
@@ -19,7 +20,9 @@ vi.mock('$lib/server/settings', () => ({
 }))
 
 vi.mock('$lib/server/cleanup', () => ({
-	getCleanupManager: vi.fn()
+	getCleanupManager: vi.fn(),
+	formatBytes: vi.fn((n: number) => `${n}B`),
+	isDiskLow: vi.fn(() => false)
 }))
 
 import { getSetting } from '$lib/server/settings'
