@@ -387,7 +387,7 @@ describe('Dockerfile Generation', () => {
 			}
 		});
 
-		it('Deno tier copies the app into a clean runtime stage without .env', () => {
+		it('Deno tier copies the app into a clean runtime stage with an emptied .env', () => {
 			const { content } = generateDockerfile({
 				frameworkId: 'hono',
 				tier: 'deno',
@@ -398,7 +398,7 @@ describe('Dockerfile Generation', () => {
 			const runtime = lines.lastIndexOf('FROM denoland/deno:latest');
 
 			expect(strip).toBeGreaterThan(lines.indexOf('COPY . .'));
-			expect(lines[strip + 1]).toBe('RUN rm -f /app/.env');
+			expect(lines[strip + 1]).toBe('RUN : > /app/.env');
 			expect(runtime).toBeGreaterThan(strip);
 			/* The runtime stage only ever copies from the stripped stage */
 			expect(lines.slice(runtime)).toContain('COPY --from=output /app .');
@@ -414,7 +414,7 @@ describe('Dockerfile Generation', () => {
 				tier: 'node',
 				stripBuildEnv: true
 			});
-			expect(content).toContain('FROM build AS output\nRUN rm -f /app/.env');
+			expect(content).toContain('FROM build AS output\nRUN : > /app/.env');
 			expect(content).toContain('COPY --from=output /app/. ./.');
 			expect(content).not.toContain('COPY --from=build');
 		});

@@ -261,7 +261,7 @@ async function _runPipeline(
 		     available when SvelteKit analyzes server modules during build
 		   The .env file lives only in the builder stage — it is NOT copied
 		   to the runtime image. Frameworks that ship the whole build context
-		   (Tier 1 Deno, generic) drop it in a throwaway stage first, see
+		   (Tier 1 Deno, generic) empty it in a throwaway stage first, see
 		   stripBuildEnv in the Dockerfile templates.
 		   At runtime, all env vars are passed via `docker run -e`. */
 		const buildEnv = Object.entries(envMap)

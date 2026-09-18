@@ -79,14 +79,17 @@ const ALL_LOCKFILES_COPY =
 
 /**
  * The pipeline writes project env vars to a build-time .env in the context.
- * Deleting it in a throwaway stage and copying from there keeps it out of
- * every runtime layer (a plain `RUN rm` would leave it in the COPY layer),
- * while the `build` target keeps it for release commands.
+ * Emptying it in a throwaway stage and copying from there keeps the values
+ * out of every runtime layer (a plain `RUN` in the same stage would leave
+ * them in the COPY layer), while the `build` target keeps it for release
+ * commands. The file is emptied rather than removed because some start
+ * commands require it to exist (`node --env-file=.env` exits if it doesn't);
+ * at runtime the values come from `docker run -e`.
  */
 const STRIP_BUILD_ENV_STAGE = (from: string): string[] => [
-	`# Drop the injected build-time .env before anything reaches the runtime image`,
+	`# Empty the injected build-time .env before anything reaches the runtime image`,
 	`FROM ${from} AS output`,
-	'RUN rm -f /app/.env'
+	'RUN : > /app/.env'
 ]
 
 /** True when the runtime stage copies the whole build context, .env included */
