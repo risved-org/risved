@@ -23,13 +23,6 @@ import { encrypt, safeDecrypt } from '$lib/server/crypto'
 import { getCronScheduler } from '$lib/server/cron'
 import type { PageServerLoad, Actions } from './$types'
 
-/** Fully mask a value with a fixed dot count */
-function dotMask(value: string): string {
-	const plain = safeDecrypt(value)
-	if (plain.length <= 2) return '••••••••'
-	return '••••••••'
-}
-
 export const load = (async ({ params }) => {
 	const { slug } = params
 
@@ -94,11 +87,11 @@ export const load = (async ({ params }) => {
 					...buildPostgresMetadata(project.id, project.postgresPassword)
 				}
 			: null,
+		/* Secrets are write-only: their stored value never leaves the server */
 		envVars: envs.map((e) => ({
 			id: e.id,
 			key: e.key,
-			value: safeDecrypt(e.value),
-			dotMask: dotMask(e.value),
+			value: e.isSecret ? '' : safeDecrypt(e.value),
 			isSecret: e.isSecret
 		})),
 		domains: doms.map((d) => ({
@@ -140,29 +133,56 @@ export const actions: Actions = {
 		const projectId = proj[0].id
 		const formData = await request.formData()
 
+		const envIdsRaw = formData.get('envIds') as string | null
 		const envKeysRaw = formData.get('envKeys') as string | null
 		const envValsRaw = formData.get('envValues') as string | null
 		const envSecretsRaw = formData.get('envSecrets') as string | null
+		const envKeepRaw = formData.get('envKeep') as string | null
 
+		const envIds = envIdsRaw ? envIdsRaw.split('\x1F') : []
 		const envKeys = envKeysRaw ? envKeysRaw.split('\x1F') : []
 		const envValues = envValsRaw ? envValsRaw.split('\x1F') : []
 		const envSecrets = envSecretsRaw ? envSecretsRaw.split('\x1F') : []
+		const envKeep = envKeepRaw ? envKeepRaw.split('\x1F') : []
 
-		await db.delete(envVars).where(eq(envVars.projectId, projectId))
+		const existing = await db.select().from(envVars).where(eq(envVars.projectId, projectId))
+		const existingById = new Map(existing.map((e) => [e.id, e]))
+
+		const rows: { id?: string; projectId: string; key: string; value: string; isSecret: boolean }[] = []
+		const seenKeys = new Set<string>()
 
 		for (let i = 0; i < envKeys.length; i++) {
 			const key = envKeys[i]?.trim()
-			const value = envValues[i] ?? ''
+			if (!key || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue
+			if (seenKeys.has(key)) return fail(400, { error: `"${key}" is defined more than once` })
+			seenKeys.add(key)
+
 			const isSecret = envSecrets[i] === '1'
-			if (key && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-				await db.insert(envVars).values({
-					projectId,
-					key,
-					value: encrypt(value),
-					isSecret
-				})
+			const stored = envIds[i] ? existingById.get(envIds[i]) : undefined
+			let value: string
+
+			if (envKeep[i] === '1') {
+				/* The browser never holds a stored secret, so an untouched row
+				   carries its ciphertext over instead of submitting a value. */
+				if (!stored?.isSecret) return fail(400, { error: `Enter a value for "${key}"` })
+				if (!isSecret) {
+					return fail(400, { error: `Enter a new value to make "${key}" a plain variable` })
+				}
+				value = stored.value
+			} else {
+				value = encrypt(envValues[i] ?? '')
 			}
+
+			rows.push({ id: stored?.id, projectId, key, value, isSecret })
 		}
+
+		/* Kept secrets only exist in the database, so replace the set atomically */
+		await db.transaction(async (tx) => {
+			await tx.delete(envVars).where(eq(envVars.projectId, projectId))
+			for (const row of rows) {
+				await tx.insert(envVars).values(row)
+			}
+		})
 
 		return { envSaved: true }
 	},

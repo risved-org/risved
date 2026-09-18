@@ -109,8 +109,7 @@ describe('GET /api/projects/:id/env', () => {
 		expect(portVar.value).toBe('3000');
 
 		const apiKeyVar = data.find((e: { key: string }) => e.key === 'API_KEY');
-		expect(apiKeyVar.value).toContain('••••');
-		expect(apiKeyVar.value).not.toContain('abcdef123456');
+		expect(apiKeyVar.value).toBe('••••••••');
 	});
 
 	it('returns 404 for missing project', async () => {
@@ -443,7 +442,21 @@ describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
 		expect(res.status).toBe(200);
 	});
 
-	it('masks a very short secret value with just dots', async () => {
+	it('rejects unmarking a secret without a new value', async () => {
+		setupSelectChain([{ id: 'e-1', key: 'API_KEY', value: 'enc:sk-abcdef', isSecret: true }]);
+
+		const { PUT } = await import('./[eid]/+server');
+		const res = await PUT({
+			request: { json: () => Promise.resolve({ is_secret: false }) },
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1', eid: 'e-1' }
+		} as never);
+
+		expect(res.status).toBe(400);
+		expect(mockDb.update).not.toHaveBeenCalled();
+	});
+
+	it('masks a secret with a fixed mask regardless of its length', async () => {
 		setupSelectChain([{ id: 'e-1', key: 'PIN', value: 'enc:abc', isSecret: true }]);
 
 		const returningFn = vi
@@ -464,6 +477,6 @@ describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
 
 		expect(res.status).toBe(200);
 		const data = await res.json();
-		expect(data.value).toBe('••••');
+		expect(data.value).toBe('••••••••');
 	});
 });
