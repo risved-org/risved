@@ -13,13 +13,13 @@ vi.mock('$lib/server/pipeline', () => ({
 	runPipeline: vi.fn()
 }));
 vi.mock('$lib/server/pipeline/docker', () => ({
-	createCommandRunner: vi.fn(), dockerStop: vi.fn()
+	createCommandRunner: vi.fn(), dockerStop: vi.fn(), dockerVolumeRemove: vi.fn()
 }));
 vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn()
 }));
 
-import { buildPreviewDomain } from './index';
+import { buildPreviewDomain, previewVolumeName } from './index';
 
 describe('buildPreviewDomain', () => {
 	it('builds domain as pr-{number}.{slug}.{baseDomain}', () => {
@@ -34,6 +34,17 @@ describe('buildPreviewDomain', () => {
 
 	it('handles large PR numbers', () => {
 		expect(buildPreviewDomain(9999, 'project', 'deploy.dev')).toBe('pr-9999.project.deploy.dev');
+	});
+});
+
+describe('previewVolumeName', () => {
+	it('builds a per-PR volume name distinct from the project volume', () => {
+		expect(previewVolumeName('proj-1', 42)).toBe('risved-proj-1-pr-42-data');
+		expect(previewVolumeName('proj-1', 42)).not.toBe('risved-proj-1-data');
+	});
+
+	it('matches the volume pattern counted by usage reporting', () => {
+		expect(previewVolumeName('proj-1', 7)).toMatch(/^risved-.+-(data|postgres)$/);
 	});
 });
 

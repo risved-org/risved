@@ -45,6 +45,9 @@ export interface PipelineConfig {
 	startCommand?: string | null;
 	/** Shell command to run once per deploy before traffic switches. Null/empty skips the phase. */
 	releaseCommand?: string | null;
+	/** Override the data volume mounted at /app/data. Defaults to the project's volume;
+	    previews pass their own so they never touch production data. */
+	volumeName?: string;
 	/** Whether this project owns an adjacent managed Postgres container. */
 	postgresEnabled?: boolean | null
 	/** Encrypted managed Postgres password. Generated when missing. */

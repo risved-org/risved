@@ -329,7 +329,7 @@ async function _runPipeline(
 
 		/* ── Phase 3b: Release ───────────────────────────── */
 		const releaseCommand = config.releaseCommand?.trim() || null;
-		const volumeName = projectVolumeName(config.projectId);
+		const volumeName = config.volumeName ?? projectVolumeName(config.projectId);
 		const volumes = [`${volumeName}:/app/data`];
 
 		if (releaseCommand) {
