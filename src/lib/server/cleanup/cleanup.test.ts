@@ -14,6 +14,7 @@ vi.mock('$lib/server/db', () => ({
 }));
 
 vi.mock('$lib/server/db/schema', () => ({
+	projects: { id: 'id' },
 	deployments: { id: 'id', projectId: 'project_id', status: 'status', createdAt: 'created_at' },
 	buildLogs: { deploymentId: 'deployment_id' },
 	cronRuns: { startedAt: 'started_at' }

@@ -1,8 +1,9 @@
 import { db } from '$lib/server/db';
-import { deployments, buildLogs, cronRuns } from '$lib/server/db/schema';
+import { deployments, buildLogs, cronRuns, projects } from '$lib/server/db/schema';
 import { inArray, isNotNull, lt } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
-import { createCommandRunner } from '$lib/server/pipeline/docker';
+import { createCommandRunner, projectVolumeName } from '$lib/server/pipeline/docker';
+import { managedPostgresVolumeName } from '$lib/server/pipeline/postgres';
 import type { CommandRunner } from '$lib/server/pipeline/types';
 import {
 	getDiskSpace,
@@ -18,6 +19,8 @@ export { getDiskSpace, isDiskLow, pruneDockerResources, pruneProjectImages, KEEP
 export type { DiskSpace, DockerPruneSummary } from './docker-prune';
 
 const RETAINED_DEPLOYMENT_LOGS_PER_PROJECT = 16;
+
+type ExecFileFn = (cmd: string, args: string[]) => Promise<{ stdout: string }>;
 
 const DEFAULT_CONFIG: CleanupConfig = {
 	retentionDays: 30,
@@ -277,19 +280,26 @@ export class CleanupManager {
 	}
 
 	/**
-	 * Run Docker prune for the specified resource type.
+	 * Run Docker prune for the specified resource type. Volume pruning never
+	 * touches the data or managed Postgres volume of an existing project.
 	 */
 	async dockerPrune(type: 'images' | 'containers' | 'volumes' | 'buildcache' | 'all'): Promise<DockerPruneResult> {
 		const { execFile } = await import('node:child_process');
 		const { promisify } = await import('node:util');
-		const execFileAsync = promisify(execFile);
+		const execFileAsync = promisify(execFile) as ExecFileFn;
 
 		try {
 			let stdout = '';
+			let volumeBytes = 0;
+			let prunedVolumes = false;
 
 			if (type === 'all') {
-				const result = await execFileAsync('docker', ['system', 'prune', '-af', '--volumes']);
+				/* Resolve protected volumes first so a failed lookup prunes nothing. */
+				const protectedVolumes = await this.getProtectedVolumes();
+				const result = await execFileAsync('docker', ['system', 'prune', '-af']);
 				stdout = result.stdout;
+				volumeBytes = await this.pruneUnusedVolumes(execFileAsync, protectedVolumes);
+				prunedVolumes = true;
 			} else if (type === 'images') {
 				const result = await execFileAsync('docker', ['image', 'prune', '-af']);
 				stdout = result.stdout;
@@ -297,21 +307,85 @@ export class CleanupManager {
 				const result = await execFileAsync('docker', ['container', 'prune', '-f']);
 				stdout = result.stdout;
 			} else if (type === 'volumes') {
-				const result = await execFileAsync('docker', ['volume', 'prune', '-af']);
-				stdout = result.stdout;
+				const protectedVolumes = await this.getProtectedVolumes();
+				volumeBytes = await this.pruneUnusedVolumes(execFileAsync, protectedVolumes);
+				prunedVolumes = true;
 			} else if (type === 'buildcache') {
 				const result = await execFileAsync('docker', ['builder', 'prune', '-af']);
 				stdout = result.stdout;
 			}
 
 			const reclaimedMatch = stdout.match(/reclaimed\s+space:\s*(.+)/i);
+			const reclaimed = reclaimedMatch?.[1]?.trim() || '0B';
 			return {
 				type,
-				spaceReclaimed: reclaimedMatch?.[1]?.trim() || '0B'
+				spaceReclaimed: prunedVolumes
+					? formatBytes(parseDockerSize(reclaimed) + volumeBytes)
+					: reclaimed
 			};
 		} catch {
 			return { type, spaceReclaimed: '0B' };
 		}
+	}
+
+	/**
+	 * Volumes a prune must never delete: the data and managed Postgres volume of
+	 * every existing project. App containers are removed (not just stopped) when
+	 * a deployment is stopped or fails its health check, so Docker reports these
+	 * volumes as unused even though they hold the app's data.
+	 */
+	private async getProtectedVolumes(): Promise<Set<string>> {
+		const rows = await db.select({ id: projects.id }).from(projects);
+		const names = new Set<string>();
+		for (const { id } of rows) {
+			names.add(projectVolumeName(id));
+			names.add(managedPostgresVolumeName(id));
+		}
+		return names;
+	}
+
+	/**
+	 * Remove unused volumes except the protected ones. Returns the bytes
+	 * reclaimed. `docker volume rm` runs without -f so a volume that came back
+	 * into use since it was listed is left alone.
+	 */
+	private async pruneUnusedVolumes(
+		exec: ExecFileFn,
+		protectedVolumes: Set<string>
+	): Promise<number> {
+		const { stdout } = await exec('docker', ['volume', 'ls', '-q', '--filter', 'dangling=true']);
+		const names = stdout
+			.split('\n')
+			.map((name) => name.trim())
+			.filter((name) => name && !protectedVolumes.has(name));
+		if (names.length === 0) return 0;
+
+		const sizes = await this.getVolumeSizes(exec);
+		let reclaimed = 0;
+		for (const name of names) {
+			try {
+				await exec('docker', ['volume', 'rm', name]);
+				reclaimed += sizes.get(name) ?? 0;
+			} catch {
+				/* in use again or already gone */
+			}
+		}
+		return reclaimed;
+	}
+
+	/** Volume sizes in bytes by name; empty when Docker cannot report them. */
+	private async getVolumeSizes(exec: ExecFileFn): Promise<Map<string, number>> {
+		const sizes = new Map<string, number>();
+		try {
+			const { stdout } = await exec('docker', ['system', 'df', '-v', '--format', '{{json .}}']);
+			const usage = JSON.parse(stdout) as { Volumes?: Array<{ Name?: string; Size?: string }> };
+			for (const volume of usage.Volumes ?? []) {
+				if (volume.Name) sizes.set(volume.Name, parseDockerSize(volume.Size ?? '0B'));
+			}
+		} catch {
+			/* sizes are only used for the reclaimed total */
+		}
+		return sizes;
 	}
 }
 

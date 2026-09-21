@@ -974,7 +974,8 @@
 				<p class="form-hint">
 					Old images are removed after every deploy (the last 3 per project are kept for rollback).
 					When free space drops below 15% or 5GB, Risved prunes old images and the build cache
-					automatically. Containers and volumes are never pruned automatically.
+					automatically. Containers and volumes are never pruned automatically. Pruning volumes
+					keeps the data and Postgres volumes of your projects.
 				</p>
 			{:else}
 				<p class="empty-text">
