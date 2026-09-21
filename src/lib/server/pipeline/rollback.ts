@@ -5,6 +5,7 @@ import { CaddyClient, createCaddyClient } from '../caddy';
 import { dockerRun, dockerStop, waitForHealthy, freePort, projectVolumeName } from './docker';
 import { createLogCollector } from './log';
 import { getManagedAppDomain } from './domains'
+import { loadProjectEnv, resolveManagedPostgresEnv } from './env'
 import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
 
 export interface RollbackConfig {
@@ -16,6 +17,10 @@ export interface RollbackConfig {
 	commitSha: string | null;
 	port: number;
 	domain?: string;
+	/** Whether Risved should inject the project's managed Postgres env */
+	postgresEnabled?: boolean | null
+	/** Encrypted managed Postgres password */
+	postgresPassword?: string | null
 }
 
 /**
@@ -63,6 +68,16 @@ export async function runRollback(
 		}
 		await runner.exec('docker', ['rm', '-f', containerName]);
 
+		/* Resolve the project's current env vars, same as a normal deploy */
+		const envMap = await loadProjectEnv(config.projectId)
+		if (config.postgresEnabled) {
+			const { env: postgresEnv } = await resolveManagedPostgresEnv(
+				config.projectId,
+				config.postgresPassword
+			)
+			Object.assign(envMap, postgresEnv)
+		}
+
 		const volumeName = projectVolumeName(config.projectId)
 		emit('start', `Mounting persistent volume at /app/data`)
 
@@ -70,6 +85,7 @@ export async function runRollback(
 			imageTag: config.imageTag,
 			containerName,
 			port: config.port,
+			env: envMap,
 			volumes: [`${volumeName}:/app/data`]
 		});
 		if (!runResult.success) {

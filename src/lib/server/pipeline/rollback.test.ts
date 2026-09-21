@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const { envRows } = vi.hoisted(() => ({
+	envRows: { value: [] as Array<{ key: string; value: string }> }
+}));
+
 vi.mock('$lib/server/db', () => {
 	const mockDb = {
 		insert: vi.fn().mockReturnThis(),
@@ -12,12 +16,24 @@ vi.mock('$lib/server/db', () => {
 	mockDb.update.mockReturnValue({
 		set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
 	});
+	Object.assign(mockDb, {
+		select: vi.fn(() => ({
+			from: vi.fn(() => ({ where: vi.fn(() => Promise.resolve(envRows.value)) }))
+		}))
+	});
 	return { db: mockDb };
 });
 
 vi.mock('$lib/server/db/schema', () => ({
+	projects: { id: 'id' },
 	deployments: { id: 'id' },
-	buildLogs: {}
+	buildLogs: {},
+	envVars: { key: 'key', value: 'value', projectId: 'project_id' }
+}));
+
+vi.mock('$lib/server/crypto', () => ({
+	encrypt: vi.fn((v: string) => `encrypted:${v}`),
+	safeDecrypt: vi.fn((v: string) => v.replace(/^encrypted:/, ''))
 }));
 
 vi.mock('$lib/server/settings', () => ({
@@ -74,6 +90,7 @@ function makeCaddy() {
 describe('runRollback', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		envRows.value = [];
 	});
 
 	it('succeeds with existing image (skips clone/detect/build)', async () => {
@@ -111,6 +128,59 @@ describe('runRollback', () => {
 		const runCall = calls.find((c) => c.includes('docker run'));
 		expect(runCall).toContain('-v');
 		expect(runCall).toContain('risved-proj-1-data:/app/data');
+	});
+
+	it('passes decrypted project env vars to docker run', async () => {
+		envRows.value = [
+			{ key: 'API_KEY', value: 'encrypted:s3cret' },
+			{ key: 'PUBLIC_URL', value: 'encrypted:https://my-app.example.com' }
+		];
+
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				if (args[0] === 'run') return { exitCode: 0, stdout: 'container123id\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runRollback(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		const runCall = calls.find((c) => c[0] === 'docker' && c[1] === 'run');
+		expect(runCall).toContain('API_KEY=s3cret');
+		expect(runCall).toContain('PUBLIC_URL=https://my-app.example.com');
+		expect(runCall?.some((a) => a.startsWith('DATABASE_URL='))).toBe(false);
+	});
+
+	it('merges managed Postgres env when postgres is enabled', async () => {
+		envRows.value = [{ key: 'API_KEY', value: 'encrypted:s3cret' }];
+
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				if (args[0] === 'run') return { exitCode: 0, stdout: 'container123id\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		await runRollback(
+			makeConfig({ postgresEnabled: true, postgresPassword: 'encrypted:pgpass' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		const runCall = calls.find((c) => c[0] === 'docker' && c[1] === 'run');
+		expect(runCall).toContain('API_KEY=s3cret');
+		expect(runCall).toContain('POSTGRES_PASSWORD=pgpass');
+		expect(runCall).toContain('PGHOST=risved-postgres-proj-1');
+		const dbUrl = runCall?.find((a) => a.startsWith('DATABASE_URL='));
+		expect(dbUrl).toContain(':pgpass@risved-postgres-proj-1:5432/');
 	});
 
 	it('does not emit clone, detect, or build phases', async () => {

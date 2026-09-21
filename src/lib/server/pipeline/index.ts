@@ -2,7 +2,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { db } from '$lib/server/db';
-import { deployments, projects, domains, envVars } from '$lib/server/db/schema';
+import { deployments, projects, domains } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSetting } from '$lib/server/settings';
 import {
@@ -13,7 +13,6 @@ import {
 	pruneProjectImages,
 	KEEP_IMAGES_PER_PROJECT
 } from '$lib/server/cleanup'
-import { encrypt, safeDecrypt } from '$lib/server/crypto'
 import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
@@ -31,12 +30,8 @@ import {
 	getContainerLogs,
 	projectVolumeName
 } from './docker';
-import {
-	buildManagedPostgresEnv,
-	ensureManagedPostgres,
-	generatePostgresPassword,
-	managedPostgresConfig
-} from './postgres'
+import { ensureManagedPostgres } from './postgres'
+import { loadProjectEnv, resolveManagedPostgresEnv } from './env'
 import { runRelease } from './release';
 import { createLogCollector } from './log';
 import { getManagedAppDomain } from './domains'
@@ -133,10 +128,7 @@ async function _runPipeline(
 
 		/* Kick off clone, env var fetch, and SSH key lookup in parallel */
 		const sshKeyPromise = getSetting('ssh_deploy_private_key')
-		const envVarsPromise = db
-			.select({ key: envVars.key, value: envVars.value })
-			.from(envVars)
-			.where(eq(envVars.projectId, config.projectId))
+		const envVarsPromise = loadProjectEnv(config.projectId)
 
 		/* Resolve HTTPS clone token from the git connection (if any) */
 		const cloneToken = config.gitConnectionId
@@ -170,11 +162,8 @@ async function _runPipeline(
 		}
 
 		/* Resolve env vars (started in parallel with clone) */
-		const projectEnvVars = await envVarsPromise
-		const envMap: Record<string, string> = {}
-		for (const row of projectEnvVars) {
-			envMap[row.key] = safeDecrypt(row.value)
-		}
+		const envMap = await envVarsPromise
+		const projectEnvCount = Object.keys(envMap).length
 
 		/* ── Phase 2: Detect ─────────────────────────────── */
 		let frameworkId = config.frameworkId;
@@ -210,12 +199,11 @@ async function _runPipeline(
 
 		/* ── Phase 3: Build ──────────────────────────────── */
 		if (config.postgresEnabled) {
-			const postgres = managedPostgresConfig(config.projectId)
-			const password = await resolveManagedPostgresPassword(
+			const { postgres, password, env: postgresEnv } = await resolveManagedPostgresEnv(
 				config.projectId,
 				config.postgresPassword
 			)
-			Object.assign(envMap, buildManagedPostgresEnv(postgres, password))
+			Object.assign(envMap, postgresEnv)
 
 			emit('build', `Managed Postgres enabled for project ${config.projectId}`)
 			const postgresResult = await ensureManagedPostgres(runner, postgres, password, {
@@ -399,8 +387,8 @@ async function _runPipeline(
 		/* ── Phase 4: Start ──────────────────────────────── */
 		const containerName = config.projectSlug;
 		emit('start', `Starting container ${containerName} on port ${config.port}…`);
-		if (projectEnvVars.length > 0) {
-			emit('start', `Injecting ${projectEnvVars.length} env var(s)`)
+		if (projectEnvCount > 0) {
+			emit('start', `Injecting ${projectEnvCount} env var(s)`)
 		}
 
 		/* Stop any container using the target port */
@@ -559,23 +547,6 @@ async function _runPipeline(
 /**
  * Resolve or create the persistent password for a project's managed Postgres.
  */
-async function resolveManagedPostgresPassword(
-	projectId: string,
-	storedPassword: string | null | undefined
-): Promise<string> {
-	const existing = storedPassword ? safeDecrypt(storedPassword) : null
-	if (existing) return existing
-
-	const password = generatePostgresPassword()
-	const encryptedPassword = encrypt(password)
-	await db
-		.update(projects)
-		.set({ postgresPassword: encryptedPassword, updatedAt: new Date().toISOString() })
-		.where(eq(projects.id, projectId))
-
-	return password
-}
-
 /**
  * Embed an access token into an HTTPS clone URL.
  * e.g. https://github.com/user/repo.git → https://x-access-token:TOKEN@github.com/user/repo.git

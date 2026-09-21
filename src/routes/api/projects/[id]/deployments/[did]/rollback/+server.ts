@@ -55,7 +55,9 @@ export const POST: RequestHandler = async (event) => {
 			imageTag: deployment.imageTag,
 			commitSha: deployment.commitSha,
 			port: project.port,
-			domain: project.domain ?? undefined
+			domain: project.domain ?? undefined,
+			postgresEnabled: project.postgresEnabled,
+			postgresPassword: project.postgresPassword
 		},
 		createCommandRunner()
 	);
