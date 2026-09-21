@@ -336,12 +336,24 @@ export function createCommandRunner(): CommandRunner {
 					})
 					let stdout = ''
 					let stderr = ''
+					/* Buffer partial lines per stream — a chunk boundary can land
+					   mid-line, so lines are only complete once a '\n' arrives. */
+					const buffers: Record<'stdout' | 'stderr', string> = { stdout: '', stderr: '' }
+
+					const flush = (stream: 'stdout' | 'stderr') => {
+						const trimmed = buffers[stream].trim()
+						if (trimmed) options.onLine!(trimmed)
+						buffers[stream] = ''
+					}
 
 					const handleData = (stream: 'stdout' | 'stderr') => (data: Buffer) => {
 						const text = data.toString()
 						if (stream === 'stdout') stdout += text
 						else stderr += text
-						for (const line of text.split('\n')) {
+						buffers[stream] += text
+						const lines = buffers[stream].split('\n')
+						buffers[stream] = lines.pop() ?? ''
+						for (const line of lines) {
 							const trimmed = line.trim()
 							if (trimmed) options.onLine!(trimmed)
 						}
@@ -349,7 +361,11 @@ export function createCommandRunner(): CommandRunner {
 
 					child.stdout?.on('data', handleData('stdout'))
 					child.stderr?.on('data', handleData('stderr'))
-					child.on('close', (code) => resolve({ exitCode: code ?? 1, stdout, stderr }))
+					child.on('close', (code) => {
+						flush('stdout')
+						flush('stderr')
+						resolve({ exitCode: code ?? 1, stdout, stderr })
+					})
 					child.on('error', (err) => resolve({ exitCode: 1, stdout: '', stderr: err.message }))
 				})
 			}

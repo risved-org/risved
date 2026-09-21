@@ -667,6 +667,7 @@ describe('createCommandRunner (non-streaming, execFile path)', () => {
 
 	it('passes cwd and merged env through to execFile', async () => {
 		mockExecFile.mockResolvedValueOnce({ stdout: '', stderr: '' });
+		vi.stubEnv('RISVED_TEST_INHERITED', 'yes');
 
 		const runner = createCommandRunner();
 		await runner.exec('git', ['status'], { cwd: '/tmp/x', env: { FOO: 'bar' } });
@@ -676,10 +677,13 @@ describe('createCommandRunner (non-streaming, execFile path)', () => {
 			['status'],
 			expect.objectContaining({
 				cwd: '/tmp/x',
-				env: expect.objectContaining({ FOO: 'bar' }),
+				/* Merged with process.env, not replaced by it */
+				env: expect.objectContaining({ FOO: 'bar', RISVED_TEST_INHERITED: 'yes' }),
 				maxBuffer: 10 * 1024 * 1024
 			})
 		);
+
+		vi.unstubAllEnvs();
 	});
 });
 
@@ -705,6 +709,47 @@ describe('createCommandRunner (streaming, onLine/spawn path)', () => {
 		expect(result.stdout).toContain('line one');
 		expect(result.stderr).toContain('warn line');
 		expect(lines).toEqual(['line one', 'line two', 'warn line']);
+	});
+
+	it('joins a log line that arrives split across multiple data chunks', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => {
+				child.stdout.emit('data', Buffer.from('line '));
+				child.stdout.emit('data', Buffer.from('one\n'));
+				child.emit('close', 0);
+			});
+			return child;
+		});
+
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec('docker', ['build', '.'], {
+			onLine: (line) => lines.push(line)
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(lines).toEqual(['line one']);
+	});
+
+	it('flushes a trailing line with no newline once the process closes', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => {
+				child.stdout.emit('data', Buffer.from('no trailing newline'));
+				child.emit('close', 0);
+			});
+			return child;
+		});
+
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec('docker', ['build', '.'], {
+			onLine: (line) => lines.push(line)
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(lines).toEqual(['no trailing newline']);
 	});
 
 	it('resolves with exit code 1 on a spawn error event', async () => {
@@ -740,6 +785,7 @@ describe('createCommandRunner (streaming, onLine/spawn path)', () => {
 			queueMicrotask(() => child.emit('close', 0));
 			return child;
 		});
+		vi.stubEnv('RISVED_TEST_INHERITED', 'yes');
 
 		const runner = createCommandRunner();
 		await runner.exec('git', ['clone'], {
@@ -753,9 +799,12 @@ describe('createCommandRunner (streaming, onLine/spawn path)', () => {
 			['clone'],
 			expect.objectContaining({
 				cwd: '/tmp/x',
-				env: expect.objectContaining({ FOO: 'bar' })
+				/* Merged with process.env, not replaced by it */
+				env: expect.objectContaining({ FOO: 'bar', RISVED_TEST_INHERITED: 'yes' })
 			})
 		);
+
+		vi.unstubAllEnvs();
 	});
 });
 
