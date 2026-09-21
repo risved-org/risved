@@ -875,12 +875,29 @@ describe('runPipeline', () => {
 	});
 
 	it('serializes concurrent builds for the same project', async () => {
+		let active = 0;
+		let maxActive = 0;
+		function trackingRunner(): CommandRunner {
+			const base = makeSuccessRunner();
+			return {
+				async exec(cmd, args, options) {
+					active++;
+					maxActive = Math.max(maxActive, active);
+					try {
+						return await base.exec(cmd, args, options);
+					} finally {
+						active--;
+					}
+				}
+			};
+		}
+
 		const [r1, r2] = await Promise.all([
-			runPipeline(makeConfig(), makeSuccessRunner(), {
+			runPipeline(makeConfig(), trackingRunner(), {
 				caddy: makeCaddy() as never,
 				fetchFn: makeHealthyFetch()
 			}),
-			runPipeline(makeConfig(), makeSuccessRunner(), {
+			runPipeline(makeConfig(), trackingRunner(), {
 				caddy: makeCaddy() as never,
 				fetchFn: makeHealthyFetch()
 			})
@@ -888,5 +905,8 @@ describe('runPipeline', () => {
 
 		expect(r1.success).toBe(true);
 		expect(r2.success).toBe(true);
+		/* If the per-project lock were removed, both pipelines' exec calls
+		   would interleave and maxActive would exceed 1. */
+		expect(maxActive).toBe(1);
 	});
 });

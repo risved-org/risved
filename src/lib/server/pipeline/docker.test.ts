@@ -586,6 +586,8 @@ describe('gitClone with SSH key', () => {
 	});
 
 	it('removes the temp key file even when the clone fails', async () => {
+		vi.mocked(rm).mockClear();
+
 		const runner: CommandRunner = {
 			async exec() {
 				return { exitCode: 128, stdout: '', stderr: 'fatal: auth failed' };
@@ -601,6 +603,7 @@ describe('gitClone with SSH key', () => {
 		);
 
 		expect(result.success).toBe(false);
+		expect(vi.mocked(rm)).toHaveBeenCalledTimes(1);
 		expect(vi.mocked(rm)).toHaveBeenCalledWith(expect.stringContaining('risved-ssh-'), {
 			force: true
 		});
