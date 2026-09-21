@@ -79,12 +79,14 @@ vi.mock('node:fs/promises', () => ({
 	stat: vi.fn().mockRejectedValue(new Error('no lockfile'))
 }));
 
+import { writeFile } from 'node:fs/promises';
 import { runPipeline } from './index';
 import { detectFramework } from '../detection';
 import { resolveCloneToken } from '../git-token';
 import { getSetting } from '$lib/server/settings';
 import { encrypt, safeDecrypt } from '$lib/server/crypto';
 import { db } from '$lib/server/db';
+import { projects } from '$lib/server/db/schema';
 import type { CommandRunner, PipelineConfig } from './types';
 import type { LogEntry } from './types';
 
@@ -632,7 +634,21 @@ describe('runPipeline', () => {
 				})
 			});
 
-		const result = await runPipeline(makeConfig(), makeSuccessRunner(), {
+		const runArgs: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				if (args[0] === 'run') runArgs.push(args);
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker rename'))
+					return { exitCode: 1, stdout: '', stderr: 'No such container' };
+				if (joined.includes('docker run'))
+					return { exitCode: 0, stdout: 'container123id\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(makeConfig(), runner, {
 			caddy: makeCaddy() as never,
 			fetchFn: makeHealthyFetch()
 		});
@@ -643,6 +659,18 @@ describe('runPipeline', () => {
 			(l) => l.phase === 'start' && l.message.includes('Injecting')
 		);
 		expect(startLog?.message).toContain('1 env var');
+
+		/* The decrypted value actually reaches the build-time .env file */
+		expect(vi.mocked(writeFile)).toHaveBeenCalledWith(
+			expect.stringContaining('.env'),
+			expect.stringContaining('API_KEY="enc:xyz"')
+		);
+
+		/* ...and the runtime `docker run -e` flags */
+		const dockerRunArgs = runArgs.find((args) => args[0] === 'run');
+		const flagIndex = dockerRunArgs?.indexOf('API_KEY=enc:xyz');
+		expect(flagIndex).toBeGreaterThan(0);
+		expect(dockerRunArgs?.[flagIndex! - 1]).toBe('-e');
 	});
 
 	it('streams warm-image, build, and release output through onLine for a Node-tier deploy', async () => {
@@ -721,6 +749,18 @@ describe('runPipeline', () => {
 
 		expect(result.success).toBe(true);
 		expect(encrypt).toHaveBeenCalled();
+
+		/* The encrypted password is actually persisted on the project row,
+		   not just generated */
+		const encryptedPassword = vi.mocked(encrypt).mock.results[0].value;
+		const mockDb = db as unknown as { update: ReturnType<typeof vi.fn> };
+		expect(mockDb.update).toHaveBeenCalledWith(projects);
+		const updateResult = mockDb.update.mock.results.find(
+			(r) => r.type === 'return'
+		)?.value;
+		expect(updateResult.set).toHaveBeenCalledWith(
+			expect.objectContaining({ postgresPassword: encryptedPassword })
+		);
 	});
 
 	it('fails the build when managed Postgres cannot be created', async () => {
