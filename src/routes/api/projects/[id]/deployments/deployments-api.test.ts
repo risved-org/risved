@@ -295,6 +295,8 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 			};
 		});
 
+		const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
+
 		const { GET } = await import('./[did]/logs/+server');
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-4' } }));
 
@@ -304,6 +306,10 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 		expect(text).toContain('live');
 		/* Confirms the loop actually went around twice (the 500ms wait branch ran). */
 		expect(selectCallIdx).toBeGreaterThanOrEqual(5);
+		/* Confirms it actually waited 500ms rather than tight-looping. */
+		expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 500);
+
+		setTimeoutSpy.mockRestore();
 	}, 2000);
 
 	it('stream cancel() sets closed flag without throwing', async () => {

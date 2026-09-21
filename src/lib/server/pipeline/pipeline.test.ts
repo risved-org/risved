@@ -13,9 +13,11 @@ vi.mock('$lib/server/db', () => {
 	};
 	/* Make chaining work for insert().values() and update().set().where() */
 	mockDb.insert.mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) });
-	mockDb.update.mockReturnValue({
+	/* A fresh chain per call (rather than one shared object) so tests can
+	   correlate a specific update(<table>) call with its own .set() calls. */
+	mockDb.update.mockImplementation(() => ({
 		set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
-	});
+	}));
 	mockDb.select.mockReturnValue({
 		from: vi.fn().mockReturnValue({
 			where: vi.fn().mockReturnValue(
@@ -619,6 +621,11 @@ describe('runPipeline', () => {
 	});
 
 	it('decrypts and injects project env vars into the build and runtime', async () => {
+		/* Use a plaintext distinct from the ciphertext, so the assertions below
+		   can only pass if safeDecrypt's return value is actually used, not
+		   just the raw encrypted row value. */
+		vi.mocked(safeDecrypt).mockReturnValueOnce('plain-api-key');
+
 		const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> };
 		mockDb.select
 			/* envVars query */
@@ -663,12 +670,12 @@ describe('runPipeline', () => {
 		/* The decrypted value actually reaches the build-time .env file */
 		expect(vi.mocked(writeFile)).toHaveBeenCalledWith(
 			expect.stringContaining('.env'),
-			expect.stringContaining('API_KEY="enc:xyz"')
+			expect.stringContaining('API_KEY="plain-api-key"')
 		);
 
 		/* ...and the runtime `docker run -e` flags */
 		const dockerRunArgs = runArgs.find((args) => args[0] === 'run');
-		const flagIndex = dockerRunArgs?.indexOf('API_KEY=enc:xyz');
+		const flagIndex = dockerRunArgs?.indexOf('API_KEY=plain-api-key');
 		expect(flagIndex).toBeGreaterThan(0);
 		expect(dockerRunArgs?.[flagIndex! - 1]).toBe('-e');
 	});
@@ -750,17 +757,24 @@ describe('runPipeline', () => {
 		expect(result.success).toBe(true);
 		expect(encrypt).toHaveBeenCalled();
 
-		/* The encrypted password is actually persisted on the project row,
-		   not just generated */
+		/* The encrypted password is actually persisted on the project row via
+		   THIS specific update(projects) call, not just generated, and not
+		   via some other update(...) call (e.g. a deployment status write). */
 		const encryptedPassword = vi.mocked(encrypt).mock.results[0].value;
 		const mockDb = db as unknown as { update: ReturnType<typeof vi.fn> };
-		expect(mockDb.update).toHaveBeenCalledWith(projects);
-		const updateResult = mockDb.update.mock.results.find(
-			(r) => r.type === 'return'
-		)?.value;
-		expect(updateResult.set).toHaveBeenCalledWith(
-			expect.objectContaining({ postgresPassword: encryptedPassword })
+		const projectUpdateChains = mockDb.update.mock.calls
+			.map((args, i) => ({ args, chain: mockDb.update.mock.results[i]?.value }))
+			.filter((c) => c.args[0] === projects)
+			.map((c) => c.chain);
+		expect(projectUpdateChains.length).toBeGreaterThan(0);
+		const persistedPassword = projectUpdateChains.some((chain) =>
+			vi
+				.mocked(chain.set)
+				.mock.calls.some(
+					([payload]: [Record<string, unknown>]) => payload.postgresPassword === encryptedPassword
+				)
 		);
+		expect(persistedPassword).toBe(true);
 	});
 
 	it('fails the build when managed Postgres cannot be created', async () => {
