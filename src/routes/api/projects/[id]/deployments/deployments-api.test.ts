@@ -286,3 +286,18 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 		await expect(res.body!.cancel()).resolves.toBeUndefined();
 	});
 });
+
+describe('POST stop on a superseded deployment', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it('refuses to stop a superseded deployment because its container now belongs to a newer deploy', async () => {
+		setupSelectChain([{ id: 'd-1', status: 'superseded', containerName: 'my-app' }]);
+		const { dockerStop } = await import('$lib/server/pipeline/docker');
+
+		const { POST } = await import('./[did]/stop/+server');
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
+
+		expect(res.status).toBe(400);
+		expect(dockerStop).not.toHaveBeenCalled();
+	});
+});

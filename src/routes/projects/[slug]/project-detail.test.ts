@@ -21,8 +21,11 @@ vi.mock('$lib/server/db', () => {
 
 vi.mock('drizzle-orm', () => ({
 	eq: vi.fn(() => 'eq_fn'),
+	ne: vi.fn(() => 'ne_fn'),
 	and: vi.fn((...args: unknown[]) => args),
-	desc: vi.fn(() => 'desc_fn')
+	desc: vi.fn(() => 'desc_fn'),
+	inArray: vi.fn(() => 'in_array_fn'),
+	isNotNull: vi.fn(() => 'is_not_null_fn')
 }))
 
 vi.mock('$lib/server/db/schema', () => ({
@@ -33,7 +36,8 @@ vi.mock('$lib/server/db/schema', () => ({
 	webhookDeliveries: 'webhook_deliveries_table',
 	healthEvents: 'health_events_table',
 	cronJobs: 'cron_jobs_table',
-	cronRuns: 'cron_runs_table'
+	cronRuns: 'cron_runs_table',
+	previewDeployments: 'preview_deployments_table'
 }))
 
 vi.mock('$lib/server/cron', () => ({
@@ -42,9 +46,24 @@ vi.mock('$lib/server/cron', () => ({
 	})
 }))
 
+vi.mock('$lib/server/pipeline/docker', () => ({
+	createCommandRunner: vi.fn(() => ({
+		exec: vi.fn(async () => ({ exitCode: 0, stdout: '', stderr: '' }))
+	})),
+	dockerStop: vi.fn().mockResolvedValue({ success: true }),
+	dockerVolumeRemove: vi.fn().mockResolvedValue({ success: true }),
+	projectVolumeName: vi.fn((id: string) => `risved-${id}-data`)
+}))
+
+vi.mock('$lib/server/preview', () => ({
+	cleanupProjectPreviews: vi.fn().mockResolvedValue(0)
+}))
+
 import { db } from '$lib/server/db'
 import { load } from './+page.server'
 import { actions } from './settings/+page.server'
+import { createCommandRunner } from '$lib/server/pipeline/docker'
+import { cleanupProjectPreviews } from '$lib/server/preview'
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>
 
@@ -247,5 +266,46 @@ describe('deployments page source', () => {
 		const mod = await import('./deployments/+page.svelte?raw')
 		expect(mod.default).toContain('deploy-group')
 		expect(mod.default).toContain('groupByCommit')
+	})
+})
+
+describe('settings delete action image and preview cleanup', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		dbAny.__limitMock.mockResolvedValue([])
+	})
+
+	it('removes the project images and tears down previews before deleting rows', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([{ id: 'proj-1', slug: 'test-app' }])
+
+		const calls: string[] = []
+		vi.mocked(createCommandRunner).mockReturnValueOnce({
+			async exec(cmd: string, args: string[]) {
+				const joined = `${cmd} ${args.join(' ')}`
+				calls.push(joined)
+				if (joined.startsWith('docker images')) {
+					return {
+						exitCode: 0,
+						stdout: 'test-app:abc1234\ntest-app:abc1234-release\ntest-app-pr-2:def5678\nother:abc1234\n',
+						stderr: ''
+					}
+				}
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		} as never)
+
+		await expect(
+			actions.delete({
+				params: { slug: 'test-app' }
+			} as Parameters<typeof actions.delete>[0])
+		).rejects.toMatchObject({ status: 303, location: '/' })
+
+		expect(cleanupProjectPreviews).toHaveBeenCalledWith('proj-1')
+		expect(calls.filter((c) => c.startsWith('docker rmi')).sort()).toEqual([
+			'docker rmi test-app-pr-2:def5678',
+			'docker rmi test-app:abc1234',
+			'docker rmi test-app:abc1234-release'
+		])
+		expect(db.delete).toHaveBeenCalledWith('preview_deployments_table')
 	})
 })

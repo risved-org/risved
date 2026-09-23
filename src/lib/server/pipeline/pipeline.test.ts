@@ -71,6 +71,10 @@ vi.mock('../dockerfile', () => ({
 		})
 }));
 
+vi.mock('./supersede', () => ({
+	supersedeLiveDeployments: vi.fn().mockResolvedValue(undefined)
+}));
+
 vi.mock('node:fs/promises', () => ({
 	writeFile: vi.fn().mockResolvedValue(undefined),
 	mkdir: vi.fn().mockResolvedValue(undefined),
@@ -80,6 +84,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { runPipeline } from './index';
+import { supersedeLiveDeployments } from './supersede';
 import { detectFramework } from '../detection';
 import { resolveCloneToken } from '../git-token';
 import { getSetting } from '$lib/server/settings';
@@ -683,5 +688,55 @@ describe('runPipeline', () => {
 			hostname: 'my-app.example.com',
 			port: 3001
 		});
+	});
+});
+
+describe('runPipeline supersedes the previous live deployment', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.mocked(detectFramework).mockResolvedValue({
+			detected: true,
+			framework: { id: 'fresh', name: 'Fresh', tier: 'deno', confidence: 'high' }
+		});
+	});
+
+	it('demotes the previously live deployment of the same container once the new one is live', async () => {
+		const result = await runPipeline(makeConfig(), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		expect(supersedeLiveDeployments).toHaveBeenCalledWith('proj-1', 'my-app', result.deploymentId);
+	});
+
+	it('scopes preview builds to their own container so production stays live', async () => {
+		const result = await runPipeline(
+			makeConfig({ projectSlug: 'my-app-pr-7', isPreview: true, port: 4001 }),
+			makeSuccessRunner(),
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(supersedeLiveDeployments).toHaveBeenCalledWith('proj-1', 'my-app-pr-7', result.deploymentId);
+	});
+
+	it('leaves the previous deployment live when the new one fails', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 1, stdout: '', stderr: 'boom' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(false);
+		expect(supersedeLiveDeployments).not.toHaveBeenCalled();
 	});
 });

@@ -82,6 +82,8 @@ export interface DockerBuildOptions {
 	target?: string;
 	/** Build-time environment variables (passed as --build-arg) */
 	buildArgs?: Record<string, string>;
+	/** Image labels (passed as --label), used to recognise Risved-built images later */
+	labels?: Record<string, string>;
 	/** Called for each line of build output (enables streaming) */
 	onLine?: (line: string) => void;
 }

@@ -40,7 +40,12 @@ vi.mock('$lib/server/settings', () => ({
 	getSetting: vi.fn().mockResolvedValue(null)
 }));
 
+vi.mock('./supersede', () => ({
+	supersedeLiveDeployments: vi.fn().mockResolvedValue(undefined)
+}));
+
 import { runRollback } from './rollback';
+import { supersedeLiveDeployments } from './supersede';
 import type { RollbackConfig } from './rollback';
 import type { CommandRunner, LogEntry } from './types';
 import { getSetting } from '$lib/server/settings';
@@ -426,5 +431,40 @@ describe('runRollback', () => {
 
 		expect(result.success).toBe(false);
 		expect(result.error).toBe('Unknown error');
+	});
+});
+
+describe('runRollback supersedes the previous live deployment', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		envRows.value = [];
+	});
+
+	it('demotes the previously live deployment once the rollback is live', async () => {
+		const result = await runRollback(makeConfig(), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		expect(supersedeLiveDeployments).toHaveBeenCalledWith('proj-1', 'my-app', result.deploymentId);
+	});
+
+	it('leaves the previous deployment live when the rollback fails', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('docker run')) return { exitCode: 1, stdout: '', stderr: 'boom' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runRollback(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(false);
+		expect(supersedeLiveDeployments).not.toHaveBeenCalled();
 	});
 });

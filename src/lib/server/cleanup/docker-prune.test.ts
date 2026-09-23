@@ -30,7 +30,10 @@ import {
 	pruneProjectImages,
 	pruneControlPlaneImages,
 	pruneDockerResources,
-	LOW_DISK_FREE_BYTES
+	removeProjectImages,
+	LOW_DISK_FREE_BYTES,
+	KEEP_IMAGES_PER_PROJECT,
+	PROJECT_IMAGE_LABEL
 } from './docker-prune';
 import type { CommandRunner } from '$lib/server/pipeline/types';
 
@@ -65,14 +68,15 @@ function setupDb(projectRows: Project[], deploymentRows: Deployment[]) {
 	return { projectQuery };
 }
 
-function makeRunner(images: string[], inUse: string[] = []) {
+function makeRunner(images: string[], inUse: string[] = [], labeled: string[] = []) {
 	const calls: string[] = [];
 	const runner: CommandRunner = {
 		async exec(cmd, args) {
 			const joined = `${cmd} ${args.join(' ')}`;
 			calls.push(joined);
 			if (joined.startsWith('docker images')) {
-				return { exitCode: 0, stdout: images.join('\n') + '\n', stderr: '' };
+				const list = args.includes('--filter') ? labeled : images;
+				return { exitCode: 0, stdout: list.join('\n') + '\n', stderr: '' };
 			}
 			if (joined.startsWith('docker rmi')) {
 				const tag = args[1];
@@ -405,5 +409,194 @@ describe('pruneDockerResources', () => {
 		expect(calls.some((c) => c.includes('container prune'))).toBe(false);
 		expect(calls.some((c) => c.includes('volume'))).toBe(false);
 		expect(calls.some((c) => c.includes('system prune'))).toBe(false);
+	});
+});
+
+/* ── pruneProjectImages: historical live rows ─────────────────────── */
+
+describe('pruneProjectImages with historical live rows', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('protects only the newest live image when every past deployment is still marked live', async () => {
+		setupDb(
+			[{ id: 'p1', slug: 'my-app' }],
+			[
+				dep('p1', 'my-app:sha1', '2025-01-01T00:00:00Z', 'live'),
+				dep('p1', 'my-app:sha2', '2025-01-02T00:00:00Z', 'live'),
+				dep('p1', 'my-app:sha3', '2025-01-03T00:00:00Z', 'live'),
+				dep('p1', 'my-app:sha4', '2025-01-04T00:00:00Z', 'live'),
+				dep('p1', 'my-app:sha5', '2025-01-05T00:00:00Z', 'live')
+			]
+		);
+		const { runner } = makeRunner([
+			'my-app:sha1',
+			'my-app:sha2',
+			'my-app:sha3',
+			'my-app:sha4',
+			'my-app:sha5'
+		]);
+
+		const removed = await pruneProjectImages(runner, KEEP_IMAGES_PER_PROJECT);
+
+		expect(removed.sort()).toEqual(['my-app:sha1', 'my-app:sha2']);
+	});
+
+	it('keeps a single image per project under aggressive pruning despite stale live rows', async () => {
+		setupDb(
+			[{ id: 'p1', slug: 'my-app' }],
+			[
+				dep('p1', 'my-app:sha1', '2025-01-01T00:00:00Z', 'live'),
+				dep('p1', 'my-app:sha2', '2025-01-02T00:00:00Z', 'live'),
+				dep('p1', 'my-app:sha3', '2025-01-03T00:00:00Z', 'live')
+			]
+		);
+		const { runner } = makeRunner(['my-app:sha1', 'my-app:sha2', 'my-app:sha3']);
+
+		const removed = await pruneProjectImages(runner, 1);
+
+		expect(removed.sort()).toEqual(['my-app:sha1', 'my-app:sha2']);
+	});
+
+	it('treats superseded deployments as rollback candidates within the keep window', async () => {
+		setupDb(
+			[{ id: 'p1', slug: 'my-app' }],
+			[
+				dep('p1', 'my-app:sha1', '2025-01-01T00:00:00Z', 'superseded'),
+				dep('p1', 'my-app:sha2', '2025-01-02T00:00:00Z', 'superseded'),
+				dep('p1', 'my-app:sha3', '2025-01-03T00:00:00Z', 'live')
+			]
+		);
+		const { runner } = makeRunner(['my-app:sha1', 'my-app:sha2', 'my-app:sha3']);
+
+		const removed = await pruneProjectImages(runner, 2);
+
+		expect(removed).toEqual(['my-app:sha1']);
+	});
+
+	it('keeps the newest live image of a PR preview alongside the production one', async () => {
+		setupDb(
+			[{ id: 'p1', slug: 'my-app' }],
+			[
+				dep('p1', 'my-app:prod', '2025-01-01T00:00:00Z', 'live'),
+				dep('p1', 'my-app-pr-7:old', '2025-01-02T00:00:00Z', 'live'),
+				dep('p1', 'my-app-pr-7:new', '2025-01-03T00:00:00Z', 'live')
+			]
+		);
+		const { runner } = makeRunner(['my-app:prod', 'my-app-pr-7:old', 'my-app-pr-7:new']);
+
+		const removed = await pruneProjectImages(runner, 1);
+
+		expect(removed).toEqual(['my-app-pr-7:old']);
+	});
+});
+
+/* ── pruneProjectImages: orphaned project images ──────────────────── */
+
+describe('pruneProjectImages with orphaned project images', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('removes Risved-built images whose project no longer exists', async () => {
+		setupDb([{ id: 'p1', slug: 'my-app' }], [dep('p1', 'my-app:sha1', '2025-01-05T00:00:00Z')]);
+		const { runner, calls } = makeRunner(
+			[
+				'my-app:sha1',
+				'gone-app:sha9',
+				'gone-app:sha9-release',
+				'gone-app-pr-3:abc',
+				'postgres:17',
+				'risved-node-build:22',
+				'ghcr.io/risved-org/risved:v0.18.6'
+			],
+			[],
+			['my-app:sha1', 'gone-app:sha9', 'gone-app:sha9-release', 'gone-app-pr-3:abc']
+		);
+
+		const removed = await pruneProjectImages(runner, 3);
+
+		expect(removed.sort()).toEqual(['gone-app-pr-3:abc', 'gone-app:sha9', 'gone-app:sha9-release']);
+		expect(calls).toContain(
+			`docker images --filter label=${PROJECT_IMAGE_LABEL} --format {{.Repository}}:{{.Tag}}`
+		);
+		expect(calls.some((c) => c.startsWith('docker rmi') && c.includes('postgres'))).toBe(false);
+		expect(calls.some((c) => c.startsWith('docker rmi') && c.includes('risved-node-build'))).toBe(false);
+		expect(calls.some((c) => c.startsWith('docker rmi') && c.includes('ghcr.io'))).toBe(false);
+		expect(calls.some((c) => c.startsWith('docker rmi') && c.includes('my-app:sha1'))).toBe(false);
+	});
+
+	it('never touches unlabeled images of unknown repositories', async () => {
+		setupDb([{ id: 'p1', slug: 'my-app' }], [dep('p1', 'my-app:sha1', '2025-01-05T00:00:00Z')]);
+		const { runner, calls } = makeRunner(['my-app:sha1', 'someone-else:abc1234', 'node:22-alpine']);
+
+		const removed = await pruneProjectImages(runner, 3);
+
+		expect(removed).toEqual([]);
+		expect(calls.some((c) => c.startsWith('docker rmi'))).toBe(false);
+	});
+
+	it('skips the orphan sweep when scoped to a single project', async () => {
+		setupDb([{ id: 'p1', slug: 'my-app' }], [dep('p1', 'my-app:sha1', '2025-01-05T00:00:00Z')]);
+		const { runner, calls } = makeRunner(
+			['my-app:sha1', 'gone-app:sha9'],
+			[],
+			['my-app:sha1', 'gone-app:sha9']
+		);
+
+		const removed = await pruneProjectImages(runner, 3, 'p1');
+
+		expect(removed).toEqual([]);
+		expect(calls.some((c) => c.includes('gone-app'))).toBe(false);
+	});
+});
+
+/* ── removeProjectImages ──────────────────────────────────────────── */
+
+describe('removeProjectImages', () => {
+	it('removes every image of the project including previews and release images', async () => {
+		const { runner, calls } = makeRunner([
+			'my-app:sha1',
+			'my-app:sha1-release',
+			'my-app:sha2',
+			'my-app-pr-7:abc',
+			'my-application:other',
+			'postgres:17',
+			'risved-node-build:22'
+		]);
+
+		const removed = await removeProjectImages(runner, 'my-app');
+
+		expect(removed.sort()).toEqual([
+			'my-app-pr-7:abc',
+			'my-app:sha1',
+			'my-app:sha1-release',
+			'my-app:sha2'
+		]);
+		expect(calls.filter((c) => c.startsWith('docker rmi')).sort()).toEqual([
+			'docker rmi my-app-pr-7:abc',
+			'docker rmi my-app:sha1',
+			'docker rmi my-app:sha1-release',
+			'docker rmi my-app:sha2'
+		]);
+	});
+
+	it('reports only the images Docker actually removed', async () => {
+		const { runner } = makeRunner(['my-app:sha1', 'my-app:sha2'], ['my-app:sha1']);
+
+		const removed = await removeProjectImages(runner, 'my-app');
+
+		expect(removed).toEqual(['my-app:sha2']);
+	});
+
+	it('returns nothing when the image listing fails', async () => {
+		const runner: CommandRunner = {
+			async exec() {
+				return { exitCode: 1, stdout: '', stderr: 'Cannot connect to the Docker daemon' };
+			}
+		};
+
+		expect(await removeProjectImages(runner, 'my-app')).toEqual([]);
 	});
 });

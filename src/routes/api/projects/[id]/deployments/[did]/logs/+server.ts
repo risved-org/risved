@@ -29,7 +29,7 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	const deployment = rows[0];
-	const isTerminal = ['live', 'failed', 'stopped'].includes(deployment.status);
+	const isTerminal = ['live', 'superseded', 'failed', 'stopped'].includes(deployment.status);
 	const deploymentData = (row: typeof deployment) =>
 		JSON.stringify({
 			status: row.status,
@@ -118,7 +118,7 @@ export const GET: RequestHandler = async (event) => {
 
 				if (
 					current.length === 0 ||
-					['live', 'failed', 'stopped'].includes(current[0].status)
+					['live', 'superseded', 'failed', 'stopped'].includes(current[0].status)
 				) {
 					const status = current[0]?.status ?? 'unknown';
 					controller.enqueue(encoder.encode(`event: done\ndata: ${status}\n\n`));

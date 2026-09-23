@@ -1,11 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { projects, deployments, envVars, domains } from '$lib/server/db/schema';
+import { projects, deployments, envVars, domains, previewDeployments } from '$lib/server/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
 import { managedPostgresContainerName, managedPostgresVolumeName } from '$lib/server/pipeline/postgres'
 import { createCaddyClient } from '$lib/server/caddy';
+import { removeProjectImages } from '$lib/server/cleanup/docker-prune'
+import { cleanupProjectPreviews } from '$lib/server/preview'
 import { getSetting } from '$lib/server/settings';
 import type { RequestHandler } from './$types';
 
@@ -102,15 +104,30 @@ export const DELETE: RequestHandler = async (event) => {
 
 	const project = rows[0];
 
+	const runner = createCommandRunner();
+
+	/* Tear down PR previews: containers, volumes and routes (best-effort) */
+	try {
+		await cleanupProjectPreviews(id)
+	} catch {
+		/* Previews may already be gone — ignore */
+	}
+
 	/* Stop the running container and remove persistent volume (best-effort) */
 	try {
-		const runner = createCommandRunner();
 		await dockerStop(runner, project.slug, 10);
 		await dockerVolumeRemove(runner, projectVolumeName(id));
 		await dockerStop(runner, managedPostgresContainerName(id), 10)
 		await dockerVolumeRemove(runner, managedPostgresVolumeName(id))
 	} catch {
 		/* Container may not be running — ignore */
+	}
+
+	/* Remove the project's images, previews and release images included (best-effort) */
+	try {
+		await removeProjectImages(runner, project.slug)
+	} catch {
+		/* Docker may be unreachable — ignore */
 	}
 
 	/* Remove Caddy routes (best-effort) */
@@ -128,10 +145,11 @@ export const DELETE: RequestHandler = async (event) => {
 		}
 	}
 
-	/* Delete domains, env vars, deployments, then project */
+	/* Delete domains, env vars, deployments, previews, then project */
 	await db.delete(domains).where(eq(domains.projectId, id));
 	await db.delete(envVars).where(eq(envVars.projectId, id));
 	await db.delete(deployments).where(eq(deployments.projectId, id));
+	await db.delete(previewDeployments).where(eq(previewDeployments.projectId, id));
 	await db.delete(projects).where(eq(projects.id, id));
 
 	return json({ success: true });

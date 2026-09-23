@@ -43,6 +43,7 @@
 		if (status === 'live') return 'Success'
 		if (status === 'failed') return 'Failed'
 		if (status === 'stopped') return 'Stopped'
+		if (status === 'superseded') return 'Superseded'
 		if (status === 'building' || status === 'running') return 'Building'
 		if (status === 'cloning') return 'Cloning'
 		if (status === 'detecting') return 'Detecting'
@@ -205,7 +206,7 @@
 						</span>
 						<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
 						<span class="deploy-actions">
-							{#if i > 0 && (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
+							{#if i > 0 && (dep.status === 'live' || dep.status === 'superseded' || dep.status === 'stopped') && dep.imageTag}
 								<button
 									class="btn-rollback"
 									data-testid="rollback-btn"

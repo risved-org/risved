@@ -172,3 +172,23 @@ describe('POST /api/projects/:id/deployments/:did/rollback', () => {
 		expect(res.status).toBe(200);
 	});
 });
+
+describe('POST rollback to a superseded deployment', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockRunRollback.mockReset();
+	});
+
+	it('allows rollback to a deployment that a newer deploy superseded', async () => {
+		setupSelectChain([[projectRow], [{ ...deploymentRow, status: 'superseded' }]]);
+		mockRunRollback.mockResolvedValue({ success: true, deploymentId: 'new-dep-1' });
+
+		const res = await POST(makeEvent());
+
+		expect(res.status).toBe(200);
+		expect(mockRunRollback).toHaveBeenCalledWith(
+			expect.objectContaining({ imageTag: 'my-app:abc1234' }),
+			expect.anything()
+		);
+	});
+});

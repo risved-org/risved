@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { CaddyClient, createCaddyClient } from '../caddy';
 import { dockerRun, dockerStop, waitForHealthy, freePort, projectVolumeName } from './docker';
 import { createLogCollector } from './log';
+import { supersedeLiveDeployments } from './supersede'
 import { getManagedAppDomain } from './domains'
 import { loadProjectEnv, resolveManagedPostgresEnv } from './env'
 import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
@@ -148,7 +149,8 @@ export async function runRollback(
 			})
 			.where(eq(deployments.id, deploymentId));
 
-
+		/* The container this rollback replaced is gone, so its row is no longer live. */
+		await supersedeLiveDeployments(config.projectId, containerName, deploymentId)
 
 		return {
 			success: true,

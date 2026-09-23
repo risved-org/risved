@@ -34,6 +34,11 @@ export const POST: RequestHandler = async (event) => {
 		return jsonError(400, 'Deployment is already stopped');
 	}
 
+	/* Its container name now belongs to the deployment that replaced it */
+	if (deployment.status === 'superseded') {
+		return jsonError(400, 'Deployment was replaced by a newer one');
+	}
+
 	/* Stop container (best-effort) */
 	try {
 		const runner = createCommandRunner();

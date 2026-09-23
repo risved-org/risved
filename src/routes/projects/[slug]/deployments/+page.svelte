@@ -40,6 +40,7 @@
 		if (status === 'live') return 'Success'
 		if (status === 'failed') return 'Failed'
 		if (status === 'stopped') return 'Stopped'
+		if (status === 'superseded') return 'Superseded'
 		if (status === 'building' || status === 'running') return 'Building'
 		if (status === 'cloning') return 'Cloning'
 		if (status === 'detecting') return 'Detecting'
@@ -67,7 +68,7 @@
 		statusFilter === 'all'
 			? data.deployments
 			: data.deployments.filter((d) => {
-					if (statusFilter === 'succeeded') return d.status === 'live'
+					if (statusFilter === 'succeeded') return d.status === 'live' || d.status === 'superseded'
 					if (statusFilter === 'failed') return d.status === 'failed'
 					return true
 				})
@@ -154,7 +155,7 @@
 							</span>
 							<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
 							<span class="deploy-actions">
-								{#if (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
+								{#if (dep.status === 'live' || dep.status === 'superseded' || dep.status === 'stopped') && dep.imageTag}
 									<button
 										class="btn-rollback"
 										disabled={rollingBack === dep.id}
@@ -178,7 +179,7 @@
 					</li>
 				{:else}
 					{@const failCount = group.items.filter((d) => d.status === 'failed').length}
-					{@const successCount = group.items.filter((d) => d.status === 'live').length}
+					{@const successCount = group.items.filter((d) => d.status === 'live' || d.status === 'superseded').length}
 					{@const latest = group.items[0]}
 					<li>
 						<button
@@ -223,7 +224,7 @@
 									</span>
 									<span class="deploy-time mono">{timeAgo(dep.createdAt)}</span>
 									<span class="deploy-actions">
-										{#if (dep.status === 'live' || dep.status === 'stopped') && dep.imageTag}
+										{#if (dep.status === 'live' || dep.status === 'superseded' || dep.status === 'stopped') && dep.imageTag}
 											<button
 												class="btn-rollback"
 												disabled={rollingBack === dep.id}

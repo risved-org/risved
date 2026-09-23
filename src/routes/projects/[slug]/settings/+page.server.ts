@@ -16,11 +16,14 @@ import {
 	envVars,
 	webhookDeliveries,
 	cronJobs,
-	cronRuns
+	cronRuns,
+	previewDeployments
 } from '$lib/server/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { encrypt, safeDecrypt } from '$lib/server/crypto'
 import { getCronScheduler } from '$lib/server/cron'
+import { removeProjectImages } from '$lib/server/cleanup/docker-prune'
+import { cleanupProjectPreviews } from '$lib/server/preview'
 import type { PageServerLoad, Actions } from './$types'
 
 export const load = (async ({ params }) => {
@@ -255,16 +258,19 @@ export const actions: Actions = {
 		const projectId = proj[0].id
 
 		const runner = createCommandRunner()
+		try { await cleanupProjectPreviews(projectId) } catch { /* best-effort */ }
 		try { await dockerStop(runner, proj[0].slug, 10) } catch { /* may not be running */ }
 		try { await dockerVolumeRemove(runner, projectVolumeName(projectId)) } catch { /* best-effort */ }
 		try { await dockerStop(runner, managedPostgresContainerName(projectId), 10) } catch { /* best-effort */ }
 		try { await dockerVolumeRemove(runner, managedPostgresVolumeName(projectId)) } catch { /* best-effort */ }
+		try { await removeProjectImages(runner, proj[0].slug) } catch { /* best-effort */ }
 
 		await getCronScheduler().deleteProjectJobs(projectId)
 		await db.delete(webhookDeliveries).where(eq(webhookDeliveries.projectId, projectId))
 		await db.delete(envVars).where(eq(envVars.projectId, projectId))
 		await db.delete(domains).where(eq(domains.projectId, projectId))
 		await db.delete(deployments).where(eq(deployments.projectId, projectId))
+		await db.delete(previewDeployments).where(eq(previewDeployments.projectId, projectId))
 		await db.delete(projects).where(eq(projects.id, projectId))
 
 		redirect(303, '/')

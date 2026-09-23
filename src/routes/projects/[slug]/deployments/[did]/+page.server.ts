@@ -62,7 +62,7 @@ export const load = (async ({ params }) => {
 		.where(eq(buildLogs.deploymentId, did))
 		.orderBy(asc(buildLogs.timestamp));
 
-	const isTerminal = ['live', 'failed', 'stopped'].includes(deployment.status);
+	const isTerminal = ['live', 'superseded', 'failed', 'stopped'].includes(deployment.status);
 
 	const hasReleasePhase = !!deployment.releaseCommand;
 	const phaseOrder = hasReleasePhase ? PHASE_ORDER_WITH_RELEASE : PHASE_ORDER_BASE;

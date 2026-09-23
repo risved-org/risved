@@ -31,7 +31,8 @@ vi.mock('$lib/server/db/schema', () => ({
 	deployments: { id: 'id', projectId: 'project_id', createdAt: 'created_at' },
 	buildLogs: { deploymentId: 'deployment_id', timestamp: 'timestamp' },
 	envVars: { id: 'id', projectId: 'project_id', key: 'key' },
-	domains: { id: 'id', projectId: 'project_id', hostname: 'hostname' }
+	domains: { id: 'id', projectId: 'project_id', hostname: 'hostname' },
+	previewDeployments: { id: 'id', projectId: 'project_id' }
 }));
 
 vi.mock('$lib/server/api-utils', () => ({
@@ -60,7 +61,13 @@ vi.mock('$lib/server/pipeline', () => ({
 
 vi.mock('$lib/server/pipeline/docker', () => ({
 	createCommandRunner: vi.fn().mockReturnValue({ exec: vi.fn() }),
-	dockerStop: vi.fn().mockResolvedValue({ success: true })
+	dockerStop: vi.fn().mockResolvedValue({ success: true }),
+	dockerVolumeRemove: vi.fn().mockResolvedValue({ success: true }),
+	projectVolumeName: vi.fn((id: string) => `risved-${id}-data`)
+}));
+
+vi.mock('$lib/server/preview', () => ({
+	cleanupProjectPreviews: vi.fn().mockResolvedValue(0)
 }));
 
 vi.mock('$lib/server/caddy', () => ({
@@ -477,5 +484,47 @@ describe('GET /api/projects/:id/deployments/:did', () => {
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'nope' } }));
 
 		expect(res.status).toBe(404);
+	});
+});
+
+describe('DELETE /api/projects/:id image and preview cleanup', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it('removes the project images and tears down previews before deleting rows', async () => {
+		const { createCommandRunner } = await import('$lib/server/pipeline/docker');
+		const { cleanupProjectPreviews } = await import('$lib/server/preview');
+		const { previewDeployments } = await import('$lib/server/db/schema');
+
+		const project = { id: 'p-1', slug: 'my-app', domain: null };
+		setupSelectChain([project]);
+		mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+
+		const calls: string[] = [];
+		vi.mocked(createCommandRunner).mockReturnValueOnce({
+			async exec(cmd: string, args: string[]) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				calls.push(joined);
+				if (joined.startsWith('docker images')) {
+					return {
+						exitCode: 0,
+						stdout: 'my-app:abc1234\nmy-app:abc1234-release\nmy-app-pr-3:def5678\nother-app:abc1234\n',
+						stderr: ''
+					};
+				}
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		} as never);
+
+		const { DELETE } = await import('./[id]/+server');
+		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1' } }));
+
+		expect(res.status).toBe(200);
+		expect(cleanupProjectPreviews).toHaveBeenCalledWith('p-1');
+		expect(calls.filter((c) => c.startsWith('docker rmi')).sort()).toEqual([
+			'docker rmi my-app-pr-3:def5678',
+			'docker rmi my-app:abc1234',
+			'docker rmi my-app:abc1234-release'
+		]);
+		expect(mockDb.delete).toHaveBeenCalledWith(previewDeployments);
 	});
 });

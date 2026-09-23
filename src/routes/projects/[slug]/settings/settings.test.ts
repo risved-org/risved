@@ -41,6 +41,7 @@ vi.mock('$lib/server/db/schema', () => ({
 	webhookDeliveries: 'webhook_deliveries_table',
 	cronJobs: { projectId: 'project_id', id: 'id' },
 	cronRuns: { cronJobId: 'cron_job_id', startedAt: 'started_at' },
+	previewDeployments: 'preview_deployments_table',
 	settings: { key: 'key' }
 }))
 
@@ -53,6 +54,10 @@ vi.mock('$lib/server/cron', () => ({
 	getCronScheduler: vi.fn().mockReturnValue({
 		deleteProjectJobs: vi.fn().mockResolvedValue(undefined)
 	})
+}))
+
+vi.mock('$lib/server/preview', () => ({
+	cleanupProjectPreviews: vi.fn().mockResolvedValue(0)
 }))
 
 vi.mock('$lib/server/pipeline/docker', () => ({
@@ -520,6 +525,6 @@ describe('settings delete action', () => {
 		await expect(
 			actions.delete(makeFormEvent({ slug: 'test-app' }))
 		).rejects.toMatchObject({ status: 303 })
-		expect(dbAny.delete).toHaveBeenCalledTimes(5)
+		expect(dbAny.delete).toHaveBeenCalledTimes(6)
 	})
 })

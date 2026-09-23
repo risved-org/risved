@@ -11,7 +11,8 @@ import {
 	isDiskLow,
 	pruneDockerResources,
 	pruneProjectImages,
-	KEEP_IMAGES_PER_PROJECT
+	KEEP_IMAGES_PER_PROJECT,
+	PROJECT_IMAGE_LABEL
 } from '$lib/server/cleanup'
 import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
@@ -34,6 +35,7 @@ import { ensureManagedPostgres } from './postgres'
 import { loadProjectEnv, resolveManagedPostgresEnv } from './env'
 import { runRelease } from './release';
 import { createLogCollector } from './log';
+import { supersedeLiveDeployments } from './supersede'
 import { getManagedAppDomain } from './domains'
 import type {
 	PipelineConfig,
@@ -328,6 +330,7 @@ async function _runPipeline(
 		const buildResult = await dockerBuild(runner, {
 			contextDir: cloneDir,
 			imageTag,
+			labels: { [PROJECT_IMAGE_LABEL]: config.projectSlug },
 			onLine: (line) => emit('build', line)
 		});
 		if (!buildResult.success) {
@@ -348,6 +351,7 @@ async function _runPipeline(
 			const releaseBuild = await dockerBuild(runner, {
 				contextDir: cloneDir,
 				imageTag: releaseImageTag,
+				labels: { [PROJECT_IMAGE_LABEL]: config.projectSlug },
 				target: 'build',
 				onLine: (line) => emit('release', line)
 			})
@@ -512,6 +516,9 @@ async function _runPipeline(
 				finishedAt: new Date().toISOString()
 			})
 			.where(eq(deployments.id, deploymentId));
+
+		/* The container this deployment replaced is gone, so its row is no longer live. */
+		await supersedeLiveDeployments(config.projectId, containerName, deploymentId)
 
 		/* Drop images of older deployments so they don't pile up on disk.
 		   The newest few are kept so rollback keeps working. Best-effort. */

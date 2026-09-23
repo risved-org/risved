@@ -15,7 +15,15 @@ import {
 } from './docker-prune';
 import type { CleanupConfig, CleanupResult, DockerDiskUsage, DockerPruneResult } from './types';
 
-export { getDiskSpace, isDiskLow, pruneDockerResources, pruneProjectImages, KEEP_IMAGES_PER_PROJECT } from './docker-prune';
+export {
+	getDiskSpace,
+	isDiskLow,
+	pruneDockerResources,
+	pruneProjectImages,
+	removeProjectImages,
+	KEEP_IMAGES_PER_PROJECT,
+	PROJECT_IMAGE_LABEL
+} from './docker-prune';
 export type { DiskSpace, DockerPruneSummary } from './docker-prune';
 
 const RETAINED_DEPLOYMENT_LOGS_PER_PROJECT = 16;

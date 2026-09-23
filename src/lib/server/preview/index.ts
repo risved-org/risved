@@ -261,6 +261,30 @@ export async function cleanupPrPreviews(
 }
 
 /**
+ * Clean up every preview of a project (when the project is deleted).
+ * Tears down each PR's containers, volumes and routes via cleanupPrPreviews.
+ */
+export async function cleanupProjectPreviews(
+	projectId: string,
+	caddy?: CaddyClient
+): Promise<number> {
+	const rows = await db
+		.select({ prNumber: previewDeployments.prNumber, status: previewDeployments.status })
+		.from(previewDeployments)
+		.where(eq(previewDeployments.projectId, projectId));
+
+	const prNumbers = new Set(
+		rows.filter((r) => r.status === 'active' || r.status === 'building').map((r) => r.prNumber)
+	);
+
+	let cleaned = 0;
+	for (const prNumber of prNumbers) {
+		cleaned += await cleanupPrPreviews(projectId, prNumber, caddy);
+	}
+	return cleaned;
+}
+
+/**
  * Enforce the preview limit for a project.
  * Removes oldest active previews when the limit would be exceeded.
  */

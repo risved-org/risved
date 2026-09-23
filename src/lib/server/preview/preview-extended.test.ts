@@ -64,6 +64,7 @@ import {
 	createPreview,
 	cleanupPreview,
 	cleanupPrPreviews,
+	cleanupProjectPreviews,
 	enforcePreviewLimit,
 	listPreviews
 } from './index'
@@ -346,5 +347,51 @@ describe('listPreviews', () => {
 		})
 		const result = await listPreviews('proj-1')
 		expect(result).toEqual(previews)
+	})
+})
+
+/* ── cleanupProjectPreviews ──────────────────────────────────────── */
+
+describe('cleanupProjectPreviews', () => {
+	it('returns 0 when the project has no previews', async () => {
+		mockDb.select.mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) })
+		})
+
+		expect(await cleanupProjectPreviews('proj-1')).toBe(0)
+	})
+
+	it('cleans every active or building preview of the project, once per PR', async () => {
+		const activePrev = {
+			id: 'a1',
+			projectId: 'proj-1',
+			prNumber: 4,
+			status: 'active',
+			containerName: null,
+			domain: null,
+			deploymentId: null
+		}
+		const buildingSamePr = { id: 'b1', prNumber: 4, status: 'building' }
+		const buildingOtherPr = { id: 'b2', prNumber: 9, status: 'building' }
+		const rows = (list: unknown[]) => ({
+			from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(list) })
+		})
+
+		mockDb.select
+			/* project-wide listing */
+			.mockReturnValueOnce(rows([activePrev, buildingSamePr, buildingOtherPr]))
+			/* PR 4: active previews, cleanupPreview lookup, building previews */
+			.mockReturnValueOnce(rows([activePrev]))
+			.mockReturnValueOnce(makeSelectChain([activePrev]))
+			.mockReturnValueOnce(rows([buildingSamePr]))
+			/* PR 9: active previews, building previews */
+			.mockReturnValueOnce(rows([]))
+			.mockReturnValueOnce(rows([buildingOtherPr]))
+		mockDb.update.mockReturnValue(makeUpdateChain())
+
+		const count = await cleanupProjectPreviews('proj-1')
+
+		expect(count).toBe(3)
+		expect(mockDockerVolumeRemove).toHaveBeenCalledWith(expect.anything(), 'risved-proj-1-pr-4-data')
 	})
 })
