@@ -6,6 +6,7 @@ const {
 	mockDb,
 	mockRunPipeline,
 	mockDockerStop,
+	mockDockerVolumeRemove,
 	mockCreateCommandRunner,
 	mockGetSetting,
 	mockRemoveRoute,
@@ -21,6 +22,7 @@ const {
 		},
 		mockRunPipeline: vi.fn(),
 		mockDockerStop: vi.fn(),
+		mockDockerVolumeRemove: vi.fn(),
 		mockCreateCommandRunner: vi.fn(() => ({})),
 		mockGetSetting: vi.fn(),
 		mockRemoveRoute: removeRoute,
@@ -49,7 +51,8 @@ vi.mock('$lib/server/settings', () => ({ getSetting: mockGetSetting }))
 vi.mock('$lib/server/pipeline', () => ({ runPipeline: mockRunPipeline }))
 vi.mock('$lib/server/pipeline/docker', () => ({
 	createCommandRunner: mockCreateCommandRunner,
-	dockerStop: mockDockerStop
+	dockerStop: mockDockerStop,
+	dockerVolumeRemove: mockDockerVolumeRemove
 }))
 vi.mock('$lib/server/caddy', () => ({
 	createCaddyClient: mockCreateCaddyClient,
@@ -110,6 +113,7 @@ const PROJECT = {
 beforeEach(() => {
 	vi.clearAllMocks()
 	mockRunPipeline.mockReturnValue(new Promise(() => {}))
+	mockDockerVolumeRemove.mockResolvedValue({ success: true })
 })
 
 /* ── allocatePreviewPort ─────────────────────────────────────────── */
@@ -169,6 +173,32 @@ describe('createPreview', () => {
 		expect(mockDb.update).toHaveBeenCalled()
 		expect(mockDb.insert).not.toHaveBeenCalled()
 	})
+
+	it('runs the pipeline with an isolated per-PR data volume', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+
+		const config = mockRunPipeline.mock.calls[0][0]
+		expect(config.projectId).toBe('proj-1')
+		expect(config.volumeName).toBe('risved-proj-1-pr-42-data')
+		expect(config.volumeName).not.toBe('risved-proj-1-data')
+	})
+
+	it('keeps the same isolated volume when rebuilding an existing preview', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select.mockReturnValueOnce(makeSelectChain([{ id: 'prev-existing', port: 4005 }]))
+		mockDb.update.mockReturnValue(makeUpdateChain())
+
+		await createPreview(PROJECT, 42, 'update', 'feat', null)
+
+		expect(mockRunPipeline.mock.calls[0][0].volumeName).toBe('risved-proj-1-pr-42-data')
+	})
 })
 
 /* ── cleanupPreview ──────────────────────────────────────────────── */
@@ -183,6 +213,8 @@ describe('cleanupPreview', () => {
 	it('stops container, removes caddy route, marks as cleaned', async () => {
 		const preview = {
 			id: 'prev-1',
+			projectId: 'proj-1',
+			prNumber: 1,
 			containerName: 'myapp-pr-1',
 			domain: 'pr-1.myapp.example.com',
 			deploymentId: 'dep-1'
@@ -197,6 +229,51 @@ describe('cleanupPreview', () => {
 		expect(mockDockerStop).toHaveBeenCalledWith(expect.anything(), 'myapp-pr-1', 10)
 		expect(mockRemoveRoute).toHaveBeenCalledWith('pr-1.myapp.example.com')
 		expect(mockDb.update).toHaveBeenCalled()
+	})
+
+	it('removes the preview volume after stopping the container, never the project volume', async () => {
+		const preview = {
+			id: 'prev-1',
+			projectId: 'proj-1',
+			prNumber: 7,
+			containerName: 'myapp-pr-7',
+			domain: null,
+			deploymentId: null
+		}
+		mockDb.select.mockReturnValue(makeSelectChain([preview]))
+		mockDockerStop.mockResolvedValue(undefined)
+		mockDb.update.mockReturnValue(makeUpdateChain())
+
+		await cleanupPreview('prev-1')
+
+		expect(mockDockerVolumeRemove).toHaveBeenCalledTimes(1)
+		expect(mockDockerVolumeRemove).toHaveBeenCalledWith(
+			expect.anything(),
+			'risved-proj-1-pr-7-data'
+		)
+		expect(mockDockerStop.mock.invocationCallOrder[0]).toBeLessThan(
+			mockDockerVolumeRemove.mock.invocationCallOrder[0]
+		)
+	})
+
+	it('still marks the preview cleaned when volume removal fails', async () => {
+		const preview = {
+			id: 'prev-1',
+			projectId: 'proj-1',
+			prNumber: 7,
+			containerName: 'myapp-pr-7',
+			domain: null,
+			deploymentId: null
+		}
+		mockDb.select.mockReturnValue(makeSelectChain([preview]))
+		mockDockerStop.mockResolvedValue(undefined)
+		mockDockerVolumeRemove.mockRejectedValue(new Error('docker unavailable'))
+		const chain = makeUpdateChain()
+		mockDb.update.mockReturnValue(chain)
+
+		await cleanupPreview('prev-1')
+
+		expect(chain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'cleaned' }))
 	})
 
 	it('handles missing containerName and domain gracefully', async () => {

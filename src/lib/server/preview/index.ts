@@ -3,7 +3,7 @@ import { previewDeployments, deployments } from '$lib/server/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { CaddyClient, createCaddyClient } from '$lib/server/caddy';
 import { runPipeline } from '$lib/server/pipeline';
-import { createCommandRunner, dockerStop } from '$lib/server/pipeline/docker';
+import { createCommandRunner, dockerStop, dockerVolumeRemove } from '$lib/server/pipeline/docker';
 import { getSetting } from '$lib/server/settings';
 import type { FrameworkId, Tier } from '$lib/server/detection/types';
 import type { PreviewProject, PreviewResult } from './types';
@@ -23,6 +23,15 @@ export function buildPreviewDomain(
 	baseDomain: string
 ): string {
 	return `pr-${prNumber}.${projectSlug}.${baseDomain}`;
+}
+
+/**
+ * Build the data volume name for a PR preview.
+ * Previews get their own volume so an unmerged branch (and its release
+ * command) never touches the production app's data.
+ */
+export function previewVolumeName(projectId: string, prNumber: number): string {
+	return `risved-${projectId}-pr-${prNumber}-data`;
 }
 
 /**
@@ -132,7 +141,8 @@ export async function createPreview(
 			tier: (project.tier as Tier) ?? undefined,
 			buildCommand: project.buildCommand,
 			startCommand: project.startCommand,
-			releaseCommand: project.releaseCommand
+			releaseCommand: project.releaseCommand,
+			volumeName: previewVolumeName(project.id, prNumber)
 		},
 		createCommandRunner()
 	)
@@ -158,7 +168,8 @@ export async function createPreview(
 }
 
 /**
- * Clean up a preview deployment: stop container, remove Caddy route, mark as cleaned.
+ * Clean up a preview deployment: stop container, remove its data volume,
+ * remove Caddy route, mark as cleaned.
  */
 export async function cleanupPreview(previewId: string, caddy?: CaddyClient): Promise<void> {
 	const rows = await db
@@ -177,6 +188,11 @@ export async function cleanupPreview(previewId: string, caddy?: CaddyClient): Pr
 	if (preview.containerName) {
 		await dockerStop(runner, preview.containerName, 10).catch(() => {});
 	}
+
+	/* Remove the preview's isolated data volume */
+	await dockerVolumeRemove(runner, previewVolumeName(preview.projectId, preview.prNumber)).catch(
+		() => {}
+	);
 
 	/* Remove Caddy route */
 	if (preview.domain) {

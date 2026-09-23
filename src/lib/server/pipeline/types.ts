@@ -50,6 +50,9 @@ export interface PipelineConfig {
 	 * their own port, so they must never repoint the project's custom domains.
 	 */
 	isPreview?: boolean;
+	/** Override the data volume mounted at /app/data. Defaults to the project's volume;
+	    previews pass their own so they never touch production data. */
+	volumeName?: string;
 	/** Whether this project owns an adjacent managed Postgres container. */
 	postgresEnabled?: boolean | null
 	/** Encrypted managed Postgres password. Generated when missing. */

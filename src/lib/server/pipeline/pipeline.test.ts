@@ -179,6 +179,40 @@ describe('runPipeline', () => {
 		expect(runCall).toContain('risved-proj-1-data:/app/data');
 	});
 
+	it('mounts the overridden volume for both release and app containers', async () => {
+		const calls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				calls.push(joined);
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker rename'))
+					return { exitCode: 1, stdout: '', stderr: 'No such container' };
+				if (joined.includes('docker run'))
+					return { exitCode: 0, stdout: 'container123id\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({
+				projectSlug: 'my-app-pr-42',
+				releaseCommand: 'bun run db:migrate',
+				volumeName: 'risved-proj-1-pr-42-data'
+			}),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		const runCalls = calls.filter((c) => c.startsWith('docker run'));
+		expect(runCalls).toHaveLength(2);
+		for (const call of runCalls) {
+			expect(call).toContain('risved-proj-1-pr-42-data:/app/data');
+			expect(call).not.toContain('risved-proj-1-data:/app/data');
+		}
+	});
+
 	it('does not attach managed Postgres network to Docker builds', async () => {
 		const calls: string[] = []
 		const runner: CommandRunner = {
