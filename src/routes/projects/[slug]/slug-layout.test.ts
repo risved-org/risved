@@ -6,6 +6,7 @@ vi.mock('$lib/server/db', () => {
 })
 
 vi.mock('drizzle-orm', () => ({
+	and: vi.fn(() => 'and_fn'),
 	eq: vi.fn(() => 'eq_fn'),
 	desc: vi.fn(() => 'desc_fn')
 }))

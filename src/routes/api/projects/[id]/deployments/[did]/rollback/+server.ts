@@ -40,6 +40,10 @@ export const POST: RequestHandler = async (event) => {
 
 	const deployment = depRows[0];
 
+	if (deployment.isPreview) {
+		return jsonError(400, 'Cannot rollback to a PR preview build');
+	}
+
 	if (deployment.status !== 'live' && deployment.status !== 'stopped') {
 		return jsonError(400, 'Can only rollback to a previously successful deployment');
 	}

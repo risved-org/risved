@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { projects, deployments } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import type { RequestHandler } from './$types';
 
@@ -22,7 +22,7 @@ export const GET: RequestHandler = async (event) => {
 	const rows = await db
 		.select()
 		.from(deployments)
-		.where(eq(deployments.projectId, id))
+		.where(and(eq(deployments.projectId, id), eq(deployments.isPreview, false)))
 		.orderBy(desc(deployments.createdAt));
 
 	return json(rows);

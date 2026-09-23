@@ -10,6 +10,7 @@ vi.mock('$lib/server/health', () => ({
 }))
 
 vi.mock('drizzle-orm', () => ({
+	and: vi.fn(() => 'and_expr'),
 	eq: vi.fn(() => 'eq_expr'),
 	desc: vi.fn(() => 'desc_expr')
 }))

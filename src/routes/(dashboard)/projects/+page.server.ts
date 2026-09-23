@@ -22,8 +22,12 @@ export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
 	/* Fetch all projects */
 	const allProjects = await db.select().from(projects).orderBy(desc(projects.createdAt))
 
-	/* Fetch latest deployment per project */
-	const allDeployments = await db.select().from(deployments).orderBy(desc(deployments.createdAt))
+	/* Fetch latest deployment per project, ignoring PR preview builds */
+	const allDeployments = await db
+		.select()
+		.from(deployments)
+		.where(eq(deployments.isPreview, false))
+		.orderBy(desc(deployments.createdAt))
 
 	/* Fetch primary domains */
 	const primaryDomains = await db

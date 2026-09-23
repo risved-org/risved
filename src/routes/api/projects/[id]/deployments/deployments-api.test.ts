@@ -25,7 +25,7 @@ vi.mock('$lib/server/db', () => ({ db: mockDb }));
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: { id: 'id' },
-	deployments: { id: 'id', projectId: 'project_id', status: 'status' },
+	deployments: { id: 'id', projectId: 'project_id', status: 'status', isPreview: 'is_preview' },
 	buildLogs: { id: 'id', deploymentId: 'deployment_id', timestamp: 'timestamp' }
 }));
 
@@ -37,6 +37,10 @@ vi.mock('$lib/server/api-utils', () => ({
 			headers: { 'Content-Type': 'application/json' }
 		});
 	})
+}));
+
+vi.mock('$lib/server/pipeline', () => ({
+	runPipeline: vi.fn().mockResolvedValue({ success: true, deploymentId: 'new-dep', logs: [] })
 }));
 
 vi.mock('$lib/server/pipeline/docker', () => ({
@@ -57,6 +61,25 @@ function makeEvent(overrides: {
 		params,
 		url: new URL('http://localhost/api/projects/p-1/deployments/d-1')
 	} as never;
+}
+
+/** Serialized SQL of the condition a `.where()` spy was called with. */
+function whereClauseOf(spy: ReturnType<typeof vi.fn>): string {
+	return JSON.stringify(spy.mock.calls[0]?.[0] ?? null);
+}
+
+/** Queue one `.select()` result per call, each resolving through `.limit()`. */
+function queueLookups(...results: unknown[][]) {
+	for (const rows of results) {
+		mockDb.select.mockImplementationOnce(() => ({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue(rows),
+					orderBy: vi.fn().mockResolvedValue(rows)
+				})
+			})
+		}));
+	}
 }
 
 /* ── Tests: GET deployments list ──────────────────────────────────── */
@@ -93,6 +116,19 @@ describe('GET /api/projects/:id/deployments', () => {
 		const data = await res.json();
 		expect(data).toHaveLength(2);
 		expect(data[0].id).toBe('d-1');
+	});
+
+	it('excludes PR preview builds from the deployment history', async () => {
+		const where = vi.fn().mockReturnValue({ orderBy: vi.fn().mockResolvedValue([]) });
+
+		queueLookups([{ id: 'p-1' }]);
+		mockDb.select.mockImplementationOnce(() => ({ from: vi.fn().mockReturnValue({ where }) }));
+
+		const { GET } = await import('./+server');
+		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
+
+		expect(res.status).toBe(200);
+		expect(whereClauseOf(where)).toContain('is_preview');
 	});
 
 	it('returns 404 when project not found', async () => {
@@ -174,6 +210,40 @@ describe('POST /api/projects/:id/deployments/:did/rollback', () => {
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.status).toBe(404);
+	});
+
+	it('refuses to roll back to a PR preview build', async () => {
+		queueLookups(
+			[{ id: 'p-1', slug: 'my-app', port: 3001, domain: 'my-app.example.com' }],
+			[{ id: 'd-1', projectId: 'p-1', status: 'live', imageTag: 'my-app-pr-7:abc', isPreview: true }]
+		);
+
+		const { POST } = await import('./[did]/rollback/+server');
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
+
+		expect(res.status).toBe(400);
+		expect((await res.json()).error).toBe('Cannot rollback to a PR preview build');
+	});
+});
+
+/* ── Tests: Rebuild endpoint ──────────────────────────────────────── */
+
+describe('POST /api/projects/:id/deployments/:did/rebuild', () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it('refuses to rebuild a PR preview build', async () => {
+		queueLookups(
+			[{ id: 'p-1', slug: 'my-app', port: 3001, repoUrl: 'https://example.com/r.git', branch: 'main' }],
+			[{ id: 'd-1', projectId: 'p-1', status: 'live', commitSha: 'abc1234', isPreview: true }]
+		);
+
+		const { runPipeline } = await import('$lib/server/pipeline');
+		const { POST } = await import('./[did]/rebuild/+server');
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
+
+		expect(res.status).toBe(400);
+		expect((await res.json()).error).toBe('Cannot rebuild a PR preview build');
+		expect(runPipeline).not.toHaveBeenCalled();
 	});
 });
 

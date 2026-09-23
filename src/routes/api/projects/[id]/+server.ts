@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { projects, deployments, envVars, domains } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 import { requireAuth, jsonError } from '$lib/server/api-utils';
 import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
 import { managedPostgresContainerName, managedPostgresVolumeName } from '$lib/server/pipeline/postgres'
@@ -27,7 +27,7 @@ export const GET: RequestHandler = async (event) => {
 	const latestDeployments = await db
 		.select()
 		.from(deployments)
-		.where(eq(deployments.projectId, id))
+		.where(and(eq(deployments.projectId, id), eq(deployments.isPreview, false)))
 		.orderBy(desc(deployments.createdAt))
 		.limit(1);
 

@@ -29,11 +29,12 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: 'projects_table',
-	deployments: 'deployments_table',
+	deployments: { isPreview: 'is_preview' },
 	domains: 'domains_table',
 	resourceMetrics: { bucket: 'bucket' }
 }));
 
+import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { _getSystemHealth as getSystemHealth } from './(dashboard)/+layout.server';
 import { load, _FRAMEWORK_NAMES as FRAMEWORK_NAMES } from './(dashboard)/projects/+page.server';
@@ -54,7 +55,9 @@ function setupDbMocks(
 			from: vi.fn().mockReturnValue({ orderBy: orderByProjects })
 		})
 		.mockReturnValueOnce({
-			from: vi.fn().mockReturnValue({ orderBy: orderByDeployments })
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ orderBy: orderByDeployments })
+			})
 		})
 		.mockReturnValueOnce({
 			from: vi.fn().mockReturnValue({ where: whereDomains })
@@ -159,6 +162,14 @@ describe('dashboard load', () => {
 		expect(p.lastDeployedAt).toBe('2026-03-11T00:00:00Z');
 		expect(p.buildStatus).toBe('failed');
 		expect(p.buildCommitSha).toBe('bad1234');
+	});
+
+	it('excludes PR preview builds from each project card', async () => {
+		setupDbMocks([{ id: 'p-1', slug: 'my-app', createdAt: '2026-01-01' }], [], []);
+
+		await load();
+
+		expect(eq).toHaveBeenCalledWith('is_preview', false);
 	});
 
 	it('defaults status to stopped when no deployments', async () => {

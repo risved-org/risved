@@ -62,6 +62,8 @@ export const deployments = sqliteTable('deployments', {
 	triggerType: text('trigger_type').notNull().default('manual'), // 'manual' | 'webhook' | 'rollback' | 'rebuild'
 	imageTag: text('image_tag'),
 	containerName: text('container_name'),
+	/** Marks a PR preview build. Preview rows are hidden from the project's deployment history. */
+	isPreview: integer('is_preview', { mode: 'boolean' }).notNull().default(false),
 	/** The release command that ran (or null if no release phase) */
 	releaseCommand: text('release_command'),
 	/** Exit code of the release container; null if skipped */

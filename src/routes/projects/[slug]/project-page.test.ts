@@ -6,15 +6,17 @@ vi.mock('$lib/server/db', () => {
 })
 
 vi.mock('drizzle-orm', () => ({
+	and: vi.fn(() => 'and_fn'),
 	eq: vi.fn(() => 'eq_fn'),
 	desc: vi.fn(() => 'desc_fn')
 }))
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: 'projects_table',
-	deployments: 'deployments_table'
+	deployments: { projectId: 'project_id', isPreview: 'is_preview', createdAt: 'created_at' }
 }))
 
+import { eq } from 'drizzle-orm'
 import { db } from '$lib/server/db'
 import { load } from './+page.server'
 
@@ -82,6 +84,14 @@ describe('project overview page load', () => {
 		expect(result.deployments[0].status).toBe('live')
 		expect(result.deployments[0].triggerType).toBe('push')
 		expect(result.deployments[0].imageTag).toBe('my-app:abc')
+	})
+
+	it('excludes PR preview builds from the recent deployments', async () => {
+		setupSelects([{ id: 'proj-1', slug: 'my-app' }], [])
+
+		await load(makeEvent())
+
+		expect(eq).toHaveBeenCalledWith('is_preview', false)
 	})
 
 	it('returns empty deployments when project has none', async () => {

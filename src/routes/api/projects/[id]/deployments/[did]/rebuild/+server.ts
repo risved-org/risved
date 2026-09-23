@@ -37,6 +37,10 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const deployment = deploymentRows[0]
+	if (deployment.isPreview) {
+		return jsonError(400, 'Cannot rebuild a PR preview build')
+	}
+
 	if (!deployment.commitSha) {
 		return jsonError(400, 'Deployment has no commit to rebuild')
 	}

@@ -109,6 +109,7 @@ async function _runPipeline(
 			id: deploymentId,
 			projectId: config.projectId,
 			status: 'running',
+			isPreview: config.isPreview ?? false,
 			startedAt: new Date().toISOString()
 		})
 	}

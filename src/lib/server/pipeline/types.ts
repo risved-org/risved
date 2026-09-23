@@ -47,7 +47,8 @@ export interface PipelineConfig {
 	releaseCommand?: string | null;
 	/**
 	 * Marks a PR preview build. Preview builds share the project's id but run on
-	 * their own port, so they must never repoint the project's custom domains.
+	 * their own port, so they must never repoint the project's custom domains,
+	 * and their deployment rows stay out of the project's history.
 	 */
 	isPreview?: boolean;
 	/** Override the data volume mounted at /app/data. Defaults to the project's volume;

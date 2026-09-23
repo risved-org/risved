@@ -160,6 +160,23 @@ describe('createPreview', () => {
 		expect(mockDb.insert).toHaveBeenCalled()
 	})
 
+	it('marks the pipeline run as a preview so it stays out of deployment history', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+		mockRunPipeline.mockReturnValue(new Promise(() => {}))
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+
+		expect(mockRunPipeline).toHaveBeenCalledWith(
+			expect.objectContaining({ projectId: 'proj-1', isPreview: true }),
+			expect.anything()
+		)
+	})
+
 	it('updates existing preview instead of creating new', async () => {
 		mockGetSetting.mockResolvedValue('example.com')
 		const existing = { id: 'prev-existing', port: 4005 }

@@ -37,7 +37,7 @@ vi.mock('$lib/server/db/schema', () => ({
 		tier: 'tier',
 		updatedAt: 'updated_at'
 	},
-	deployments: { id: 'id' },
+	deployments: { id: 'id', isPreview: 'is_preview' },
 	buildLogs: {},
 	envVars: { key: 'key', value: 'value', projectId: 'project_id' },
 	domains: { hostname: 'hostname', projectId: 'project_id' }
@@ -129,6 +129,21 @@ function makeCaddy() {
 		listRoutes: vi.fn().mockResolvedValue([]),
 		updateRoute: vi.fn().mockResolvedValue({ success: true })
 	};
+}
+
+/**
+ * Capture the rows handed to db.insert(...).values(...). The replacement behaves
+ * exactly like the default mock, so it is safe to leave installed.
+ */
+function captureDeploymentInserts(): Record<string, unknown>[] {
+	const mockDb = db as unknown as { insert: ReturnType<typeof vi.fn> };
+	const rows: Record<string, unknown>[] = [];
+	mockDb.insert.mockImplementation(() => ({
+		values: vi.fn(async (row: Record<string, unknown>) => {
+			rows.push(row);
+		})
+	}));
+	return rows;
 }
 
 describe('runPipeline', () => {
@@ -659,6 +674,30 @@ describe('runPipeline', () => {
 			'www.next.example.com',
 			'next.example.com'
 		);
+	});
+
+	it('records the deployment as a production build by default', async () => {
+		const rows = captureDeploymentInserts();
+
+		const result = await runPipeline(makeConfig(), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		expect(rows[0]).toMatchObject({ projectId: 'proj-1', isPreview: false });
+	});
+
+	it('marks the deployment row as a preview when the config is a preview build', async () => {
+		const rows = captureDeploymentInserts();
+
+		const result = await runPipeline(makeConfig({ isPreview: true }), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		expect(rows[0]).toMatchObject({ projectId: 'proj-1', isPreview: true });
 	});
 
 	it('configures alt managed app route when subdomain DNS is set', async () => {

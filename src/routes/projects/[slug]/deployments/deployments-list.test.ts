@@ -18,15 +18,17 @@ vi.mock('$lib/server/db', () => {
 })
 
 vi.mock('drizzle-orm', () => ({
+	and: vi.fn(() => 'and_fn'),
 	eq: vi.fn(() => 'eq_fn'),
 	desc: vi.fn(() => 'desc_fn')
 }))
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: 'projects_table',
-	deployments: 'deployments_table'
+	deployments: { projectId: 'project_id', isPreview: 'is_preview', createdAt: 'created_at' }
 }))
 
+import { eq } from 'drizzle-orm'
 import { db } from '$lib/server/db'
 import { load } from './+page.server'
 
@@ -47,6 +49,14 @@ describe('deployments page load', () => {
 		await expect(
 			load({ params: { slug: 'nonexistent' } } as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 404 })
+	})
+
+	it('excludes PR preview builds from the history', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([{ id: 'proj-1', slug: 'my-app' }])
+
+		await load({ params: { slug: 'my-app' } } as Parameters<typeof load>[0])
+
+		expect(eq).toHaveBeenCalledWith('is_preview', false)
 	})
 
 	it('returns deployments list for valid project', async () => {

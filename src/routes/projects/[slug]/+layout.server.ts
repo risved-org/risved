@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit'
 import { db } from '$lib/server/db'
 import { projects, domains, deployments } from '$lib/server/db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { and, eq, desc } from 'drizzle-orm'
 import { getHealthMonitor } from '$lib/server/health'
 import type { LayoutServerLoad } from './$types'
 
@@ -45,7 +45,7 @@ export const load = (async ({ params }) => {
 			createdAt: deployments.createdAt
 		})
 		.from(deployments)
-		.where(eq(deployments.projectId, project.id))
+		.where(and(eq(deployments.projectId, project.id), eq(deployments.isPreview, false)))
 		.orderBy(desc(deployments.createdAt))
 		.limit(5)
 
