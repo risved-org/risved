@@ -169,6 +169,59 @@ describe('createPreview', () => {
 		expect(mockDb.update).toHaveBeenCalled()
 		expect(mockDb.insert).not.toHaveBeenCalled()
 	})
+
+	it('marks the preview active once the fire-and-forget pipeline succeeds', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+		const updateChain = makeUpdateChain()
+		mockDb.update.mockReturnValue(updateChain)
+		mockRunPipeline.mockResolvedValue({ success: true, deploymentId: 'dep-1', commitSha: 'sha1' })
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+		await new Promise((resolve) => setImmediate(resolve))
+
+		expect(updateChain.set).toHaveBeenCalledWith(
+			expect.objectContaining({ status: 'active', deploymentId: 'dep-1' })
+		)
+	})
+
+	it('marks the preview failed when the fire-and-forget pipeline reports failure', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+		const updateChain = makeUpdateChain()
+		mockDb.update.mockReturnValue(updateChain)
+		mockRunPipeline.mockResolvedValue({ success: false, deploymentId: 'dep-1' })
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+		await new Promise((resolve) => setImmediate(resolve))
+
+		expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
+	})
+
+	it('marks the preview failed when the fire-and-forget pipeline throws', async () => {
+		mockGetSetting.mockResolvedValue('example.com')
+		mockDb.select
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+			.mockReturnValueOnce(makeSelectChain([]))
+		mockDb.insert.mockReturnValue(makeInsertChain([{ id: 'prev-1' }]))
+		const updateChain = makeUpdateChain()
+		mockDb.update.mockReturnValue(updateChain)
+		mockRunPipeline.mockRejectedValue(new Error('docker daemon unreachable'))
+
+		await createPreview(PROJECT, 42, 'fix bug', 'fix-branch', 'abc123')
+		await new Promise((resolve) => setImmediate(resolve))
+
+		expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
+	})
 })
 
 /* ── cleanupPreview ──────────────────────────────────────────────── */
@@ -252,6 +305,29 @@ describe('enforcePreviewLimit', () => {
 		})
 		await enforcePreviewLimit('proj-1', 3)
 		expect(mockDb.update).not.toHaveBeenCalled()
+	})
+
+	it('cleans up the oldest previews when at or above the limit', async () => {
+		const active = [
+			{ id: 'p1', containerName: null, domain: null, deploymentId: null },
+			{ id: 'p2', containerName: null, domain: null, deploymentId: null },
+			{ id: 'p3', containerName: null, domain: null, deploymentId: null }
+		]
+		mockDb.select
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						orderBy: vi.fn().mockResolvedValue(active)
+					})
+				})
+			})
+			.mockReturnValueOnce(makeSelectChain([active[0]]))
+		mockDb.update.mockReturnValue(makeUpdateChain())
+
+		await enforcePreviewLimit('proj-1', 3)
+
+		/* toRemove = 3 - 3 + 1 = 1, so only the oldest (p1) is cleaned up */
+		expect(mockDb.update).toHaveBeenCalled()
 	})
 })
 

@@ -582,4 +582,192 @@ describe('runPipeline', () => {
 			port: 3001
 		});
 	});
+
+	it('logs the checkout ref when one is configured', async () => {
+		const result = await runPipeline(
+			makeConfig({ checkoutRef: 'v1.2.3' }),
+			makeSuccessRunner(),
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		const cloneLog = result.logs.find((l) => l.message.includes('Checking out v1.2.3'));
+		expect(cloneLog).toBeTruthy();
+	});
+
+	it('decrypts and injects project env vars into the build', async () => {
+		const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> };
+		mockDb.select.mockReturnValueOnce({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockResolvedValue([{ key: 'API_KEY', value: 'encrypted-value' }])
+			})
+		});
+
+		const result = await runPipeline(makeConfig(), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		const buildLog = result.logs.find((l) => l.message.includes('Injecting 1 env var(s) into build'));
+		expect(buildLog).toBeTruthy();
+		const startLog = result.logs.find((l) => l.message.includes('Injecting 1 env var(s)') && l.phase === 'start');
+		expect(startLog).toBeTruthy();
+	});
+
+	it('fails to build the warm builder image for node-tier projects', async () => {
+		vi.mocked(detectFramework).mockResolvedValueOnce({
+			detected: true,
+			framework: { id: 'nextjs', name: 'Next.js', tier: 'node', confidence: 'high' }
+		});
+
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('image inspect')) return { exitCode: 1, stdout: '', stderr: 'no such image' };
+				if (joined.includes('node-build.Dockerfile'))
+					return { exitCode: 1, stdout: '', stderr: 'warm build failed' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Failed to prepare warm builder image');
+	});
+
+	it('fails when building the release image fails', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker build') && joined.includes('--target'))
+					return { exitCode: 1, stdout: '', stderr: 'release build failed' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ releaseCommand: 'bun run migrate' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Failed to build release image');
+	});
+
+	it('fails the deploy when the runtime docker run fails', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run'))
+					return { exitCode: 1, stdout: '', stderr: 'port already in use' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('Docker run failed');
+	});
+
+	it('emits warnings for the primary, alt, and custom domain routes when caddy fails', async () => {
+		vi.mocked(getSetting)
+			.mockResolvedValueOnce(null) // ssh key
+			.mockResolvedValueOnce(
+				JSON.stringify({ mode: 'subdomain', baseDomain: 'example.com', prefix: 'panel' })
+			);
+
+		const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> };
+		mockDb.select
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) })
+			})
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockResolvedValue([{ hostname: 'custom.example.com' }])
+				})
+			});
+
+		const caddy = makeCaddy();
+		caddy.addRoute = vi.fn().mockResolvedValue({ success: false, error: 'caddy unreachable' });
+
+		const result = await runPipeline(makeConfig(), makeSuccessRunner(), {
+			caddy: caddy as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		const warnLogs = result.logs.filter((l) => l.phase === 'route' && l.level === 'warn');
+		expect(warnLogs.some((l) => l.message.includes('route update failed'))).toBe(true);
+		expect(warnLogs.some((l) => l.message.includes('alt route failed'))).toBe(true);
+		expect(warnLogs.some((l) => l.message.includes('custom domain route failed'))).toBe(true);
+	});
+
+	it('generates and persists a new managed Postgres password when none is stored', async () => {
+		const { encrypt } = await import('$lib/server/crypto');
+		const mockDb = db as unknown as { update: ReturnType<typeof vi.fn> };
+		const setSpy = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+		mockDb.update.mockReturnValue({ set: setSpy });
+
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker inspect')) return { exitCode: 0, stdout: 'true\n', stderr: '' };
+				if (joined.includes('pg_isready')) return { exitCode: 0, stdout: 'accepting connections', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ postgresEnabled: true, postgresPassword: null }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(encrypt).toHaveBeenCalled();
+		const passwordUpdate = setSpy.mock.calls.find((c) => c[0]?.postgresPassword);
+		expect(passwordUpdate).toBeTruthy();
+	});
+
+	it('falls back to the original repo URL when injecting the clone token fails', async () => {
+		vi.mocked(resolveCloneToken).mockResolvedValueOnce('ghp_test_token');
+
+		const cloneUrls: string[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (args.includes('clone')) {
+					const urlArg = args[args.length - 2];
+					cloneUrls.push(urlArg);
+				}
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker run')) return { exitCode: 0, stdout: 'cid\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(
+			makeConfig({ gitConnectionId: 'conn-1', repoUrl: 'not-a-valid-url' }),
+			runner,
+			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		expect(cloneUrls).toContain('not-a-valid-url');
+	});
 });
