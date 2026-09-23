@@ -161,6 +161,13 @@ export const actions: Actions = {
 			const stored = envIds[i] ? existingById.get(envIds[i]) : undefined
 			let value: string
 
+			/* The editor unlocks a row when Secret is unticked, so this must not
+			   depend on envKeep: without a replacement the empty value would
+			   otherwise overwrite the stored ciphertext for good. */
+			if (stored?.isSecret && !isSecret && !envValues[i]) {
+				return fail(400, { error: `Enter a new value to make "${key}" a plain variable` })
+			}
+
 			if (envKeep[i] === '1') {
 				/* The browser never holds a stored secret, so an untouched row
 				   carries its ciphertext over instead of submitting a value. */
