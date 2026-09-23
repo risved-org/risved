@@ -377,17 +377,35 @@ describe('settings saveEnv action', () => {
 
 	it('refuses to turn a stored secret into a plain variable without a new value', async () => {
 		setupSaveMocks([storedSecret])
+		/* Unticking Secret in the editor unlocks the row, so the browser submits envKeep=0 */
 		const result = await actions.saveEnv(
 			makeFormEvent({ slug: 'test-app' }, {
 				envIds: 'ev-1',
 				envKeys: 'API_KEY',
 				envValues: '',
 				envSecrets: '0',
-				envKeep: '1'
+				envKeep: '0'
 			})
 		)
 		expect(result).toMatchObject({ status: 400 })
 		expect(dbAny.delete).not.toHaveBeenCalled()
+	})
+
+	it('turns a stored secret into a plain variable when a new value is given', async () => {
+		setupSaveMocks([storedSecret])
+		const result = await actions.saveEnv(
+			makeFormEvent({ slug: 'test-app' }, {
+				envIds: 'ev-1',
+				envKeys: 'API_KEY',
+				envValues: 'sk-visible',
+				envSecrets: '0',
+				envKeep: '0'
+			})
+		)
+		expect(result).toMatchObject({ envSaved: true })
+		expect(insertValuesMock).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'ev-1', key: 'API_KEY', value: 'enc:sk-visible', isSecret: false })
+		)
 	})
 
 	it('refuses to keep a value for an id that is not a stored secret of this project', async () => {
