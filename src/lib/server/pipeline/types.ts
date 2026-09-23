@@ -45,6 +45,11 @@ export interface PipelineConfig {
 	startCommand?: string | null;
 	/** Shell command to run once per deploy before traffic switches. Null/empty skips the phase. */
 	releaseCommand?: string | null;
+	/**
+	 * Marks a PR preview build. Preview builds share the project's id but run on
+	 * their own port, so they must never repoint the project's custom domains.
+	 */
+	isPreview?: boolean;
 	/** Whether this project owns an adjacent managed Postgres container. */
 	postgresEnabled?: boolean | null
 	/** Encrypted managed Postgres password. Generated when missing. */

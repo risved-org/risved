@@ -464,22 +464,30 @@ async function _runPipeline(
 			}
 		}
 
-		/* Also configure routes for custom domains */
-		const customDomains = await db
-			.select({ hostname: domains.hostname })
-			.from(domains)
-			.where(eq(domains.projectId, config.projectId))
+		/*
+		 * Also configure routes for custom domains. Preview builds are skipped:
+		 * they carry the project's id but serve PR code on a preview port, so
+		 * routing the production domains here would hand the live site to the PR.
+		 */
+		if (config.isPreview) {
+			emit('route', 'Preview build: leaving custom domains pointed at production')
+		} else {
+			const customDomains = await db
+				.select({ hostname: domains.hostname })
+				.from(domains)
+				.where(eq(domains.projectId, config.projectId))
 
-		for (const d of customDomains) {
-			const r = await caddy.addRoute({ hostname: d.hostname, port: config.port })
-			if (!r.success) {
-				emit('route', `Warning: custom domain route failed (${d.hostname}): ${r.error}`, 'warn')
-			} else {
-				emit('route', `Custom domain route configured: ${d.hostname}`)
-			}
-			/* Auto-add www → non-www redirect for non-www custom domains */
-			if (!d.hostname.startsWith('www.')) {
-				await caddy.addRedirectRoute(`www.${d.hostname}`, d.hostname)
+			for (const d of customDomains) {
+				const r = await caddy.addRoute({ hostname: d.hostname, port: config.port })
+				if (!r.success) {
+					emit('route', `Warning: custom domain route failed (${d.hostname}): ${r.error}`, 'warn')
+				} else {
+					emit('route', `Custom domain route configured: ${d.hostname}`)
+				}
+				/* Auto-add www → non-www redirect for non-www custom domains */
+				if (!d.hostname.startsWith('www.')) {
+					await caddy.addRedirectRoute(`www.${d.hostname}`, d.hostname)
+				}
 			}
 		}
 

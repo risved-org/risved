@@ -127,6 +127,7 @@ export async function createPreview(
 			gitConnectionId: project.gitConnectionId,
 			port,
 			domain,
+			isPreview: true,
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 			tier: (project.tier as Tier) ?? undefined,
 			buildCommand: project.buildCommand,

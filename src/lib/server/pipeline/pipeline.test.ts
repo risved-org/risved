@@ -559,6 +559,46 @@ describe('runPipeline', () => {
 		);
 	});
 
+	it('leaves custom domains alone for preview builds', async () => {
+		const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> };
+
+		// Same fixture as the custom-domain test: the project owns a live domain
+		mockDb.select
+			// First call: envVars query (returns empty)
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockResolvedValue([])
+				})
+			})
+			// Second call: domains query (returns the production domain)
+			.mockReturnValueOnce({
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockResolvedValue([{ hostname: 'next.example.com' }])
+				})
+			});
+
+		const caddy = makeCaddy();
+		const result = await runPipeline(
+			makeConfig({ isPreview: true, port: 4001, domain: 'pr-7.my-app.risved.example.com' }),
+			makeSuccessRunner(),
+			{ caddy: caddy as never, fetchFn: makeHealthyFetch() }
+		);
+
+		expect(result.success).toBe(true);
+		/* The preview's own domain is still routed */
+		expect(caddy.addRoute).toHaveBeenCalledWith(
+			expect.objectContaining({ hostname: 'pr-7.my-app.risved.example.com', port: 4001 })
+		);
+		/* But the production domain must not be repointed at the preview port */
+		expect(caddy.addRoute).not.toHaveBeenCalledWith(
+			expect.objectContaining({ hostname: 'next.example.com' })
+		);
+		expect(caddy.addRedirectRoute).not.toHaveBeenCalledWith(
+			'www.next.example.com',
+			'next.example.com'
+		);
+	});
+
 	it('configures alt managed app route when subdomain DNS is set', async () => {
 		// getSetting is called twice: first for ssh_deploy_private_key, then for domain_config
 		vi.mocked(getSetting)
