@@ -154,6 +154,34 @@ describe('runPipeline', () => {
 		expect(result.containerName).toBe('my-app');
 	});
 
+	it('persists the image tag before the docker build starts', async () => {
+		const mockDb = db as unknown as { update: () => { set: ReturnType<typeof vi.fn> } };
+		const { set } = mockDb.update();
+		let tagsPersistedAtBuild: unknown[] | null = null;
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`;
+				if (joined.startsWith('docker build')) {
+					tagsPersistedAtBuild = set.mock.calls.map((call) => call[0]?.imageTag);
+				}
+				if (joined.includes('rev-parse')) return { exitCode: 0, stdout: 'abc1234\n', stderr: '' };
+				if (joined.includes('docker rename'))
+					return { exitCode: 1, stdout: '', stderr: 'No such container' };
+				if (joined.includes('docker run'))
+					return { exitCode: 0, stdout: 'container123id\n', stderr: '' };
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await runPipeline(makeConfig(), runner, {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		});
+
+		expect(result.success).toBe(true);
+		expect(tagsPersistedAtBuild).toContain('my-app:abc1234');
+	});
+
 	it('passes persistent volume to docker run', async () => {
 		const calls: string[] = [];
 		const runner: CommandRunner = {

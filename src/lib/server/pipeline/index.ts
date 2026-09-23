@@ -277,6 +277,14 @@ async function _runPipeline(
 
 		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
 
+		/* Record the tag before building so the Docker prune (daily, on
+		   restart, and the disk watchdog) can see this running deployment owns
+		   the image and leaves it alone until the container is up. */
+		await db
+			.update(deployments)
+			.set({ imageTag })
+			.where(eq(deployments.id, deploymentId));
+
 		/* A build needs several GB of headroom. If the host disk is nearly
 		   full, prune old images and the build cache first rather than letting
 		   the build fill the disk and take running apps down with it. */

@@ -85,12 +85,19 @@ function parseReclaimed(stdout: string): string {
 	return stdout.match(/reclaimed\s+space:\s*(.+)/i)?.[1]?.trim() || '0B';
 }
 
+/** Deployments younger than this keep their image whatever their status. */
+export const RECENT_DEPLOYMENT_GRACE_MS = 30 * 60 * 1000;
+
 /**
  * Remove images of old deployments. Every live deployment's image is always
  * kept, plus the newest `keepPerProject` successful deployments per project so
- * rollback keeps working. Images still used by a container are refused by
- * Docker and left alone. Deployments whose image was removed lose their
- * cached image reference so the UI no longer offers a rollback to them.
+ * rollback keeps working. Images of deployments that are still running, or
+ * that were created within the last 30 minutes, are kept too so a prune can
+ * never race a deploy between `docker build` and `docker run`; the same goes
+ * for the `<tag>-release` image of every kept tag. Images still used by a
+ * container are refused by Docker and left alone. Deployments whose image was
+ * removed lose their cached image reference so the UI no longer offers a
+ * rollback to them.
  */
 export async function pruneProjectImages(
 	runner: CommandRunner,
@@ -128,18 +135,22 @@ export async function pruneProjectImages(
 		byProject.set(row.projectId, list);
 	}
 
+	const recentCutoff = new Date(Date.now() - RECENT_DEPLOYMENT_GRACE_MS).toISOString();
 	const removed: string[] = [];
 	for (const project of projectRows) {
 		const protectedTags = new Set<string>();
-		const successful = (byProject.get(project.id) ?? [])
+		const projectDeployments = byProject.get(project.id) ?? [];
+		for (const row of projectDeployments) {
+			const inFlight = row.status === 'running' || row.createdAt >= recentCutoff;
+			if ((row.status === 'live' || inFlight) && row.imageTag) protectedTags.add(row.imageTag);
+		}
+		const successful = projectDeployments
 			.filter((row) => row.status === 'live' || row.status === 'stopped')
 			.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-		for (const row of successful) {
-			if (row.status === 'live' && row.imageTag) protectedTags.add(row.imageTag);
-		}
 		for (const row of successful.slice(0, keepPerProject)) {
 			if (row.imageTag) protectedTags.add(row.imageTag);
 		}
+		for (const tag of [...protectedTags]) protectedTags.add(`${tag}-release`);
 
 		const candidates = present.filter(
 			(tag) => belongsToProject(tag, project.slug) && !protectedTags.has(tag)

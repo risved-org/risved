@@ -286,6 +286,59 @@ describe('pruneProjectImages', () => {
 		expect(await pruneProjectImages(empty.runner)).toEqual([]);
 		expect(mockDb.update).not.toHaveBeenCalled();
 	});
+
+	it('never prunes the image of a deployment that is still running', async () => {
+		setupDb(
+			[{ id: 'p1', slug: 'my-app' }],
+			[
+				dep('p1', 'my-app:live', '2025-01-01T00:00:00Z', 'live'),
+				dep('p1', 'my-app:inflight', '2025-01-02T00:00:00Z', 'running')
+			]
+		);
+		const { runner, calls } = makeRunner(['my-app:live', 'my-app:inflight', 'my-app:stale']);
+
+		const removed = await pruneProjectImages(runner, 1);
+
+		expect(removed).toEqual(['my-app:stale']);
+		expect(calls).not.toContain('docker rmi my-app:inflight');
+	});
+
+	it('keeps the -release image of every protected tag', async () => {
+		setupDb(
+			[{ id: 'p1', slug: 'my-app' }],
+			[
+				dep('p1', 'my-app:live', '2025-01-01T00:00:00Z', 'live'),
+				dep('p1', 'my-app:inflight', '2025-01-02T00:00:00Z', 'running')
+			]
+		);
+		const { runner, calls } = makeRunner([
+			'my-app:live',
+			'my-app:live-release',
+			'my-app:inflight',
+			'my-app:inflight-release',
+			'my-app:stale-release'
+		]);
+
+		const removed = await pruneProjectImages(runner, 1);
+
+		expect(removed).toEqual(['my-app:stale-release']);
+		expect(calls).not.toContain('docker rmi my-app:inflight-release');
+		expect(calls).not.toContain('docker rmi my-app:live-release');
+	});
+
+	it('keeps images of deployments created in the last 30 minutes regardless of status', async () => {
+		const recent = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+		const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+		setupDb(
+			[{ id: 'p1', slug: 'my-app' }],
+			[dep('p1', 'my-app:recent', recent, 'failed'), dep('p1', 'my-app:old', old, 'failed')]
+		);
+		const { runner } = makeRunner(['my-app:recent', 'my-app:old']);
+
+		const removed = await pruneProjectImages(runner, 3);
+
+		expect(removed).toEqual(['my-app:old']);
+	});
 });
 
 /* ── pruneControlPlaneImages ──────────────────────────────────────── */
