@@ -42,3 +42,23 @@ jobs:
           no-cache: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  # The self-update check polls https://risved.com/version.json, which is a
+  # static file in the risved.com repo. Pin it to this release once the image
+  # is on ghcr, so dashboards offer the update without a manual PR.
+  publish-version:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pin control plane version on risved.com
+        env:
+          GH_TOKEN: ${{ secrets.RISVED_COM_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: bash scripts/publish-version.sh

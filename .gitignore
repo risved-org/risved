@@ -54,6 +54,7 @@ ralph.sh
 # Scripts — ignore all except what we need
 scripts/*
 !scripts/install.sh
+!scripts/publish-version.sh
 !scripts/risved.mjs
 !scripts/builders/
 .agent/
