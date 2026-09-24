@@ -26,6 +26,7 @@ data/*
 risved.db
 local.db
 test.db
+build.db
 
 # Lock files
 deno.lock

@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+# One run per PR: a new push supersedes the previous run. Merge queue entries
+# are never cancelled, or the queue would deadlock waiting for their checks.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+# SvelteKit's postbuild analyse step imports server modules, and
+# src/lib/server/db/index.ts throws when DATABASE_URL is unset. These are the
+# same placeholders Dockerfile.production builds with.
+env:
+  DATABASE_URL: file:build.db
+  BETTER_AUTH_SECRET: build-placeholder
+  BETTER_AUTH_URL: http://localhost:3000
+  ORIGIN: http://localhost:3000
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      # Runs both vitest projects. Only "server" has files today; a
+      # *.svelte.test.ts would land in "client" and need a browser installed.
+      - run: bunx vitest --run
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  # Advisory only — never blocks a merge. The repo has 229 unformatted files
+  # and 33 eslint errors predating this workflow; promote these to required
+  # status checks once that backlog is cleared.
+  quality:
+    name: quality (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - name: Prettier
+        continue-on-error: true
+        run: |
+          bunx prettier --check . > prettier.txt 2>&1 || true
+          echo "### Prettier" >> "$GITHUB_STEP_SUMMARY"
+          tail -1 prettier.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ESLint
+        continue-on-error: true
+        run: |
+          bunx eslint . > eslint.txt 2>&1 || true
+          echo "### ESLint" >> "$GITHUB_STEP_SUMMARY"
+          tail -3 eslint.txt >> "$GITHUB_STEP_SUMMARY"
