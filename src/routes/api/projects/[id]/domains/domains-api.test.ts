@@ -11,12 +11,12 @@ const { removeRouteMock, resolveSslStatusMock, repairDomainRouteMock } = vi.hois
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
-const mockDb = {
+const mockDb = vi.hoisted(() => ({
 	select: vi.fn(),
 	insert: vi.fn(),
 	update: vi.fn(),
 	delete: vi.fn()
-};
+}));
 
 function setupSelectChain(rows: unknown[]) {
 	mockDb.select.mockReturnValue({
@@ -71,6 +71,13 @@ vi.mock('$lib/server/caddy/repair', () => ({
 	repairDomainRoute: repairDomainRouteMock
 }));
 
+/* Route modules under test — imported statically so module resolution happens
+   during collection rather than inside a 5s test timeout */
+import * as domainRoute from './[did]/+server';
+import * as domainsRoute from './+server';
+import * as primaryRoute from './[did]/primary/+server';
+import * as verifyRoute from './[did]/verify/+server';
+
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
 function makeEvent(overrides: {
@@ -115,7 +122,7 @@ describe('GET /api/projects/:id/domains', () => {
 				})
 			}));
 
-		const { GET } = await import('./+server');
+		const { GET } = domainsRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -127,7 +134,7 @@ describe('GET /api/projects/:id/domains', () => {
 	it('returns 404 for missing project', async () => {
 		setupSelectChain([]);
 
-		const { GET } = await import('./+server');
+		const { GET } = domainsRoute;
 		const res = await GET(makeEvent({ params: { id: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -164,7 +171,7 @@ describe('POST /api/projects/:id/domains', () => {
 			})
 		});
 
-		const { POST } = await import('./+server');
+		const { POST } = domainsRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -187,7 +194,7 @@ describe('POST /api/projects/:id/domains', () => {
 			})
 		}));
 
-		const { POST } = await import('./+server');
+		const { POST } = domainsRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -216,7 +223,7 @@ describe('POST /api/projects/:id/domains', () => {
 				})
 			}));
 
-		const { POST } = await import('./+server');
+		const { POST } = domainsRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -241,7 +248,7 @@ describe('DELETE /api/projects/:id/domains/:did', () => {
 			where: vi.fn().mockResolvedValue(undefined)
 		});
 
-		const { DELETE } = await import('./[did]/+server');
+		const { DELETE } = domainRoute;
 		const res = await DELETE(
 			makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'd-1' } })
 		);
@@ -252,7 +259,7 @@ describe('DELETE /api/projects/:id/domains/:did', () => {
 	it('returns 404 for missing domain', async () => {
 		setupSelectChain([]);
 
-		const { DELETE } = await import('./[did]/+server');
+		const { DELETE } = domainRoute;
 		const res = await DELETE(
 			makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'nope' } })
 		);
@@ -267,7 +274,7 @@ describe('DELETE /api/projects/:id/domains/:did', () => {
 			where: vi.fn().mockResolvedValue(undefined)
 		});
 
-		const { DELETE } = await import('./[did]/+server');
+		const { DELETE } = domainRoute;
 		const res = await DELETE(
 			makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'd-2' } })
 		);
@@ -300,7 +307,7 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 			set: setMock
 		});
 
-		const { POST } = await import('./[did]/verify/+server');
+		const { POST } = verifyRoute;
 		const res = await POST(
 			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
 		);
@@ -343,7 +350,7 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 		});
 		mockDb.update.mockReturnValue({ set: setMock });
 
-		const { POST } = await import('./[did]/verify/+server');
+		const { POST } = verifyRoute;
 		const res = await POST(
 			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
 		);
@@ -356,7 +363,7 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 	it('returns 404 for missing domain', async () => {
 		setupSelectChain([]);
 
-		const { POST } = await import('./[did]/verify/+server');
+		const { POST } = verifyRoute;
 		const res = await POST(
 			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'nope' } })
 		);
@@ -383,7 +390,7 @@ describe('POST /api/projects/:id/domains/:did/primary', () => {
 			})
 		});
 
-		const { POST } = await import('./[did]/primary/+server');
+		const { POST } = primaryRoute;
 		const res = await POST(
 			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
 		);
@@ -396,7 +403,7 @@ describe('POST /api/projects/:id/domains/:did/primary', () => {
 	it('returns 404 for missing domain', async () => {
 		setupSelectChain([]);
 
-		const { POST } = await import('./[did]/primary/+server');
+		const { POST } = primaryRoute;
 		const res = await POST(
 			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'nope' } })
 		);

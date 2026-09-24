@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
-const mockDb = {
+const mockDb = vi.hoisted(() => ({
 	select: vi.fn(),
 	insert: vi.fn(),
 	update: vi.fn(),
 	delete: vi.fn()
-};
+}));
 
 function setupSelectChain(rows: unknown[]) {
 	mockDb.select.mockReturnValue({
@@ -44,6 +44,11 @@ vi.mock('$lib/server/crypto', () => ({
 	decrypt: vi.fn((v: string) => (v.startsWith('enc:') ? v.slice(4) : v)),
 	safeDecrypt: vi.fn((v: string) => (v.startsWith('enc:') ? v.slice(4) : v))
 }));
+
+/* Route modules under test — imported statically so module resolution happens
+   during collection rather than inside a 5s test timeout */
+import * as envRoute from './+server';
+import * as envVarRoute from './[eid]/+server';
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -98,7 +103,7 @@ describe('GET /api/projects/:id/env', () => {
 				})
 			}));
 
-		const { GET } = await import('./+server');
+		const { GET } = envRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -115,7 +120,7 @@ describe('GET /api/projects/:id/env', () => {
 	it('returns 404 for missing project', async () => {
 		setupSelectChain([]);
 
-		const { GET } = await import('./+server');
+		const { GET } = envRoute;
 		const res = await GET(makeEvent({ params: { id: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -154,7 +159,7 @@ describe('POST /api/projects/:id/env', () => {
 			})
 		});
 
-		const { POST } = await import('./+server');
+		const { POST } = envRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -195,7 +200,7 @@ describe('POST /api/projects/:id/env', () => {
 		});
 		mockDb.insert.mockReturnValue({ values: valuesFn });
 
-		const { POST } = await import('./+server');
+		const { POST } = envRoute;
 		await POST(
 			makeEvent({
 				method: 'POST',
@@ -220,7 +225,7 @@ describe('POST /api/projects/:id/env', () => {
 			})
 		}));
 
-		const { POST } = await import('./+server');
+		const { POST } = envRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -241,7 +246,7 @@ describe('POST /api/projects/:id/env', () => {
 			})
 		}));
 
-		const { POST } = await import('./+server');
+		const { POST } = envRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -270,7 +275,7 @@ describe('POST /api/projects/:id/env', () => {
 				})
 			}));
 
-		const { POST } = await import('./+server');
+		const { POST } = envRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -301,7 +306,7 @@ describe('PUT /api/projects/:id/env/:eid', () => {
 			})
 		});
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		const res = await PUT(
 			makeEvent({
 				method: 'PUT',
@@ -327,7 +332,7 @@ describe('PUT /api/projects/:id/env/:eid', () => {
 		});
 		mockDb.update.mockReturnValue({ set: setFn });
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		await PUT(
 			makeEvent({
 				method: 'PUT',
@@ -346,7 +351,7 @@ describe('PUT /api/projects/:id/env/:eid', () => {
 	it('returns 404 for missing env var', async () => {
 		setupSelectChain([]);
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		const res = await PUT(
 			makeEvent({
 				method: 'PUT',
@@ -371,7 +376,7 @@ describe('DELETE /api/projects/:id/env/:eid', () => {
 			where: vi.fn().mockResolvedValue(undefined)
 		});
 
-		const { DELETE } = await import('./[eid]/+server');
+		const { DELETE } = envVarRoute;
 		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1', eid: 'e-1' } }));
 
 		expect(res.status).toBe(200);
@@ -382,7 +387,7 @@ describe('DELETE /api/projects/:id/env/:eid', () => {
 	it('returns 404 for missing env var', async () => {
 		setupSelectChain([]);
 
-		const { DELETE } = await import('./[eid]/+server');
+		const { DELETE } = envVarRoute;
 		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1', eid: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -397,7 +402,7 @@ describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
 	it('returns 400 when JSON body is null (failed parse)', async () => {
 		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		const res = await PUT({
 			request: { json: () => Promise.resolve(null) },
 			locals: { user: { id: 'user-1' }, session: {} },
@@ -410,7 +415,7 @@ describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
 	it('returns 400 when value is not a string', async () => {
 		setupSelectChain([{ id: 'e-1', key: 'PORT', value: 'enc:3000', isSecret: false }]);
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		const res = await PUT({
 			request: { json: () => Promise.resolve({ value: 42 }) },
 			locals: { user: { id: 'user-1' }, session: {} },
@@ -432,7 +437,7 @@ describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
 			})
 		});
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		const res = await PUT({
 			request: { json: () => Promise.resolve({ is_secret: true }) },
 			locals: { user: { id: 'user-1' }, session: {} },
@@ -445,7 +450,7 @@ describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
 	it('rejects unmarking a secret without a new value', async () => {
 		setupSelectChain([{ id: 'e-1', key: 'API_KEY', value: 'enc:sk-abcdef', isSecret: true }]);
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		const res = await PUT({
 			request: { json: () => Promise.resolve({ is_secret: false }) },
 			locals: { user: { id: 'user-1' }, session: {} },
@@ -468,7 +473,7 @@ describe('PUT /api/projects/:id/env/:eid — branch coverage', () => {
 			})
 		});
 
-		const { PUT } = await import('./[eid]/+server');
+		const { PUT } = envVarRoute;
 		const res = await PUT({
 			request: { json: () => Promise.resolve({ value: 'abc' }) },
 			locals: { user: { id: 'user-1' }, session: {} },

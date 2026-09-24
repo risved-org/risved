@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
-const mockDb = {
+const mockDb = vi.hoisted(() => ({
 	select: vi.fn(),
 	insert: vi.fn(),
 	update: vi.fn(),
 	delete: vi.fn()
-};
+}));
 
 function setupSelectChain(rows: unknown[]) {
 	mockDb.select.mockReturnValue({
@@ -43,6 +43,14 @@ vi.mock('$lib/server/pipeline/docker', () => ({
 	createCommandRunner: vi.fn().mockReturnValue({ exec: vi.fn() }),
 	dockerStop: vi.fn().mockResolvedValue({ success: true })
 }));
+
+/* Route modules under test — imported statically so module resolution happens
+   during collection rather than inside a 5s test timeout */
+import * as deploymentsRoute from './+server';
+import * as logsRoute from './[did]/logs/+server';
+import * as rollbackRoute from './[did]/rollback/+server';
+import * as stopRoute from './[did]/stop/+server';
+import { dockerStop } from '$lib/server/pipeline/docker';
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -86,7 +94,7 @@ describe('GET /api/projects/:id/deployments', () => {
 				})
 			}));
 
-		const { GET } = await import('./+server');
+		const { GET } = deploymentsRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -98,7 +106,7 @@ describe('GET /api/projects/:id/deployments', () => {
 	it('returns 404 when project not found', async () => {
 		setupSelectChain([]);
 
-		const { GET } = await import('./+server');
+		const { GET } = deploymentsRoute;
 		const res = await GET(makeEvent({ params: { id: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -127,7 +135,7 @@ describe('POST /api/projects/:id/deployments/:did/stop', () => {
 			})
 		});
 
-		const { POST } = await import('./[did]/stop/+server');
+		const { POST } = stopRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.status).toBe(200);
@@ -138,7 +146,7 @@ describe('POST /api/projects/:id/deployments/:did/stop', () => {
 	it('returns 404 for missing deployment', async () => {
 		setupSelectChain([]);
 
-		const { POST } = await import('./[did]/stop/+server');
+		const { POST } = stopRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -147,7 +155,7 @@ describe('POST /api/projects/:id/deployments/:did/stop', () => {
 	it('returns 400 when no container name', async () => {
 		setupSelectChain([{ id: 'd-1', status: 'live', containerName: null }]);
 
-		const { POST } = await import('./[did]/stop/+server');
+		const { POST } = stopRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.status).toBe(400);
@@ -156,7 +164,7 @@ describe('POST /api/projects/:id/deployments/:did/stop', () => {
 	it('returns 400 when already stopped', async () => {
 		setupSelectChain([{ id: 'd-1', status: 'stopped', containerName: 'my-app' }]);
 
-		const { POST } = await import('./[did]/stop/+server');
+		const { POST } = stopRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.status).toBe(400);
@@ -170,7 +178,7 @@ describe('POST /api/projects/:id/deployments/:did/rollback', () => {
 
 	it('returns 404 when project not found', async () => {
 		setupSelectChain([]);
-		const { POST } = await import('./[did]/rollback/+server');
+		const { POST } = rollbackRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.status).toBe(404);
@@ -185,7 +193,7 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 	it('returns 404 for missing deployment', async () => {
 		setupSelectChain([]);
 
-		const { GET } = await import('./[did]/logs/+server');
+		const { GET } = logsRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -211,7 +219,7 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 			})
 		}));
 
-		const { GET } = await import('./[did]/logs/+server');
+		const { GET } = logsRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.headers.get('Content-Type')).toBe('text/event-stream');
@@ -250,7 +258,7 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 			};
 		});
 
-		const { GET } = await import('./[did]/logs/+server');
+		const { GET } = logsRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-2' } }));
 
 		expect(res.headers.get('Content-Type')).toBe('text/event-stream');
@@ -280,7 +288,7 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 			};
 		});
 
-		const { GET } = await import('./[did]/logs/+server');
+		const { GET } = logsRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-3' } }));
 
 		await expect(res.body!.cancel()).resolves.toBeUndefined();
@@ -292,9 +300,8 @@ describe('POST stop on a superseded deployment', () => {
 
 	it('refuses to stop a superseded deployment because its container now belongs to a newer deploy', async () => {
 		setupSelectChain([{ id: 'd-1', status: 'superseded', containerName: 'my-app' }]);
-		const { dockerStop } = await import('$lib/server/pipeline/docker');
 
-		const { POST } = await import('./[did]/stop/+server');
+		const { POST } = stopRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.status).toBe(400);

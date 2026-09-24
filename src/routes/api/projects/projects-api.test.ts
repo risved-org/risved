@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
-const mockDb = {
+const mockDb = vi.hoisted(() => ({
 	select: vi.fn(),
 	insert: vi.fn(),
 	update: vi.fn(),
 	delete: vi.fn()
-};
+}));
 
 /* Chain: select().from().where().limit() / orderBy() */
 function setupSelectChain(rows: unknown[]) {
@@ -76,6 +76,17 @@ vi.mock('$lib/server/caddy', () => ({
 	}))
 }));
 
+/* Route modules under test — imported statically so module resolution happens
+   during collection rather than inside a 5s test timeout */
+import * as deployRoute from './[id]/deploy/+server';
+import * as deploymentRoute from './[id]/deployments/[did]/+server';
+import * as deploymentsRoute from './[id]/deployments/+server';
+import * as projectRoute from './[id]/+server';
+import * as projectsRoute from './+server';
+import { createCommandRunner } from '$lib/server/pipeline/docker';
+import { cleanupProjectPreviews } from '$lib/server/preview';
+import { previewDeployments } from '$lib/server/db/schema';
+
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
 function makeEvent(overrides: {
@@ -108,7 +119,7 @@ describe('GET /api/projects', () => {
 		];
 		setupSelectChain(projectRows);
 
-		const { GET } = await import('./+server');
+		const { GET } = projectsRoute;
 		const res = await GET(makeEvent());
 
 		expect(res.status).toBe(200);
@@ -140,7 +151,7 @@ describe('POST /api/projects', () => {
 			})
 		});
 
-		const { POST } = await import('./+server');
+		const { POST } = projectsRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -155,13 +166,13 @@ describe('POST /api/projects', () => {
 	});
 
 	it('returns 400 when name is missing', async () => {
-		const { POST } = await import('./+server');
+		const { POST } = projectsRoute;
 		const res = await POST(makeEvent({ method: 'POST', body: { git_url: 'https://x.com/r.git' } }));
 		expect(res.status).toBe(400);
 	});
 
 	it('returns 400 when git_url is missing', async () => {
-		const { POST } = await import('./+server');
+		const { POST } = projectsRoute;
 		const res = await POST(makeEvent({ method: 'POST', body: { name: 'Test' } }));
 		expect(res.status).toBe(400);
 	});
@@ -169,7 +180,7 @@ describe('POST /api/projects', () => {
 	it('returns 409 on duplicate slug', async () => {
 		setupSelectChain([{ id: 'p-existing', slug: 'my-app' }]);
 
-		const { POST } = await import('./+server');
+		const { POST } = projectsRoute;
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
@@ -204,7 +215,7 @@ describe('GET /api/projects/:id', () => {
 			})
 		}));
 
-		const { GET } = await import('./[id]/+server');
+		const { GET } = projectRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -216,7 +227,7 @@ describe('GET /api/projects/:id', () => {
 	it('returns 404 for missing project', async () => {
 		setupSelectChain([]);
 
-		const { GET } = await import('./[id]/+server');
+		const { GET } = projectRoute;
 		const res = await GET(makeEvent({ params: { id: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -238,7 +249,7 @@ describe('PUT /api/projects/:id', () => {
 			})
 		});
 
-		const { PUT } = await import('./[id]/+server');
+		const { PUT } = projectRoute;
 		const res = await PUT(
 			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { name: 'New Name' } })
 		);
@@ -251,7 +262,7 @@ describe('PUT /api/projects/:id', () => {
 	it('returns 404 for missing project', async () => {
 		setupSelectChain([]);
 
-		const { PUT } = await import('./[id]/+server');
+		const { PUT } = projectRoute;
 		const res = await PUT(
 			makeEvent({ method: 'PUT', params: { id: 'nope' }, body: { name: 'X' } })
 		);
@@ -262,7 +273,7 @@ describe('PUT /api/projects/:id', () => {
 	it('returns 400 for invalid JSON body', async () => {
 		setupSelectChain([{ id: 'p-1' }]);
 
-		const { PUT } = await import('./[id]/+server');
+		const { PUT } = projectRoute;
 		const event = makeEvent({ method: 'PUT', params: { id: 'p-1' } });
 		(event as unknown as { request: { json: () => Promise<null> } }).request = {
 			json: () => Promise.resolve(null)
@@ -275,7 +286,7 @@ describe('PUT /api/projects/:id', () => {
 	it('returns 400 for empty name string', async () => {
 		setupSelectChain([{ id: 'p-1' }]);
 
-		const { PUT } = await import('./[id]/+server');
+		const { PUT } = projectRoute;
 		const res = await PUT(
 			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { name: '' } })
 		);
@@ -286,7 +297,7 @@ describe('PUT /api/projects/:id', () => {
 	it('returns 400 for empty branch string', async () => {
 		setupSelectChain([{ id: 'p-1' }]);
 
-		const { PUT } = await import('./[id]/+server');
+		const { PUT } = projectRoute;
 		const res = await PUT(
 			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { branch: '' } })
 		);
@@ -306,7 +317,7 @@ describe('PUT /api/projects/:id', () => {
 			})
 		});
 
-		const { PUT } = await import('./[id]/+server');
+		const { PUT } = projectRoute;
 		const res = await PUT(
 			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { framework_id: 123 } })
 		);
@@ -326,7 +337,7 @@ describe('PUT /api/projects/:id', () => {
 			})
 		});
 
-		const { PUT } = await import('./[id]/+server');
+		const { PUT } = projectRoute;
 		const res = await PUT(
 			makeEvent({ method: 'PUT', params: { id: 'p-1' }, body: { domain: 0 } })
 		);
@@ -346,7 +357,7 @@ describe('DELETE /api/projects/:id', () => {
 			where: vi.fn().mockResolvedValue(undefined)
 		});
 
-		const { DELETE } = await import('./[id]/+server');
+		const { DELETE } = projectRoute;
 		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -357,7 +368,7 @@ describe('DELETE /api/projects/:id', () => {
 	it('returns 404 for missing project', async () => {
 		setupSelectChain([]);
 
-		const { DELETE } = await import('./[id]/+server');
+		const { DELETE } = projectRoute;
 		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -371,7 +382,7 @@ describe('DELETE /api/projects/:id', () => {
 			where: vi.fn().mockResolvedValue(undefined)
 		});
 
-		const { DELETE } = await import('./[id]/+server');
+		const { DELETE } = projectRoute;
 		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -396,7 +407,7 @@ describe('POST /api/projects/:id/deploy', () => {
 		};
 		setupSelectChain([project]);
 
-		const { POST } = await import('./[id]/deploy/+server');
+		const { POST } = deployRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -408,7 +419,7 @@ describe('POST /api/projects/:id/deploy', () => {
 	it('returns 404 for missing project', async () => {
 		setupSelectChain([]);
 
-		const { POST } = await import('./[id]/deploy/+server');
+		const { POST } = deployRoute;
 		const res = await POST(makeEvent({ method: 'POST', params: { id: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -439,7 +450,7 @@ describe('GET /api/projects/:id/deployments', () => {
 			})
 		}));
 
-		const { GET } = await import('./[id]/deployments/+server');
+		const { GET } = deploymentsRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);
@@ -468,7 +479,7 @@ describe('GET /api/projects/:id/deployments/:did', () => {
 			})
 		}));
 
-		const { GET } = await import('./[id]/deployments/[did]/+server');
+		const { GET } = deploymentRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-1' } }));
 
 		expect(res.status).toBe(200);
@@ -480,7 +491,7 @@ describe('GET /api/projects/:id/deployments/:did', () => {
 	it('returns 404 for missing deployment', async () => {
 		setupSelectChain([]);
 
-		const { GET } = await import('./[id]/deployments/[did]/+server');
+		const { GET } = deploymentRoute;
 		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'nope' } }));
 
 		expect(res.status).toBe(404);
@@ -491,10 +502,6 @@ describe('DELETE /api/projects/:id image and preview cleanup', () => {
 	beforeEach(() => vi.clearAllMocks());
 
 	it('removes the project images and tears down previews before deleting rows', async () => {
-		const { createCommandRunner } = await import('$lib/server/pipeline/docker');
-		const { cleanupProjectPreviews } = await import('$lib/server/preview');
-		const { previewDeployments } = await import('$lib/server/db/schema');
-
 		const project = { id: 'p-1', slug: 'my-app', domain: null };
 		setupSelectChain([project]);
 		mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
@@ -515,7 +522,7 @@ describe('DELETE /api/projects/:id image and preview cleanup', () => {
 			}
 		} as never);
 
-		const { DELETE } = await import('./[id]/+server');
+		const { DELETE } = projectRoute;
 		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1' } }));
 
 		expect(res.status).toBe(200);

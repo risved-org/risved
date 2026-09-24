@@ -3,10 +3,10 @@ import { createHmac } from 'node:crypto';
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
-const mockDb = {
+const mockDb = vi.hoisted(() => ({
 	select: vi.fn(),
 	insert: vi.fn()
-};
+}));
 
 function setupSelectChain(rows: unknown[]) {
 	mockDb.select.mockReturnValue({
@@ -37,6 +37,10 @@ vi.mock('$lib/server/preview', () => ({
 	createPreview: vi.fn().mockResolvedValue({ success: true, previewId: 'pv-1' }),
 	cleanupPrPreviews: vi.fn().mockResolvedValue(1)
 }));
+
+/* Route modules under test — imported statically so module resolution happens
+   during collection rather than inside a 5s test timeout */
+import * as webhookRoute from './[projectId]/+server';
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -102,7 +106,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'user' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'push',
@@ -119,7 +123,7 @@ describe('POST /api/webhooks/:projectId', () => {
 	it('rejects invalid signature', async () => {
 		setupSelectChain([makeProject()]);
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(
 				{ ref: 'refs/heads/main' },
@@ -136,7 +140,7 @@ describe('POST /api/webhooks/:projectId', () => {
 	it('returns 404 for missing project', async () => {
 		setupSelectChain([]);
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(makeEvent({}, { 'x-github-event': 'push' }));
 
 		expect(res.status).toBe(404);
@@ -151,7 +155,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'user' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'push',
@@ -169,7 +173,7 @@ describe('POST /api/webhooks/:projectId', () => {
 
 		const payload = JSON.stringify({ action: 'opened' });
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'issues',
@@ -196,7 +200,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -224,7 +228,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -251,7 +255,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -274,7 +278,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'user' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'push',
@@ -303,7 +307,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -334,7 +338,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -358,7 +362,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'gitea-user' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-gitea-event': 'push',
@@ -381,7 +385,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'user' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'push',
@@ -408,7 +412,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -435,7 +439,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -461,7 +465,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			sender: { login: 'dev' }
 		});
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(
 			makeEvent(JSON.parse(payload), {
 				'x-github-event': 'pull_request',
@@ -487,7 +491,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			'x-hub-signature-256': `sha256=${hmac(payload, SECRET)}`
 		};
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 
 		// Exhaust the rate limit window for a unique projectId
 		const overLimitEvent = {
@@ -536,7 +540,7 @@ describe('POST /api/webhooks/:projectId', () => {
 			url: new URL('http://localhost/api/webhooks/p-1')
 		} as never;
 
-		const { POST } = await import('./[projectId]/+server');
+		const { POST } = webhookRoute;
 		const res = await POST(event);
 
 		expect(res.status).toBe(400);
