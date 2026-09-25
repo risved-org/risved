@@ -40,6 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
       - name: Resolve next version
@@ -67,6 +68,15 @@ jobs:
             echo "::error::'$VERSION' is not an x.y.z version"
             exit 1
           fi
+          # An explicit version has to move forwards. Publishing a lower one
+          # would tag :latest with an older image and push version.json
+          # backwards on risved.com.
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$VERSION" != "$CURRENT" ] &&
+             [ "$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "::error::$VERSION is older than the current $CURRENT"
+            exit 1
+          fi
           # The tag is claimed server-side, so two releases started at once
           # cannot both take it — the loser stops here instead of quietly
           # overwriting an existing release.
@@ -91,11 +101,15 @@ jobs:
             pkg.version = process.env.VERSION
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, "\t") + "\n")
           '
-          SHA=$(gh api "repos/$GITHUB_REPOSITORY/contents/package.json?ref=main" --jq .sha)
+          # The blob sha of the file as checked out, not as main has it now.
+          # The content being sent is the checked-out copy with one line
+          # changed, so if main's package.json moved on since the checkout this
+          # PUT has to be rejected (409) rather than quietly reverting whatever
+          # landed in between.
+          SHA=$(git rev-parse "HEAD:package.json")
           # Committing through the contents API rather than git push means
           # GitHub signs the commit, which the required_signatures rule on main
-          # demands. The Actions app still needs to be a bypass actor on the
-          # ruleset, because that rule set also requires a pull request.
+          # demands.
           NEW=$(gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/package.json" \
             -f message="bump version to $VERSION" \
             -f content="$(base64 -w0 package.json)" \
@@ -105,14 +119,20 @@ jobs:
           echo "sha=$NEW" >> "$GITHUB_OUTPUT"
 
       - name: Tag it and open the release
+        # Deliberately github.token and never RELEASE_TOKEN: a tag ref created
+        # with a PAT emits a push event that would match the `v*` trigger and
+        # start a second release run, building and publishing everything twice.
+        # GITHUB_TOKEN cannot trigger another workflow, which is the invariant
+        # the build-and-push job below relies on.
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
           SHA: ${{ steps.commit.outputs.sha }}
         run: |
           set -euo pipefail
-          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f ref="refs/tags/$TAG" -f sha="$SHA" >/dev/null
+          # One call creates the tag and the release together, so a failure
+          # cannot leave behind a tag that blocks the retry on the existing-tag
+          # check above.
           gh release create "$TAG" --title "$TAG" --generate-notes --target "$SHA"
 
   # A tag created with GITHUB_TOKEN does not start another workflow run, so the
@@ -129,6 +149,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: ${{ needs.prepare.outputs.tag || github.ref_name }}
 
       - uses: docker/login-action@v3
@@ -172,6 +193,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ needs.prepare.outputs.tag || github.ref_name }}
 

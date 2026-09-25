@@ -22,13 +22,22 @@ VERSION="${TAG#v}"
 case "$VERSION" in
 	*-*) echo "Pre-release tag $TAG, not publishing"; exit 0 ;;
 esac
+# The workflow fires on every v* tag, so a name like vbanana reaches this far.
+# Refuse it rather than pinning a version.json the self-update cannot parse.
+if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+	echo "$TAG is not a vX.Y.Z release tag, not publishing" >&2
+	exit 1
+fi
 
 # Release notes: commit subjects since the previous release tag, minus the
 # version bumps and merges, with conventional-commit prefixes stripped.
 PREV=$(git describe --tags --abbrev=0 --match 'v*' "${TAG}^" 2>/dev/null || true)
 RANGE="${PREV:+$PREV..}$TAG"
+# The grep needs `|| true`: when every commit in the range is a version bump it
+# matches nothing and exits 1, which under pipefail would kill the script here
+# instead of letting the fallback below set the notes.
 NOTES=$(git log --format='%s' --no-merges "$RANGE" \
-	| grep -viE '^(bump version|chore: (bump|release))' \
+	| { grep -viE '^(bump version|chore: (bump|release))' || true; } \
 	| sed -E 's/^(build|chore|ci|docs|feat|fix|perf|refactor|style|test)(\([^)]*\))?!?: //' \
 	| awk '{ sub(/[[:space:].]+$/, ""); print toupper(substr($0, 1, 1)) substr($0, 2) "." }' \
 	| paste -sd ' ' -)
