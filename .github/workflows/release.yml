@@ -39,6 +39,7 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.version.outputs.sha }}
 
     steps:
       - uses: actions/checkout@v4
@@ -82,8 +83,13 @@ jobs:
             exit 1
           fi
 
+          # The commit actually checked out and validated. Not GITHUB_SHA: a
+          # dispatch can be started from any ref, so that would be the ref the
+          # run was launched from, whose package.json was never read here.
+          SHA=$(git rev-parse HEAD)
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing v$VERSION from $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION from ${SHA:0:7}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Tag it and open the release
         # github.token, never a PAT: a tag ref created with a PAT emits a push
@@ -93,12 +99,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.version.outputs.sha }}
         run: |
           set -euo pipefail
           # One call creates the tag and the release together, so a failure
           # cannot leave behind a tag that blocks the retry on the existing-tag
           # check above. Pinned to the commit that was just validated.
-          gh release create "$TAG" --title "$TAG" --generate-notes --target "$GITHUB_SHA"
+          gh release create "$TAG" --title "$TAG" --generate-notes --target "$SHA"
 
   # A tag created with GITHUB_TOKEN does not start another workflow run, so the
   # image has to be built here in the same run rather than by the push trigger.
