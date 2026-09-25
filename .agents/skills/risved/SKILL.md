@@ -179,21 +179,48 @@ export async function get(request) {
 
 ## Testing Patterns
 
-- **Framework:** Playwright
-- **Test File Pattern:** `*.test.ts`
-- **Location:** Place tests alongside source files or in dedicated test directories.
-- **Example Test:**
-  ```typescript
-  // src/routes/api/user.test.ts
-  import { test, expect } from '@playwright/test';
+- **Unit/integration:** Vitest — `bun run test:unit -- --run`. Two projects are configured in
+  `vite.config.ts`: `server` (node environment) for `*.test.ts`, and `client` (Playwright
+  browser) for `*.svelte.test.ts`.
+- **End-to-end:** Playwright — `bun run test:e2e`, specs in `e2e/`.
+- **Test File Pattern:** `*.test.ts`, placed alongside the source file.
+- **Assertions are required:** `expect.requireAssertions` is enabled, so a test that runs no
+  `expect()` fails.
 
-  test('GET /api/user returns user data', async ({ request }) => {
-    const response = await request.get('/api/user?id=1');
-    expect(response.status()).toBe(200);
-    const data = await response.json();
-    expect(data.name).toBe('Alice');
+### Import the module under test at the top, not inside the test body
+
+Vitest counts module transform and resolution against the 5000ms `testTimeout`. A full
+parallel run of this suite spends roughly 60-110s in transform and ~110s in import, so the
+first `await import('./+server')` inside a test body routinely takes 4-7s and the test times
+out. The symptom is a test that passes in isolation and fails intermittently in a full run.
+
+  ```typescript
+  import * as stopRoute from './[did]/stop/+server';
+
+  it('refuses to stop a superseded deployment', async () => {
+  	const { POST } = stopRoute;
+  	const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
+  	expect(res.status).toBe(400);
   });
   ```
+
+Two things to watch for:
+
+- **TDZ.** If a `vi.mock` factory closes over a module-scope `const` — the common
+  `const mockDb = {...}` plus `vi.mock('$lib/server/db', () => ({ db: mockDb }))` pair — a
+  static import evaluates that factory while `mockDb` is still in its temporal dead zone and
+  throws a `ReferenceError`. Declare it as `const mockDb = vi.hoisted(() => ({ ... }))` first.
+  This is why several of these files originally used a lazy import.
+- **Name collisions.** Sibling route modules all export `GET`/`POST`, so import them as
+  namespaces (`import * as fooRoute`) rather than aliasing every call site.
+
+`vi.mock` itself is hoisted above imports by Vitest's transform, so mocks still apply to
+statically imported modules.
+
+A timeout here also cascades: the one-shot `setupSelectChain` mock is consumed by the test
+that timed out, so the *next* test fails with a confusing
+`db.select(...).from(...).where(...).limit is not a function`. If you see that error, look for
+a timeout above it rather than debugging the mock chain.
 
 ---
 
