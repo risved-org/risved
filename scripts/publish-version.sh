@@ -24,7 +24,7 @@ case "$VERSION" in
 esac
 # The workflow fires on every v* tag, so a name like vbanana reaches this far.
 # Refuse it rather than pinning a version.json the self-update cannot parse.
-if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
 	echo "$TAG is not a vX.Y.Z release tag, not publishing" >&2
 	exit 1
 fi
