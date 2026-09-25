@@ -262,6 +262,56 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 		expect(text).toContain('live');
 	});
 
+	it('polls again (waiting 500ms) when the deployment is still running after a log batch', async () => {
+		/* Select call sequence:
+		 * 0 – initial deployment lookup   → non-terminal (building)
+		 * 1 – 1st in-loop log poll        → one log entry
+		 * 2 – 1st in-loop status re-check → still non-terminal (building) → falls through to the 500ms wait and loops again
+		 * 3 – 2nd in-loop log poll        → no new logs
+		 * 4 – 2nd in-loop status re-check → terminal (live) → loop exits
+		 */
+		let selectCallIdx = 0;
+		mockDb.select.mockImplementation(() => {
+			const idx = selectCallIdx++;
+			return {
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockImplementation(() => ({
+						limit: vi.fn().mockImplementation(() => {
+							if (idx === 0 || idx === 2) {
+								return Promise.resolve([{ id: 'd-4', projectId: 'p-1', status: 'building' }]);
+							}
+							return Promise.resolve([{ id: 'd-4', projectId: 'p-1', status: 'live' }]);
+						}),
+						orderBy: vi.fn().mockImplementation(() => {
+							if (idx === 1) {
+								return Promise.resolve([
+									{ id: 20, timestamp: '2026-01-01T00:00:00Z', phase: 'build', level: 'info', message: 'Compiling' }
+								]);
+							}
+							return Promise.resolve([]);
+						})
+					}))
+				})
+			};
+		});
+
+		const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
+
+		const { GET } = await import('./[did]/logs/+server');
+		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-4' } }));
+
+		const text = await res.text();
+		expect(text).toContain('Compiling');
+		expect(text).toContain('event: done');
+		expect(text).toContain('live');
+		/* Confirms the loop actually went around twice (the 500ms wait branch ran). */
+		expect(selectCallIdx).toBeGreaterThanOrEqual(5);
+		/* Confirms it actually waited 500ms rather than tight-looping. */
+		expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 500);
+
+		setTimeoutSpy.mockRestore();
+	}, 2000);
+
 	it('stream cancel() sets closed flag without throwing', async () => {
 		const deployment = { id: 'd-3', projectId: 'p-1', status: 'building' };
 		let selectCallIdx2 = 0;
