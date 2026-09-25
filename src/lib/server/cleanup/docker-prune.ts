@@ -1,123 +1,146 @@
-import { db } from '$lib/server/db';
-import { deployments, projects } from '$lib/server/db/schema';
-import { eq, inArray, isNotNull } from 'drizzle-orm';
-import type { CommandRunner } from '$lib/server/pipeline/types';
+import { db } from '$lib/server/db'
+import { deployments, projects } from '$lib/server/db/schema'
+import { eq, inArray, isNotNull } from 'drizzle-orm'
+import type { CommandRunner } from '$lib/server/pipeline/types'
 
 /** Successful deployments per project whose images are kept for rollback. */
-export const KEEP_IMAGES_PER_PROJECT = 3;
+export const KEEP_IMAGES_PER_PROJECT = 3
 
 /** Deployment statuses that reached production and can be rolled back to. */
-const SUCCESSFUL_STATUSES = new Set(['live', 'superseded', 'stopped']);
+const SUCCESSFUL_STATUSES = new Set(['live', 'superseded', 'stopped'])
 
 /** Below either of these the disk is treated as under pressure. */
-export const LOW_DISK_FREE_PERCENT = 15;
-export const LOW_DISK_FREE_BYTES = 5 * 1000 * 1000 * 1000;
+export const LOW_DISK_FREE_PERCENT = 15
+export const LOW_DISK_FREE_BYTES = 5 * 1000 * 1000 * 1000
 
 /** How much BuildKit cache a routine prune leaves behind. */
-const BUILD_CACHE_KEEP = '2GB';
+const BUILD_CACHE_KEEP = '2GB'
 
 /** Self-update pulls a new one of these per release; each is over 2GB. */
-const CONTROL_PLANE_IMAGE = 'ghcr.io/risved-org/risved';
+const CONTROL_PLANE_IMAGE = 'ghcr.io/risved-org/risved'
 
 /**
  * Label stamped on every image the pipeline builds. Lets the prune tell a
  * Risved project image apart from base images, managed Postgres and anything
  * the operator pulled by hand, even after the project that owned it is gone.
  */
-export const PROJECT_IMAGE_LABEL = 'risved.project';
+export const PROJECT_IMAGE_LABEL = 'risved.project'
 
 /**
  * /app/data is bind-mounted from the host, so probing it with `df` reports the
- * host disk that Docker images, volumes and logs actually live on.
+ * host disk. That is the same disk Docker uses on a default install, but not
+ * when the Docker data root sits on its own partition — see
+ * `resolveDiskProbePath`.
  */
-export const HOST_DISK_PROBE_PATH = '/app/data';
+export const HOST_DISK_PROBE_PATH = '/app/data'
 
 export interface DiskSpace {
-	totalBytes: number;
-	freeBytes: number;
-	freePercent: number;
+	totalBytes: number
+	freeBytes: number
+	freePercent: number
 }
 
 export interface DockerPruneSummary {
-	imagesRemoved: string[];
-	danglingReclaimed: string;
-	buildCacheReclaimed: string;
+	imagesRemoved: string[]
+	danglingReclaimed: string
+	buildCacheReclaimed: string
 }
 
 export interface PruneOptions {
 	/** Successful deployments per project whose images survive (default 3). */
-	keepPerProject?: number;
+	keepPerProject?: number
 	/** Only prune images belonging to this project. */
-	projectId?: string;
+	projectId?: string
 	/** Drop the whole build cache instead of trimming it. */
-	aggressive?: boolean;
+	aggressive?: boolean
+}
+
+/**
+ * Pick the path whose free space stands in for "the disk Docker fills".
+ *
+ * Images, volumes and container logs live under Docker's data root, which is
+ * on the same filesystem as /app/data for a default install but not for a
+ * host that gave /var/lib/docker its own partition. Probe the data root when
+ * it is reachable and `df` accepts it, and fall back to the bind mount
+ * otherwise — from inside the control-plane container the daemon's data root
+ * is not a path we can see, so the fallback is the normal outcome there.
+ */
+export async function resolveDiskProbePath(runner: CommandRunner): Promise<string> {
+	const info = await runner.exec('docker', ['info', '-f', '{{.DockerRootDir}}'])
+	const root = info.exitCode === 0 ? info.stdout.trim() : ''
+	if (!root || root === HOST_DISK_PROBE_PATH) return HOST_DISK_PROBE_PATH
+
+	const probe = await runner.exec('df', ['-kP', root])
+	return probe.exitCode === 0 ? root : HOST_DISK_PROBE_PATH
 }
 
 /**
  * Read free space on the host disk via POSIX `df`.
  * Returns null when the probe path does not exist (e.g. in development).
+ * With no explicit path, probes Docker's data root where that is visible.
  */
 export async function getDiskSpace(
 	runner: CommandRunner,
-	path = HOST_DISK_PROBE_PATH
+	path?: string
 ): Promise<DiskSpace | null> {
-	const result = await runner.exec('df', ['-kP', path]);
-	if (result.exitCode !== 0) return null;
+	const probePath = path ?? (await resolveDiskProbePath(runner))
+	const result = await runner.exec('df', ['-kP', probePath])
+	if (result.exitCode !== 0) return null
 
-	const lines = result.stdout.trim().split('\n');
-	const columns = lines[lines.length - 1]?.trim().split(/\s+/) ?? [];
+	const lines = result.stdout.trim().split('\n')
+	const columns = lines[lines.length - 1]?.trim().split(/\s+/) ?? []
 	/* Filesystem 1024-blocks Used Available Capacity Mounted on */
-	if (columns.length < 6) return null;
+	if (columns.length < 6) return null
 
-	const totalBytes = parseInt(columns[1], 10) * 1024;
-	const freeBytes = parseInt(columns[3], 10) * 1024;
-	if (!Number.isFinite(totalBytes) || !Number.isFinite(freeBytes) || totalBytes <= 0) return null;
+	const totalBytes = parseInt(columns[1], 10) * 1024
+	const freeBytes = parseInt(columns[3], 10) * 1024
+	if (!Number.isFinite(totalBytes) || !Number.isFinite(freeBytes) || totalBytes <= 0) return null
 
-	return { totalBytes, freeBytes, freePercent: (freeBytes / totalBytes) * 100 };
+	return { totalBytes, freeBytes, freePercent: (freeBytes / totalBytes) * 100 }
 }
 
 export function isDiskLow(space: DiskSpace): boolean {
-	return space.freeBytes < LOW_DISK_FREE_BYTES || space.freePercent < LOW_DISK_FREE_PERCENT;
+	return space.freeBytes < LOW_DISK_FREE_BYTES || space.freePercent < LOW_DISK_FREE_PERCENT
 }
 
 function imageRepository(tag: string): string {
-	const idx = tag.lastIndexOf(':');
-	return idx === -1 ? tag : tag.slice(0, idx);
+	const idx = tag.lastIndexOf(':')
+	return idx === -1 ? tag : tag.slice(0, idx)
 }
 
 /** Project images are tagged `<slug>:<sha>`; PR previews use `<slug>-pr-<n>:<sha>`. */
 function belongsToProject(tag: string, slug: string): boolean {
-	const repo = imageRepository(tag);
-	return repo === slug || repo.startsWith(`${slug}-pr-`);
+	const repo = imageRepository(tag)
+	return repo === slug || repo.startsWith(`${slug}-pr-`)
 }
 
 function parseReclaimed(stdout: string): string {
-	return stdout.match(/reclaimed\s+space:\s*(.+)/i)?.[1]?.trim() || '0B';
+	return stdout.match(/reclaimed\s+space:\s*(.+)/i)?.[1]?.trim() || '0B'
 }
 
 /** Deployments younger than this keep their image whatever their status. */
-export const RECENT_DEPLOYMENT_GRACE_MS = 30 * 60 * 1000;
+export const RECENT_DEPLOYMENT_GRACE_MS = 30 * 60 * 1000
 
 /** Tagged images present on the host, optionally only those carrying `label`. */
 async function listImages(runner: CommandRunner, label?: string): Promise<string[] | null> {
-	const args = ['images'];
-	if (label) args.push('--filter', `label=${label}`);
-	args.push('--format', '{{.Repository}}:{{.Tag}}');
-	const listed = await runner.exec('docker', args);
-	if (listed.exitCode !== 0) return null;
+	const args = ['images']
+	if (label) args.push('--filter', `label=${label}`)
+	args.push('--format', '{{.Repository}}:{{.Tag}}')
+	const listed = await runner.exec('docker', args)
+	if (listed.exitCode !== 0) return null
 	return listed.stdout
 		.split('\n')
 		.map((line) => line.trim())
-		.filter((line) => line && !line.startsWith('<none>'));
+		.filter((line) => line && !line.startsWith('<none>'))
 }
 
 async function removeImages(runner: CommandRunner, tags: string[]): Promise<string[]> {
-	const removed: string[] = [];
+	const removed: string[] = []
 	for (const tag of tags) {
-		const result = await runner.exec('docker', ['rmi', tag]);
-		if (result.exitCode === 0) removed.push(tag);
+		const result = await runner.exec('docker', ['rmi', tag])
+		if (result.exitCode === 0) removed.push(tag)
 	}
-	return removed;
+	return removed
 }
 
 /**
@@ -126,12 +149,12 @@ async function removeImages(runner: CommandRunner, tags: string[]): Promise<stri
  * Images still used by a container are refused by Docker and left alone.
  */
 export async function removeProjectImages(runner: CommandRunner, slug: string): Promise<string[]> {
-	const present = await listImages(runner);
-	if (!present) return [];
+	const present = await listImages(runner)
+	if (!present) return []
 	return removeImages(
 		runner,
 		present.filter((tag) => belongsToProject(tag, slug))
-	);
+	)
 }
 
 /**
@@ -156,14 +179,14 @@ export async function pruneProjectImages(
 	keepPerProject = KEEP_IMAGES_PER_PROJECT,
 	projectId?: string
 ): Promise<string[]> {
-	const projectQuery = db.select({ id: projects.id, slug: projects.slug }).from(projects);
+	const projectQuery = db.select({ id: projects.id, slug: projects.slug }).from(projects)
 	const projectRows = projectId
 		? await projectQuery.where(eq(projects.id, projectId))
-		: await projectQuery;
-	if (projectRows.length === 0) return [];
+		: await projectQuery
+	if (projectRows.length === 0) return []
 
-	const present = await listImages(runner);
-	if (!present || present.length === 0) return [];
+	const present = await listImages(runner)
+	if (!present || present.length === 0) return []
 
 	const rows = await db
 		.select({
@@ -173,63 +196,63 @@ export async function pruneProjectImages(
 			createdAt: deployments.createdAt
 		})
 		.from(deployments)
-		.where(isNotNull(deployments.imageTag));
+		.where(isNotNull(deployments.imageTag))
 
-	const byProject = new Map<string, typeof rows>();
+	const byProject = new Map<string, typeof rows>()
 	for (const row of rows) {
-		const list = byProject.get(row.projectId) ?? [];
-		list.push(row);
-		byProject.set(row.projectId, list);
+		const list = byProject.get(row.projectId) ?? []
+		list.push(row)
+		byProject.set(row.projectId, list)
 	}
 
-	const recentCutoff = new Date(Date.now() - RECENT_DEPLOYMENT_GRACE_MS).toISOString();
-	const removed: string[] = [];
+	const recentCutoff = new Date(Date.now() - RECENT_DEPLOYMENT_GRACE_MS).toISOString()
+	const removed: string[] = []
 	for (const project of projectRows) {
-		const protectedTags = new Set<string>();
-		const projectDeployments = byProject.get(project.id) ?? [];
+		const protectedTags = new Set<string>()
+		const projectDeployments = byProject.get(project.id) ?? []
 		/* An in-flight deploy owns its image from `docker build` onwards */
 		for (const row of projectDeployments) {
-			const inFlight = row.status === 'running' || row.createdAt >= recentCutoff;
-			if (inFlight && row.imageTag) protectedTags.add(row.imageTag);
+			const inFlight = row.status === 'running' || row.createdAt >= recentCutoff
+			if (inFlight && row.imageTag) protectedTags.add(row.imageTag)
 		}
 		const successful = projectDeployments
 			.filter((row) => SUCCESSFUL_STATUSES.has(row.status))
-			.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-		const liveRepos = new Set<string>();
+			.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+		const liveRepos = new Set<string>()
 		for (const row of successful) {
-			if (row.status !== 'live' || !row.imageTag) continue;
-			const repo = imageRepository(row.imageTag);
-			if (liveRepos.has(repo)) continue;
-			liveRepos.add(repo);
-			protectedTags.add(row.imageTag);
+			if (row.status !== 'live' || !row.imageTag) continue
+			const repo = imageRepository(row.imageTag)
+			if (liveRepos.has(repo)) continue
+			liveRepos.add(repo)
+			protectedTags.add(row.imageTag)
 		}
 		for (const row of successful.slice(0, keepPerProject)) {
-			if (row.imageTag) protectedTags.add(row.imageTag);
+			if (row.imageTag) protectedTags.add(row.imageTag)
 		}
-		for (const tag of [...protectedTags]) protectedTags.add(`${tag}-release`);
+		for (const tag of [...protectedTags]) protectedTags.add(`${tag}-release`)
 
 		const candidates = present.filter(
 			(tag) => belongsToProject(tag, project.slug) && !protectedTags.has(tag)
-		);
-		removed.push(...(await removeImages(runner, candidates)));
+		)
+		removed.push(...(await removeImages(runner, candidates)))
 	}
 
 	if (!projectId) {
-		const built = (await listImages(runner, PROJECT_IMAGE_LABEL)) ?? [];
+		const built = (await listImages(runner, PROJECT_IMAGE_LABEL)) ?? []
 		const orphans = built.filter(
 			(tag) => !projectRows.some((project) => belongsToProject(tag, project.slug))
-		);
-		removed.push(...(await removeImages(runner, orphans)));
+		)
+		removed.push(...(await removeImages(runner, orphans)))
 	}
 
 	if (removed.length > 0) {
 		await db
 			.update(deployments)
 			.set({ imageTag: null })
-			.where(inArray(deployments.imageTag, removed));
+			.where(inArray(deployments.imageTag, removed))
 	}
 
-	return removed;
+	return removed
 }
 
 /**
@@ -237,16 +260,16 @@ export async function pruneProjectImages(
  * version is refused by Docker because its container uses it.
  */
 export async function pruneControlPlaneImages(runner: CommandRunner): Promise<string[]> {
-	const listed = await runner.exec('docker', ['images', '--format', '{{.Repository}}:{{.Tag}}']);
-	if (listed.exitCode !== 0) return [];
+	const listed = await runner.exec('docker', ['images', '--format', '{{.Repository}}:{{.Tag}}'])
+	if (listed.exitCode !== 0) return []
 
-	const removed: string[] = [];
+	const removed: string[] = []
 	for (const tag of listed.stdout.split('\n').map((line) => line.trim())) {
-		if (!tag || imageRepository(tag) !== CONTROL_PLANE_IMAGE) continue;
-		const result = await runner.exec('docker', ['rmi', tag]);
-		if (result.exitCode === 0) removed.push(tag);
+		if (!tag || imageRepository(tag) !== CONTROL_PLANE_IMAGE) continue
+		const result = await runner.exec('docker', ['rmi', tag])
+		if (result.exitCode === 0) removed.push(tag)
 	}
-	return removed;
+	return removed
 }
 
 /**
@@ -262,19 +285,19 @@ export async function pruneDockerResources(
 		runner,
 		options.keepPerProject ?? KEEP_IMAGES_PER_PROJECT,
 		options.projectId
-	);
-	imagesRemoved.push(...(await pruneControlPlaneImages(runner)));
+	)
+	imagesRemoved.push(...(await pruneControlPlaneImages(runner)))
 
-	const dangling = await runner.exec('docker', ['image', 'prune', '-f']);
+	const dangling = await runner.exec('docker', ['image', 'prune', '-f'])
 
 	const cacheArgs = options.aggressive
 		? ['builder', 'prune', '-af']
-		: ['builder', 'prune', '-f', '--keep-storage', BUILD_CACHE_KEEP];
-	const cache = await runner.exec('docker', cacheArgs);
+		: ['builder', 'prune', '-f', '--keep-storage', BUILD_CACHE_KEEP]
+	const cache = await runner.exec('docker', cacheArgs)
 
 	return {
 		imagesRemoved,
 		danglingReclaimed: parseReclaimed(dangling.stdout),
 		buildCacheReclaimed: parseReclaimed(cache.stdout)
-	};
+	}
 }

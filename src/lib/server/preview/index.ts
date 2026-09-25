@@ -1,17 +1,17 @@
-import { db } from '$lib/server/db';
-import { previewDeployments, deployments } from '$lib/server/db/schema';
-import { eq, and, asc } from 'drizzle-orm';
-import { CaddyClient, createCaddyClient } from '$lib/server/caddy';
-import { runPipeline } from '$lib/server/pipeline';
-import { createCommandRunner, dockerStop, dockerVolumeRemove } from '$lib/server/pipeline/docker';
-import { getSetting } from '$lib/server/settings';
-import type { FrameworkId, Tier } from '$lib/server/detection/types';
-import type { PreviewProject, PreviewResult } from './types';
+import { db } from '$lib/server/db'
+import { previewDeployments, deployments } from '$lib/server/db/schema'
+import { eq, and, asc } from 'drizzle-orm'
+import { CaddyClient, createCaddyClient } from '$lib/server/caddy'
+import { runPipeline } from '$lib/server/pipeline'
+import { createCommandRunner, dockerStop, dockerVolumeRemove } from '$lib/server/pipeline/docker'
+import { getSetting } from '$lib/server/settings'
+import type { FrameworkId, Tier } from '$lib/server/detection/types'
+import type { PreviewProject, PreviewResult } from './types'
 
-export type { PreviewProject, PreviewResult } from './types';
+export type { PreviewProject, PreviewResult } from './types'
 
-const PREVIEW_PORT_MIN = 4001;
-const PREVIEW_PORT_MAX = 4999;
+const PREVIEW_PORT_MIN = 4001
+const PREVIEW_PORT_MAX = 4999
 
 /**
  * Build the preview domain for a PR.
@@ -22,7 +22,7 @@ export function buildPreviewDomain(
 	projectSlug: string,
 	baseDomain: string
 ): string {
-	return `pr-${prNumber}.${projectSlug}.${baseDomain}`;
+	return `pr-${prNumber}.${projectSlug}.${baseDomain}`
 }
 
 /**
@@ -31,7 +31,7 @@ export function buildPreviewDomain(
  * command) never touches the production app's data.
  */
 export function previewVolumeName(projectId: string, prNumber: number): string {
-	return `risved-${projectId}-pr-${prNumber}-data`;
+	return `risved-${projectId}-pr-${prNumber}-data`
 }
 
 /**
@@ -41,17 +41,17 @@ export async function allocatePreviewPort(): Promise<number> {
 	const used = await db
 		.select({ port: previewDeployments.port })
 		.from(previewDeployments)
-		.where(eq(previewDeployments.status, 'active'));
+		.where(eq(previewDeployments.status, 'active'))
 
-	const usedSet = new Set(used.map((r) => r.port).filter((p): p is number => p !== null));
+	const usedSet = new Set(used.map(r => r.port).filter((p): p is number => p !== null))
 
 	for (let port = PREVIEW_PORT_MIN; port <= PREVIEW_PORT_MAX; port++) {
 		if (!usedSet.has(port)) {
-			return port;
+			return port
 		}
 	}
 
-	throw new Error(`No available preview ports in range ${PREVIEW_PORT_MIN}-${PREVIEW_PORT_MAX}`);
+	throw new Error(`No available preview ports in range ${PREVIEW_PORT_MIN}-${PREVIEW_PORT_MAX}`)
 }
 
 /**
@@ -65,9 +65,9 @@ export async function createPreview(
 	branch: string,
 	commitSha: string | null
 ): Promise<PreviewResult> {
-	const baseDomain = await getSetting('hostname');
+	const baseDomain = await getSetting('hostname')
 	if (!baseDomain) {
-		return { success: false, error: 'No hostname configured' };
+		return { success: false, error: 'No hostname configured' }
 	}
 
 	/* Check for existing preview for this PR - update it instead of creating new */
@@ -81,18 +81,18 @@ export async function createPreview(
 				eq(previewDeployments.status, 'active')
 			)
 		)
-		.limit(1);
+		.limit(1)
 
-	let port: number;
-	let previewId: string;
-	const domain = buildPreviewDomain(prNumber, project.slug, baseDomain);
-	const containerName = `${project.slug}-pr-${prNumber}`;
+	let port: number
+	let previewId: string
+	const domain = buildPreviewDomain(prNumber, project.slug, baseDomain)
+	const containerName = `${project.slug}-pr-${prNumber}`
 
 	if (existing.length > 0) {
 		/* Reuse existing preview's port and update */
-		const prev = existing[0];
-		port = prev.port!;
-		previewId = prev.id;
+		const prev = existing[0]
+		port = prev.port!
+		previewId = prev.id
 
 		await db
 			.update(previewDeployments)
@@ -102,12 +102,12 @@ export async function createPreview(
 				status: 'building',
 				updatedAt: new Date().toISOString()
 			})
-			.where(eq(previewDeployments.id, previewId));
+			.where(eq(previewDeployments.id, previewId))
 	} else {
 		/* Enforce limit before creating new preview */
-		await enforcePreviewLimit(project.id, project.previewLimit);
+		await enforcePreviewLimit(project.id, project.previewLimit)
 
-		port = await allocatePreviewPort();
+		port = await allocatePreviewPort()
 		const record = await db
 			.insert(previewDeployments)
 			.values({
@@ -121,9 +121,9 @@ export async function createPreview(
 				domain,
 				status: 'building'
 			})
-			.returning();
+			.returning()
 
-		previewId = record[0].id;
+		previewId = record[0].id
 	}
 
 	/* Trigger the pipeline (fire-and-forget) */
@@ -147,7 +147,7 @@ export async function createPreview(
 		},
 		createCommandRunner()
 	)
-		.then(async (result) => {
+		.then(async result => {
 			await db
 				.update(previewDeployments)
 				.set({
@@ -156,16 +156,16 @@ export async function createPreview(
 					commitSha: result.commitSha ?? commitSha,
 					updatedAt: new Date().toISOString()
 				})
-				.where(eq(previewDeployments.id, previewId));
+				.where(eq(previewDeployments.id, previewId))
 		})
 		.catch(async () => {
 			await db
 				.update(previewDeployments)
 				.set({ status: 'failed', updatedAt: new Date().toISOString() })
-				.where(eq(previewDeployments.id, previewId));
-		});
+				.where(eq(previewDeployments.id, previewId))
+		})
 
-	return { success: true, previewId, domain, port };
+	return { success: true, previewId, domain, port }
 }
 
 /**
@@ -177,27 +177,27 @@ export async function cleanupPreview(previewId: string, caddy?: CaddyClient): Pr
 		.select()
 		.from(previewDeployments)
 		.where(eq(previewDeployments.id, previewId))
-		.limit(1);
+		.limit(1)
 
-	if (rows.length === 0) return;
+	if (rows.length === 0) return
 
-	const preview = rows[0];
-	const runner = createCommandRunner();
-	const caddyClient = caddy ?? createCaddyClient();
+	const preview = rows[0]
+	const runner = createCommandRunner()
+	const caddyClient = caddy ?? createCaddyClient()
 
 	/* Stop the container */
 	if (preview.containerName) {
-		await dockerStop(runner, preview.containerName, 10).catch(() => {});
+		await dockerStop(runner, preview.containerName, 10).catch(() => {})
 	}
 
 	/* Remove the preview's isolated data volume */
 	await dockerVolumeRemove(runner, previewVolumeName(preview.projectId, preview.prNumber)).catch(
 		() => {}
-	);
+	)
 
 	/* Remove Caddy route */
 	if (preview.domain) {
-		await caddyClient.removeRoute(preview.domain).catch(() => {});
+		await caddyClient.removeRoute(preview.domain).catch(() => {})
 	}
 
 	/* Mark deployment as stopped if exists */
@@ -206,14 +206,14 @@ export async function cleanupPreview(previewId: string, caddy?: CaddyClient): Pr
 			.update(deployments)
 			.set({ status: 'stopped', finishedAt: new Date().toISOString() })
 			.where(eq(deployments.id, preview.deploymentId))
-			.catch(() => {});
+			.catch(() => {})
 	}
 
 	/* Mark preview as cleaned */
 	await db
 		.update(previewDeployments)
 		.set({ status: 'cleaned', updatedAt: new Date().toISOString() })
-		.where(eq(previewDeployments.id, previewId));
+		.where(eq(previewDeployments.id, previewId))
 }
 
 /**
@@ -233,10 +233,10 @@ export async function cleanupPrPreviews(
 				eq(previewDeployments.prNumber, prNumber),
 				eq(previewDeployments.status, 'active')
 			)
-		);
+		)
 
 	for (const preview of active) {
-		await cleanupPreview(preview.id, caddy);
+		await cleanupPreview(preview.id, caddy)
 	}
 
 	/* Also clean up building ones */
@@ -249,16 +249,40 @@ export async function cleanupPrPreviews(
 				eq(previewDeployments.prNumber, prNumber),
 				eq(previewDeployments.status, 'building')
 			)
-		);
+		)
 
 	for (const preview of building) {
 		await db
 			.update(previewDeployments)
 			.set({ status: 'cleaned', updatedAt: new Date().toISOString() })
-			.where(eq(previewDeployments.id, preview.id));
+			.where(eq(previewDeployments.id, preview.id))
 	}
 
-	return active.length + building.length;
+	return active.length + building.length
+}
+
+/**
+ * Clean up every preview of a project and drop its rows.
+ *
+ * Used when the project itself is deleted: without this its preview
+ * containers, data volumes, Caddy routes and rows outlive it, and nothing
+ * else ever looks at them again.
+ */
+export async function cleanupProjectPreviews(
+	projectId: string,
+	caddy?: CaddyClient
+): Promise<number> {
+	const rows = await db
+		.select()
+		.from(previewDeployments)
+		.where(eq(previewDeployments.projectId, projectId))
+
+	for (const preview of rows) {
+		await cleanupPreview(preview.id, caddy).catch(() => {})
+	}
+
+	await db.delete(previewDeployments).where(eq(previewDeployments.projectId, projectId))
+	return rows.length
 }
 
 /**
@@ -296,13 +320,13 @@ export async function enforcePreviewLimit(projectId: string, limit: number): Pro
 		.where(
 			and(eq(previewDeployments.projectId, projectId), eq(previewDeployments.status, 'active'))
 		)
-		.orderBy(asc(previewDeployments.createdAt));
+		.orderBy(asc(previewDeployments.createdAt))
 
 	/* Remove oldest if at or above limit (making room for one more) */
-	const toRemove = active.length - limit + 1;
+	const toRemove = active.length - limit + 1
 	if (toRemove > 0) {
 		for (let i = 0; i < toRemove; i++) {
-			await cleanupPreview(active[i].id);
+			await cleanupPreview(active[i].id)
 		}
 	}
 }
@@ -317,5 +341,5 @@ export async function listPreviews(projectId: string) {
 		.where(
 			and(eq(previewDeployments.projectId, projectId), eq(previewDeployments.status, 'active'))
 		)
-		.orderBy(asc(previewDeployments.createdAt));
+		.orderBy(asc(previewDeployments.createdAt))
 }

@@ -1,9 +1,9 @@
 import { writeFile, rm, chmod } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import type { CommandRunner, DockerBuildOptions, DockerRunOptions } from './types';
+import type { CommandRunner, DockerBuildOptions, DockerRunOptions } from './types'
 
-const DOCKER_NETWORK = 'risved';
+const DOCKER_NETWORK = 'risved'
 
 // eslint-disable-next-line no-control-regex -- matching terminal escape sequences is the point
 const ANSI_ESCAPE_PATTERN = /(?:\u001b\[|\u009b)[0-?]*[ -/]*[@-~]/g
@@ -22,7 +22,7 @@ export async function dockerBuild(
 	runner: CommandRunner,
 	options: DockerBuildOptions
 ): Promise<{ success: boolean; error?: string }> {
-	const { contextDir, imageTag, target, buildArgs, labels, network, onLine } = options;
+	const { contextDir, imageTag, target, buildArgs, labels, network, onLine } = options
 
 	const args = ['build', '--progress=plain', '-t', imageTag]
 	if (network) {
@@ -43,12 +43,12 @@ export async function dockerBuild(
 	}
 	args.push(contextDir)
 
-	const result = await runner.exec('docker', args, { onLine });
+	const result = await runner.exec('docker', args, { onLine })
 
 	if (result.exitCode !== 0) {
-		return { success: false, error: result.stderr || result.stdout };
+		return { success: false, error: result.stderr || result.stdout }
 	}
-	return { success: true };
+	return { success: true }
 }
 
 /**
@@ -58,35 +58,44 @@ export async function dockerRun(
 	runner: CommandRunner,
 	options: DockerRunOptions
 ): Promise<{ success: boolean; containerId?: string; error?: string }> {
-	const { imageTag, containerName, port, network = DOCKER_NETWORK, env = {}, volumes = [] } = options;
-	const args = ['run', '-d', '--network', network, '--name', containerName, '-p', `${port}:3000`];
+	const {
+		imageTag,
+		containerName,
+		port,
+		network = DOCKER_NETWORK,
+		env = {},
+		volumes = []
+	} = options
+	const args = ['run', '-d', '--network', network, '--name', containerName, '-p', `${port}:3000`]
 
 	/* Cap container stdout/stderr logs. Docker never rotates json-file logs by
 	   default and `docker system df` doesn't count them, so a chatty app can
-	   silently fill the disk. */
-	args.push('--log-opt', 'max-size=10m', '--log-opt', 'max-file=3');
+	   silently fill the disk. max-size/max-file only exist on the json-file
+	   driver, so name it rather than inheriting a daemon default (journald on
+	   some hosts) that rejects them and fails every `docker run`. */
+	args.push('--log-driver', 'json-file', '--log-opt', 'max-size=10m', '--log-opt', 'max-file=3')
 
 	/* Ensure the app binds to all interfaces so the health check and
 	   reverse proxy can reach it over the Docker network. */
-	args.push('-e', 'HOST=0.0.0.0');
-	args.push('-e', 'HOSTNAME=0.0.0.0');
+	args.push('-e', 'HOST=0.0.0.0')
+	args.push('-e', 'HOSTNAME=0.0.0.0')
 
 	for (const [key, val] of Object.entries(env)) {
-		args.push('-e', `${key}=${val}`);
+		args.push('-e', `${key}=${val}`)
 	}
 
 	for (const vol of volumes) {
-		args.push('-v', vol);
+		args.push('-v', vol)
 	}
 
-	args.push(imageTag);
+	args.push(imageTag)
 
-	const result = await runner.exec('docker', args);
+	const result = await runner.exec('docker', args)
 
 	if (result.exitCode !== 0) {
-		return { success: false, error: result.stderr || result.stdout };
+		return { success: false, error: result.stderr || result.stdout }
 	}
-	return { success: true, containerId: result.stdout.trim().slice(0, 12) };
+	return { success: true, containerId: result.stdout.trim().slice(0, 12) }
 }
 
 /**
@@ -98,23 +107,18 @@ export async function dockerStop(
 	containerName: string,
 	gracePeriod = 10
 ): Promise<{ success: boolean; error?: string }> {
-	const stopResult = await runner.exec('docker', [
-		'stop',
-		'-t',
-		String(gracePeriod),
-		containerName
-	]);
+	const stopResult = await runner.exec('docker', ['stop', '-t', String(gracePeriod), containerName])
 
 	if (stopResult.exitCode !== 0 && !stopResult.stderr.includes('No such container')) {
-		return { success: false, error: stopResult.stderr };
+		return { success: false, error: stopResult.stderr }
 	}
 
-	const rmResult = await runner.exec('docker', ['rm', '-f', containerName]);
+	const rmResult = await runner.exec('docker', ['rm', '-f', containerName])
 	if (rmResult.exitCode !== 0 && !rmResult.stderr.includes('No such container')) {
-		return { success: false, error: rmResult.stderr };
+		return { success: false, error: rmResult.stderr }
 	}
 
-	return { success: true };
+	return { success: true }
 }
 
 /**
@@ -122,9 +126,7 @@ export async function dockerStop(
  * Waits briefly after removal to let Docker release the port binding.
  */
 export async function freePort(runner: CommandRunner, port: number): Promise<string[]> {
-	const result = await runner.exec('docker', [
-		'ps', '-q', '--filter', `publish=${port}`
-	])
+	const result = await runner.exec('docker', ['ps', '-q', '--filter', `publish=${port}`])
 	if (result.exitCode !== 0 || !result.stdout.trim()) return []
 
 	const ids = result.stdout.trim().split('\n').filter(Boolean)
@@ -141,9 +143,9 @@ export async function freePort(runner: CommandRunner, port: number): Promise<str
  * Get the short commit SHA from a cloned repository.
  */
 export async function getCommitSha(runner: CommandRunner, repoDir: string): Promise<string | null> {
-	const result = await runner.exec('git', ['rev-parse', '--short=7', 'HEAD'], { cwd: repoDir });
-	if (result.exitCode !== 0) return null;
-	return result.stdout.trim();
+	const result = await runner.exec('git', ['rev-parse', '--short=7', 'HEAD'], { cwd: repoDir })
+	if (result.exitCode !== 0) return null
+	return result.stdout.trim()
 }
 
 /**
@@ -184,7 +186,9 @@ export async function gitClone(
 
 	try {
 		const env = keyFile
-			? { GIT_SSH_COMMAND: `ssh -i ${keyFile} -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes` }
+			? {
+					GIT_SSH_COMMAND: `ssh -i ${keyFile} -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes`
+				}
 			: undefined
 
 		const cloneArgs = checkoutRef
@@ -225,7 +229,7 @@ export async function waitForHealthy(
 	intervalMs = 2000,
 	fetchFn: typeof fetch = globalThis.fetch
 ): Promise<boolean> {
-	const deadline = Date.now() + timeoutMs;
+	const deadline = Date.now() + timeoutMs
 	/* When a container name is provided, health-check over the Docker network
 	   on port 3000 (the internal port all apps listen on). Falls back to
 	   localhost:{port} for backwards compatibility. */
@@ -238,16 +242,16 @@ export async function waitForHealthy(
 		try {
 			const res = await fetchFn(url, {
 				signal: AbortSignal.timeout(2000)
-			});
+			})
 			if (res.ok || res.status < 500) {
-				return true;
+				return true
 			}
 		} catch {
 			/* container not ready yet */
 		}
-		await new Promise((resolve) => setTimeout(resolve, intervalMs));
+		await new Promise((resolve) => setTimeout(resolve, intervalMs))
 	}
-	return false;
+	return false
 }
 
 /**
@@ -319,25 +323,25 @@ export function createCommandRunner(): CommandRunner {
 				})
 			}
 
-			const { execFile } = await import('node:child_process');
-			const { promisify } = await import('node:util');
-			const execFileAsync = promisify(execFile);
+			const { execFile } = await import('node:child_process')
+			const { promisify } = await import('node:util')
+			const execFileAsync = promisify(execFile)
 
 			try {
 				const { stdout, stderr } = await execFileAsync(cmd, args, {
 					cwd: options?.cwd,
 					env: options?.env ? { ...process.env, ...options.env } : undefined,
 					maxBuffer: 10 * 1024 * 1024
-				});
-				return { exitCode: 0, stdout, stderr };
+				})
+				return { exitCode: 0, stdout, stderr }
 			} catch (err: unknown) {
-				const e = err as { code?: number; stdout?: string; stderr?: string };
+				const e = err as { code?: number; stdout?: string; stderr?: string }
 				return {
 					exitCode: e.code ?? 1,
 					stdout: e.stdout ?? '',
 					stderr: e.stderr ?? ''
-				};
+				}
 			}
 		}
-	};
+	}
 }

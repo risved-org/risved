@@ -14,6 +14,8 @@ import {
 	managedPostgresContainerName,
 	managedPostgresVolumeName
 } from '$lib/server/pipeline/postgres'
+import { removeProjectImages } from '$lib/server/cleanup/docker-prune'
+import { cleanupProjectPreviews } from '$lib/server/preview'
 import { createCaddyClient } from '$lib/server/caddy'
 import { removeProjectImages } from '$lib/server/cleanup/docker-prune'
 import { cleanupProjectPreviews } from '$lib/server/preview'
@@ -131,6 +133,9 @@ export const DELETE: RequestHandler = async event => {
 		await dockerVolumeRemove(runner, projectVolumeName(id))
 		await dockerStop(runner, managedPostgresContainerName(id), 10)
 		await dockerVolumeRemove(runner, managedPostgresVolumeName(id))
+		/* Images are tagged, so neither the routine prune nor `docker image
+		   prune` reclaims them once the project row is gone */
+		await removeProjectImages(runner, project.slug)
 	} catch {
 		/* Container may not be running — ignore */
 	}

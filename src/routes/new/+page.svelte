@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ProjectRuntime } from '$lib/project-runtime'
 	import ProjectRuntimeField from '$lib/components/ProjectRuntimeField.svelte'
+	import { untrack } from 'svelte'
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
 	import ProjectScriptsForm from '$lib/components/ProjectScriptsForm.svelte'
@@ -35,6 +36,7 @@
 	let selectedConnectionId = $state(data.connections[0]?.id ?? '')
 	let searchQuery = $state('')
 	let searching = $state(false)
+	const SEARCH_DEBOUNCE_MS = 250
 	let repos = $state<Repo[]>([])
 	let selectedRepo = $state<Repo | null>(null)
 	let listExpanded = $state(false)
@@ -62,21 +64,36 @@
 		forgejo: 'Forgejo'
 	}
 
-	async function loadRepos() {
+	/* Every repo request gets a number; a response whose number is no longer
+	   the newest is dropped, so a slow "re" can't overwrite "redis". */
+	let repoRequestId = 0
+	let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+	async function loadRepos(query = '') {
 		if (!selectedConnectionId) return
+		const requestId = ++repoRequestId
 		searching = true
 		try {
 			const provider = selectedConnection?.provider ?? 'github'
+			/* eslint-disable-next-line svelte/prefer-svelte-reactivity -- local query builder, never reactive state */
 			const params = new URLSearchParams({ connectionId: selectedConnectionId })
-			if (searchQuery.trim()) params.set('search', searchQuery.trim())
+			if (query.trim()) params.set('search', query.trim())
 
 			const res = await fetch(`/api/git/${provider}/repos?${params}`)
+			if (requestId !== repoRequestId) return
 			if (res.ok) {
 				repos = await res.json()
 			}
 		} finally {
-			searching = false
+			if (requestId === repoRequestId) searching = false
 		}
+	}
+
+	/* Wait for a pause in typing rather than firing on every keystroke */
+	function queueRepoSearch() {
+		listExpanded = true
+		if (searchTimer) clearTimeout(searchTimer)
+		searchTimer = setTimeout(() => loadRepos(searchQuery), SEARCH_DEBOUNCE_MS)
 	}
 
 	async function selectRepo(repo: Repo) {
@@ -131,7 +148,9 @@
 
 	$effect(() => {
 		if (selectedConnectionId && activeTab === 'provider') {
-			loadRepos()
+			/* untrack the query: the search box drives its own debounced
+			   request, and tracking it here would double every keystroke */
+			loadRepos(untrack(() => searchQuery))
 		}
 	})
 
@@ -254,16 +273,22 @@
 			{#if activeTab === 'provider'}
 				{#if data.connections.length === 0}
 					<div class="provider-empty" data-testid="no-providers">
-						<a href={resolve('/settings/git')} class="btn-connect" data-testid="connect-provider-link">
+						<a
+							href={resolve('/settings/git')}
+							class="btn-connect"
+							data-testid="connect-provider-link"
+						>
 							Add a git provider…
 						</a>
 					</div>
 				{:else}
 					<fieldset class="section-body">
-						<label>Account
+						<label
+							>Account
 							<select
 								class="form-input"
 								bind:value={selectedConnectionId}
+								onchange={clearSelection}
 								data-testid="account-select"
 							>
 								{#each data.connections as conn (conn.id)}
@@ -274,16 +299,14 @@
 							</select>
 						</label>
 
-						<label>Search repositories
+						<label
+							>Search repositories
 							<div class="search-row">
 								<input
 									type="text"
 									bind:value={searchQuery}
 									placeholder="Filter repositories…"
-									oninput={() => {
-										listExpanded = true
-										loadRepos()
-									}}
+									oninput={queueRepoSearch}
 									onfocus={() => (listExpanded = true)}
 									onclick={() => (listExpanded = true)}
 									data-testid="repo-search"
@@ -337,7 +360,8 @@
 				{/if}
 			{:else}
 				<fieldset class="section-body">
-					<label>Repository URL
+					<label
+						>Repository URL
 						<input
 							name="repoUrl"
 							type="text"
@@ -348,7 +372,8 @@
 						/>
 					</label>
 					<div class="field-row">
-						<label>Branch
+						<label
+							>Branch
 							<input
 								name="branch"
 								type="text"
@@ -357,7 +382,8 @@
 								data-testid="branch-input"
 							/>
 						</label>
-						<label>Root directory
+						<label
+							>Root directory
 							<input
 								name="rootDir"
 								type="text"
@@ -383,12 +409,9 @@
 		<section class="section" data-testid="detection-section">
 			<h2 class="section-title">Framework</h2>
 			<fieldset class="section-body">
-				<label>Framework override
-					<select
-						name="frameworkId"
-						bind:value={frameworkId}
-						data-testid="framework-select"
-					>
+				<label
+					>Framework override
+					<select name="frameworkId" bind:value={frameworkId} data-testid="framework-select">
 						<option value="">Auto-detect</option>
 						{#each data.frameworks as fw (fw.id)}
 							<option value={fw.id}>{fw.name}</option>
@@ -404,7 +427,7 @@
 			<ProjectRuntimeField
 				bind:runtime
 				{frameworkId}
-				tier={data.frameworks.find(f => f.id === frameworkId)?.tier}
+				tier={data.frameworks.find((f) => f.id === frameworkId)?.tier}
 			/>
 			<ProjectScriptsForm
 				{runtime}
@@ -419,7 +442,8 @@
 		<section class="section" data-testid="config-section">
 			<h2 class="section-title">Configuration</h2>
 			<fieldset class="section-body">
-				<label>Project name
+				<label
+					>Project name
 					<input
 						name="projectName"
 						type="text"
@@ -429,7 +453,8 @@
 					/>
 					<span class="field-hint">Auto-generated from repository name if left blank</span>
 				</label>
-				<label>Domain
+				<label
+					>Domain
 					<output class="domain-preview mono" data-testid="domain-preview">
 						{derivedDomain || '–'}
 					</output>
@@ -480,7 +505,10 @@
 								{row.revealed ? 'Hide' : 'View'}
 							</button>
 						{/if}
-						<label class="env-secret" title="Secrets are write-only: once saved, the value can be replaced but never viewed">
+						<label
+							class="env-secret"
+							title="Secrets are write-only: once saved, the value can be replaced but never viewed"
+						>
 							<input
 								type="checkbox"
 								bind:checked={row.isSecret}
@@ -509,8 +537,8 @@
 			</fieldset>
 
 			<p class="field-hint env-hint" data-testid="env-hint">
-				All values are encrypted at rest. A secret is write-only: once saved it can be replaced, but never viewed
-				again. Untick Secret for plain variables you want to keep readable.
+				All values are encrypted at rest. A secret is write-only: once saved it can be replaced, but
+				never viewed again. Untick Secret for plain variables you want to keep readable.
 			</p>
 
 			<input type="hidden" name="envKeys" value={envKeysValue} />
@@ -550,7 +578,7 @@
 
 	.back-link {
 		display: inline-block;
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 		margin-bottom: var(--space-3);
 	}
@@ -592,10 +620,12 @@
 		border: none;
 		border-right: 1.5px solid var(--color-border);
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 600;
 		cursor: pointer;
-		transition: background 0.15s, color 0.15s;
+		transition:
+			background 0.15s,
+			color 0.15s;
 	}
 
 	.tab:last-child {
@@ -629,10 +659,12 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 600;
 		cursor: pointer;
-		transition: border-color 0.15s, color 0.15s;
+		transition:
+			border-color 0.15s,
+			color 0.15s;
 		text-decoration: none;
 	}
 
@@ -652,7 +684,7 @@
 	}
 
 	.search-status {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 
@@ -698,13 +730,13 @@
 	}
 
 	.repo-name {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}
 
 	.repo-desc {
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		color: var(--color-text-2);
 		white-space: nowrap;
@@ -717,7 +749,7 @@
 		align-items: center;
 		gap: var(--space-2);
 		flex-shrink: 0;
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		color: var(--color-text-2);
 	}
@@ -726,7 +758,7 @@
 		padding: 1px var(--space-1);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
-		font-size: .625rem;
+		font-size: 0.625rem;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 	}
@@ -742,7 +774,7 @@
 	}
 
 	.selected-name {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--color-text-0);
 	}
@@ -753,7 +785,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-2);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		cursor: pointer;
 	}
@@ -785,7 +817,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--color-text-1);
 	}
@@ -826,7 +858,7 @@
 	}
 
 	.field-hint {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 
@@ -841,7 +873,7 @@
 		border: 1.5px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 
 	/* Env editor */
@@ -862,7 +894,7 @@
 		gap: 0;
 		border-bottom: 1px solid var(--color-border);
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 
 	.env-key {
@@ -873,7 +905,7 @@
 		border-right: 1px solid var(--color-border);
 		color: var(--color-term-cmd);
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		outline: none;
 	}
 
@@ -895,7 +927,7 @@
 		border: none;
 		color: var(--color-term-success);
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		outline: none;
 	}
 
@@ -919,7 +951,7 @@
 		border-left: 1px solid var(--color-border);
 		color: var(--color-text-2);
 		cursor: pointer;
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		transition: color 0.1s;
 	}
@@ -934,7 +966,7 @@
 		padding: 0 var(--space-2);
 		border-left: 1px solid var(--color-border);
 		color: var(--color-text-2);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		cursor: pointer;
 	}
 
@@ -953,7 +985,7 @@
 		border: none;
 		color: var(--color-text-2);
 		cursor: pointer;
-		font-size: .875rem;
+		font-size: 0.875rem;
 		transition: color 0.1s;
 	}
 
@@ -983,7 +1015,7 @@
 	.env-empty {
 		padding: var(--space-3);
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		text-align: center;
 	}
 
@@ -993,7 +1025,7 @@
 		border: none;
 		border-top: 1px solid var(--color-border);
 		color: var(--color-accent);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
 		text-align: left;
