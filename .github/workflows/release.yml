@@ -20,6 +20,14 @@ on:
     tags:
       - 'v*'
 
+# One release at a time, and never cancel one midway. Two overlapping runs both
+# push the raw `latest` tag, so whichever finished last would win it — and if
+# that were the older of the two, install.sh (which defaults to latest) would
+# hand out an older image than the version.json manifest advertises.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
