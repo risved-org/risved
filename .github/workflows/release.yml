@@ -1,19 +1,19 @@
 name: Release
 
 # Two ways in:
-#   * Actions -> Release -> Run workflow: picks the next version, bumps
-#     package.json on main, tags it, then publishes. This is the normal path.
+#   * Actions -> Release -> Run workflow: tags whatever version package.json on
+#     main already says and publishes it. This is the normal path.
 #   * pushing a v* tag by hand (bun run release): publishes that tag as before.
+#
+# The version itself is bumped by an ordinary pull request, so it goes through
+# CI and the merge queue like any other change. This workflow never writes to
+# main: the OSS ruleset requires a pull request there, and GITHUB_TOKEN holds no
+# bypass, so a bump commit from here would simply be rejected.
 on:
   workflow_dispatch:
     inputs:
-      bump:
-        description: Which part of the version to bump
-        type: choice
-        options: [patch, minor, major]
-        default: patch
-      version:
-        description: Exact version instead of a bump, e.g. 1.0.0 (optional)
+      expect_version:
+        description: Refuse to release unless main is at this version (optional)
         type: string
         required: false
   push:
@@ -39,7 +39,6 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.version.outputs.tag }}
-      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -47,97 +46,59 @@ jobs:
           persist-credentials: false
           ref: main
 
-      - name: Resolve next version
+      - name: Resolve the version to release
         id: version
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
-          BUMP: ${{ inputs.bump }}
-          EXACT: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          EXPECT: ${{ inputs.expect_version }}
         run: |
           set -euo pipefail
-          if [ -n "$EXACT" ]; then
-            VERSION="${EXACT#v}"
-          else
-            VERSION=$(node -e '
-              const [maj, min, pat] = require("./package.json").version.split(".").map(Number)
-              const bump = process.env.BUMP
-              process.stdout.write(
-                bump === "major" ? `${maj + 1}.0.0`
-                : bump === "minor" ? `${maj}.${min + 1}.0`
-                : `${maj}.${min}.${pat + 1}`
-              )
-            ')
-          fi
-          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
-            echo "::error::'$VERSION' is not an x.y.z version"
-            exit 1
-          fi
-          # An explicit version has to move forwards. Publishing a lower one
-          # would tag :latest with an older image and push version.json
-          # backwards on risved.com.
-          CURRENT=$(node -p "require('./package.json').version")
-          if [ "$VERSION" != "$CURRENT" ] &&
-             [ "$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
-            echo "::error::$VERSION is older than the current $CURRENT"
-            exit 1
-          fi
-          # The tag is claimed server-side, so two releases started at once
-          # cannot both take it — the loser stops here instead of quietly
-          # overwriting an existing release.
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
-            echo "::error::tag v$VERSION already exists"
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing v$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          SEMVER='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          VERSION=$(node -p "require('./package.json').version")
 
-      - name: Commit version bump to main
-        id: commit
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          node -e '
-            const fs = require("fs")
-            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"))
-            pkg.version = process.env.VERSION
-            fs.writeFileSync("package.json", JSON.stringify(pkg, null, "\t") + "\n")
-          '
-          # The blob sha of the file as checked out, not as main has it now.
-          # The content being sent is the checked-out copy with one line
-          # changed, so if main's package.json moved on since the checkout this
-          # PUT has to be rejected (409) rather than quietly reverting whatever
-          # landed in between.
-          SHA=$(git rev-parse "HEAD:package.json")
-          # Committing through the contents API rather than git push means
-          # GitHub signs the commit, which the required_signatures rule on main
-          # demands.
-          NEW=$(gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/package.json" \
-            -f message="bump version to $VERSION" \
-            -f content="$(base64 -w0 package.json)" \
-            -f sha="$SHA" \
-            -f branch=main \
-            --jq .commit.sha)
-          echo "sha=$NEW" >> "$GITHUB_OUTPUT"
+          # Guard against releasing whatever happens to be sitting on main.
+          if [ -n "$EXPECT" ] && [ "${EXPECT#v}" != "$VERSION" ]; then
+            echo "::error::main is at $VERSION, not ${EXPECT#v}"
+            exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq "$SEMVER"; then
+            echo "::error::package.json version '$VERSION' is not an x.y.z version"
+            exit 1
+          fi
+          # Claimed server-side, so two releases started at once cannot both
+          # take the tag, and a re-run cannot overwrite a published release.
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::v$VERSION is already released — bump package.json on main first"
+            exit 1
+          fi
+          # And it must not go backwards past an existing release.
+          NEWEST=$(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" \
+            --jq '.[].ref | sub("^refs/tags/v"; "")' \
+            | { grep -E "$SEMVER" || true; } \
+            | sort -V | tail -1)
+          if [ -n "$NEWEST" ] &&
+             [ "$(printf '%s\n%s\n' "$NEWEST" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "::error::$VERSION is behind the newest release v$NEWEST"
+            exit 1
+          fi
+
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION from $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Tag it and open the release
-        # Deliberately github.token and never RELEASE_TOKEN: a tag ref created
-        # with a PAT emits a push event that would match the `v*` trigger and
-        # start a second release run, building and publishing everything twice.
-        # GITHUB_TOKEN cannot trigger another workflow, which is the invariant
-        # the build-and-push job below relies on.
+        # github.token, never a PAT: a tag ref created with a PAT emits a push
+        # event that would match the `v*` trigger and start a second release
+        # run, publishing everything twice. GITHUB_TOKEN cannot trigger another
+        # workflow, which is the invariant build-and-push relies on.
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
-          SHA: ${{ steps.commit.outputs.sha }}
         run: |
           set -euo pipefail
           # One call creates the tag and the release together, so a failure
           # cannot leave behind a tag that blocks the retry on the existing-tag
-          # check above.
-          gh release create "$TAG" --title "$TAG" --generate-notes --target "$SHA"
+          # check above. Pinned to the commit that was just validated.
+          gh release create "$TAG" --title "$TAG" --generate-notes --target "$GITHUB_SHA"
 
   # A tag created with GITHUB_TOKEN does not start another workflow run, so the
   # image has to be built here in the same run rather than by the push trigger.
