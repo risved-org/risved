@@ -1,16 +1,150 @@
 name: Release
 
+# Two ways in:
+#   * Actions -> Release -> Run workflow: picks the next version, bumps
+#     package.json on main, tags it, then publishes. This is the normal path.
+#   * pushing a v* tag by hand (bun run release): publishes that tag as before.
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to bump
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      version:
+        description: Exact version instead of a bump, e.g. 1.0.0 (optional)
+        type: string
+        required: false
   push:
     tags:
-      - "v*"
+      - 'v*'
 
+# Deliberately no concurrency group. A group holds at most one running and one
+# pending run, so a third release would silently cancel the pending one and that
+# tag would never get an image. Overlapping releases are made safe instead by
+# the newest-tag guard on :latest in build-and-push.
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Dispatch only. On a tag push this is skipped and the jobs below fall back
+  # to github.ref_name.
+  prepare:
+    name: prepare
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: main
+
+      - name: Resolve next version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          BUMP: ${{ inputs.bump }}
+          EXACT: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "$EXACT" ]; then
+            VERSION="${EXACT#v}"
+          else
+            VERSION=$(node -e '
+              const [maj, min, pat] = require("./package.json").version.split(".").map(Number)
+              const bump = process.env.BUMP
+              process.stdout.write(
+                bump === "major" ? `${maj + 1}.0.0`
+                : bump === "minor" ? `${maj}.${min + 1}.0`
+                : `${maj}.${min}.${pat + 1}`
+              )
+            ')
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+            echo "::error::'$VERSION' is not an x.y.z version"
+            exit 1
+          fi
+          # An explicit version has to move forwards. Publishing a lower one
+          # would tag :latest with an older image and push version.json
+          # backwards on risved.com.
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$VERSION" != "$CURRENT" ] &&
+             [ "$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "::error::$VERSION is older than the current $CURRENT"
+            exit 1
+          fi
+          # The tag is claimed server-side, so two releases started at once
+          # cannot both take it — the loser stops here instead of quietly
+          # overwriting an existing release.
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::tag v$VERSION already exists"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit version bump to main
+        id: commit
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs")
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"))
+            pkg.version = process.env.VERSION
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, "\t") + "\n")
+          '
+          # The blob sha of the file as checked out, not as main has it now.
+          # The content being sent is the checked-out copy with one line
+          # changed, so if main's package.json moved on since the checkout this
+          # PUT has to be rejected (409) rather than quietly reverting whatever
+          # landed in between.
+          SHA=$(git rev-parse "HEAD:package.json")
+          # Committing through the contents API rather than git push means
+          # GitHub signs the commit, which the required_signatures rule on main
+          # demands.
+          NEW=$(gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/package.json" \
+            -f message="bump version to $VERSION" \
+            -f content="$(base64 -w0 package.json)" \
+            -f sha="$SHA" \
+            -f branch=main \
+            --jq .commit.sha)
+          echo "sha=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Tag it and open the release
+        # Deliberately github.token and never RELEASE_TOKEN: a tag ref created
+        # with a PAT emits a push event that would match the `v*` trigger and
+        # start a second release run, building and publishing everything twice.
+        # GITHUB_TOKEN cannot trigger another workflow, which is the invariant
+        # the build-and-push job below relies on.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # One call creates the tag and the release together, so a failure
+          # cannot leave behind a tag that blocks the retry on the existing-tag
+          # check above.
+          gh release create "$TAG" --title "$TAG" --generate-notes --target "$SHA"
+
+  # A tag created with GITHUB_TOKEN does not start another workflow run, so the
+  # image has to be built here in the same run rather than by the push trigger.
   build-and-push:
+    name: build-and-push
+    needs: prepare
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,6 +152,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.tag || github.ref_name }}
 
       - uses: docker/login-action@v3
         with:
@@ -25,14 +162,45 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # install.sh defaults to :latest, so that tag must never come to point at
+      # an older image than version.json advertises. Rather than serialising
+      # releases — a concurrency group keeps only one pending run and would drop
+      # a third — just refuse to move :latest when this is not the newest tag.
+      # That also covers an old v* tag pushed by hand after a newer release.
+      - name: Is this the newest release tag?
+        id: newest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          SEMVER='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          NEWEST=$(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" \
+            --jq '.[].ref | sub("^refs/tags/v"; "")' \
+            | { grep -E "$SEMVER" || true; } \
+            | sort -V | tail -1)
+          # A >= test rather than equality: this tag normally already exists by
+          # now (prepare created it), but the answer stays right either way.
+          if [ -n "$NEWEST" ] &&
+             [ "$(printf '%s\n%s\n' "$NEWEST" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+            echo "is_newest=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::$TAG is behind v$NEWEST, leaving :latest alone"
+          else
+            echo "is_newest=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: docker/metadata-action@v5
         id: meta
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # The semver patterns strip the leading v, so the git tag v0.18.9
+          # publishes ghcr.io/risved-org/risved:0.18.9 as the self-update
+          # system expects.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ needs.prepare.outputs.tag || github.ref_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.prepare.outputs.tag || github.ref_name }}
+            type=raw,value=latest,enable=${{ steps.newest.outputs.is_newest }}
 
       - uses: docker/build-push-action@v6
         with:
@@ -42,3 +210,27 @@ jobs:
           no-cache: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  # The self-update check polls https://risved.com/version.json, which is a
+  # static file in the risved.com repo. Pin it to this release once the image
+  # is on ghcr, so dashboards offer the update without a manual PR.
+  publish-version:
+    name: publish-version
+    needs: [prepare, build-and-push]
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.tag || github.ref_name }}
+
+      - name: Pin control plane version on risved.com
+        env:
+          GH_TOKEN: ${{ secrets.RISVED_COM_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag || github.ref_name }}
+        run: bash scripts/publish-version.sh
