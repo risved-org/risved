@@ -44,6 +44,8 @@ export interface DockerPruneSummary {
 	imagesRemoved: string[]
 	danglingReclaimed: string
 	buildCacheReclaimed: string
+	/** Prune steps Docker refused, one message each; empty when all ran. */
+	errors: string[]
 }
 
 export interface PruneOptions {
@@ -116,6 +118,12 @@ function belongsToProject(tag: string, slug: string): boolean {
 
 function parseReclaimed(stdout: string): string {
 	return stdout.match(/reclaimed\s+space:\s*(.+)/i)?.[1]?.trim() || '0B'
+}
+
+/** First line of a failed command's output, for the prune summary. */
+function pruneError(step: string, result: { stdout: string; stderr: string }): string {
+	const message = (result.stderr || result.stdout).trim().split('\n')[0]
+	return `${step}: ${message || 'unknown error'}`
 }
 
 /** Deployments younger than this keep their image whatever their status. */
@@ -275,7 +283,9 @@ export async function pruneControlPlaneImages(runner: CommandRunner): Promise<st
 /**
  * Full Docker housekeeping: old project images, stale control-plane images,
  * dangling layers and the BuildKit cache (trimmed to a fixed size, or dropped
- * entirely when aggressive). Never touches containers or volumes.
+ * entirely when aggressive). Never touches containers or volumes. A prune step
+ * Docker refuses is reported in `errors` rather than passed off as 0B
+ * reclaimed, which reads as "nothing to clean".
  */
 export async function pruneDockerResources(
 	runner: CommandRunner,
@@ -288,16 +298,21 @@ export async function pruneDockerResources(
 	)
 	imagesRemoved.push(...(await pruneControlPlaneImages(runner)))
 
+	const errors: string[] = []
+
 	const dangling = await runner.exec('docker', ['image', 'prune', '-f'])
+	if (dangling.exitCode !== 0) errors.push(pruneError('image prune', dangling))
 
 	const cacheArgs = options.aggressive
 		? ['builder', 'prune', '-af']
 		: ['builder', 'prune', '-f', '--keep-storage', BUILD_CACHE_KEEP]
 	const cache = await runner.exec('docker', cacheArgs)
+	if (cache.exitCode !== 0) errors.push(pruneError('builder prune', cache))
 
 	return {
 		imagesRemoved,
 		danglingReclaimed: parseReclaimed(dangling.stdout),
-		buildCacheReclaimed: parseReclaimed(cache.stdout)
+		buildCacheReclaimed: parseReclaimed(cache.stdout),
+		errors
 	}
 }

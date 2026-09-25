@@ -140,8 +140,13 @@ export class MetricsCollector {
 			const day = toDay(now)
 
 			for (const stat of stats) {
-				await this.upsertMetric(stat, bucket)
-				await this.recordBandwidth(stat, day)
+				try {
+					await this.upsertMetric(stat, bucket)
+					await this.recordBandwidth(stat, day)
+				} catch {
+					/* One project's write failing must not skip the projects
+					   after it, nor the prune below */
+				}
 			}
 
 			await this.pruneOldMetrics()
@@ -193,20 +198,24 @@ export class MetricsCollector {
 	 *
 	 * Docker reports network I/O as cumulative totals since the container
 	 * started, so bandwidth is the difference between consecutive samples.
-	 * The first sample after a control plane restart only sets the baseline.
+	 * The first sample after a control plane restart only sets the baseline,
+	 * and the baseline only moves once the write for that delta succeeded.
 	 * A new container ID or a counter that went backwards means the container
 	 * was replaced or restarted, so its whole counter is new traffic.
 	 */
 	private async recordBandwidth(stat: ContainerStats, day: string): Promise<void> {
 		if (stat.netRxBytes === undefined || stat.netTxBytes === undefined) return
 
-		const previous = this.lastNetIo.get(stat.projectId)
-		this.lastNetIo.set(stat.projectId, {
+		const sample: NetSample = {
 			containerId: stat.containerId,
 			rx: stat.netRxBytes,
 			tx: stat.netTxBytes
-		})
-		if (!previous) return
+		}
+		const previous = this.lastNetIo.get(stat.projectId)
+		if (!previous) {
+			this.lastNetIo.set(stat.projectId, sample)
+			return
+		}
 
 		const restarted =
 			previous.containerId !== stat.containerId ||
@@ -214,7 +223,10 @@ export class MetricsCollector {
 			stat.netTxBytes < previous.tx
 		const rx = restarted ? stat.netRxBytes : stat.netRxBytes - previous.rx
 		const tx = restarted ? stat.netTxBytes : stat.netTxBytes - previous.tx
-		if (rx <= 0 && tx <= 0) return
+		if (rx <= 0 && tx <= 0) {
+			this.lastNetIo.set(stat.projectId, sample)
+			return
+		}
 
 		const updatedAt = new Date().toISOString()
 		await db
@@ -228,6 +240,10 @@ export class MetricsCollector {
 					updatedAt
 				}
 			})
+
+		/* Only move the baseline once the traffic is durably counted: a write
+		   that rejects otherwise takes this interval's bytes with it. */
+		this.lastNetIo.set(stat.projectId, sample)
 	}
 
 	/** Remove metrics older than retention period */

@@ -388,6 +388,105 @@ describe('MetricsCollector', () => {
 			expect(mockDb.insert).not.toHaveBeenCalled()
 		})
 
+		it('keeps the bandwidth baseline when the write fails, so no traffic is lost', async () => {
+			const execFn = vi
+				.fn()
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|1MB / 1MB|abc123\n')
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|2MB / 2MB|abc123\n')
+				.mockReturnValueOnce('myapp|1.00%|64MiB / 1GiB|3MB / 3MB|abc123\n')
+			collector = new MetricsCollector({ execFn })
+
+			const projectRows = [{ id: 'p-1', slug: 'myapp', port: 3001 }]
+			const existing = [
+				{ id: 1, cpuPercent: 100, memoryMb: 64, memoryLimitMb: 1024, sampleCount: 1 }
+			]
+			mockDb.select.mockImplementation(() => ({
+				from: vi.fn((table: unknown) =>
+					table === 'projects_table'
+						? Promise.resolve(projectRows)
+						: { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue(existing) }) }
+				)
+			}))
+			mockDb.update.mockReturnValue({
+				set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
+			})
+			mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
+
+			const failingWrite = vi.fn().mockReturnValue({
+				onConflictDoUpdate: vi.fn().mockRejectedValue(new Error('database is locked'))
+			})
+			mockDb.insert.mockReturnValue({ values: failingWrite })
+
+			/* First sample only sets the baseline */
+			await collector.collect()
+			expect(failingWrite).not.toHaveBeenCalled()
+
+			/* Second sample's 1MB delta is rejected by the database */
+			await collector.collect()
+			expect(failingWrite).toHaveBeenCalledWith(
+				expect.objectContaining({ rxBytes: 1_000_000, txBytes: 1_000_000 })
+			)
+
+			const succeedingWrite = vi.fn().mockReturnValue({
+				onConflictDoUpdate: vi.fn().mockResolvedValue(undefined)
+			})
+			mockDb.insert.mockReturnValue({ values: succeedingWrite })
+
+			/* Third sample measures from the 1MB baseline, not the lost 2MB one */
+			await collector.collect()
+			expect(succeedingWrite).toHaveBeenCalledWith(
+				expect.objectContaining({ rxBytes: 2_000_000, txBytes: 2_000_000 })
+			)
+		})
+
+		it('records the other projects when one write fails', async () => {
+			const execFn = vi
+				.fn()
+				.mockReturnValueOnce(
+					'myapp|1.00%|64MiB / 1GiB|5MB / 5MB|abc123\nother|2.00%|32MiB / 1GiB|7MB / 7MB|def456\n'
+				)
+				.mockReturnValueOnce(
+					'myapp|1.00%|64MiB / 1GiB|6MB / 6MB|abc123\nother|2.00%|32MiB / 1GiB|9MB / 9MB|def456\n'
+				)
+			collector = new MetricsCollector({ execFn })
+
+			const projectRows = [
+				{ id: 'p-1', slug: 'myapp', port: 3001 },
+				{ id: 'p-2', slug: 'other', port: 3002 }
+			]
+			const existing = [
+				{ id: 1, cpuPercent: 100, memoryMb: 64, memoryLimitMb: 1024, sampleCount: 1 }
+			]
+			mockDb.select.mockImplementation(() => ({
+				from: vi.fn((table: unknown) =>
+					table === 'projects_table'
+						? Promise.resolve(projectRows)
+						: { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue(existing) }) }
+				)
+			}))
+			mockDb.update.mockReturnValue({
+				set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
+			})
+			mockDb.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
+
+			const written: string[] = []
+			const values = vi.fn((row: { projectId: string }) => ({
+				onConflictDoUpdate: vi.fn(() => {
+					if (row.projectId === 'p-1') return Promise.reject(new Error('database is locked'))
+					written.push(row.projectId)
+					return Promise.resolve(undefined)
+				})
+			}))
+			mockDb.insert.mockReturnValue({ values })
+
+			await collector.collect()
+			await collector.collect()
+
+			/* p-1 comes first in the loop; its failure must not skip p-2 or the prune */
+			expect(written).toEqual(['p-2'])
+			expect(mockDb.delete).toHaveBeenCalled()
+		})
+
 		it('prunes both resource metrics and old bandwidth days', async () => {
 			const execFn = vi.fn().mockReturnValue('myapp|1.00%|64MiB / 1GiB\n')
 			collector = new MetricsCollector({ execFn })

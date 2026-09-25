@@ -481,6 +481,53 @@ describe('pruneDockerResources', () => {
 		expect(summary.buildCacheReclaimed).toBe('3.4GB')
 	})
 
+	it('reports a prune step Docker refused instead of 0B reclaimed', async () => {
+		setupDb([], [])
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`
+				if (joined.startsWith('docker images')) {
+					return { exitCode: 0, stdout: '', stderr: '' }
+				}
+				if (joined.startsWith('docker builder prune')) {
+					return { exitCode: 1, stdout: '', stderr: 'unknown flag: --keep-storage\n' }
+				}
+				return { exitCode: 0, stdout: 'Total reclaimed space: 1.2GB\n', stderr: '' }
+			}
+		}
+
+		const summary = await pruneDockerResources(runner)
+
+		expect(summary.errors).toEqual(['builder prune: unknown flag: --keep-storage'])
+		expect(summary.buildCacheReclaimed).toBe('0B')
+	})
+
+	it('reports a failing dangling prune', async () => {
+		setupDb([], [])
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				const joined = `${cmd} ${args.join(' ')}`
+				if (joined.startsWith('docker image prune')) {
+					return { exitCode: 1, stdout: '', stderr: '' }
+				}
+				return { exitCode: 0, stdout: 'Total reclaimed space: 3.4GB\n', stderr: '' }
+			}
+		}
+
+		const summary = await pruneDockerResources(runner)
+
+		expect(summary.errors).toEqual(['image prune: unknown error'])
+	})
+
+	it('reports no errors when every step ran', async () => {
+		setupDb([], [])
+		const { runner } = makeRunner([])
+
+		const summary = await pruneDockerResources(runner)
+
+		expect(summary.errors).toEqual([])
+	})
+
 	it('drops the whole build cache when aggressive', async () => {
 		setupDb([], [])
 		const { runner, calls } = makeRunner([])

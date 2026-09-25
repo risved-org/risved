@@ -289,6 +289,9 @@ async function _runPipeline(
 					'build',
 					`Removed ${pruned.imagesRemoved.length} old image(s), reclaimed ${pruned.danglingReclaimed} dangling and ${pruned.buildCacheReclaimed} build cache`
 				)
+				for (const error of pruned.errors) {
+					emit('build', `Prune step failed — ${error}`, 'warn')
+				}
 			}
 		}
 
