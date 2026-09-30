@@ -1,4 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('node:dns/promises', () => ({
+	resolve4: vi.fn(),
+	resolve6: vi.fn()
+}));
+
+import { resolve4, resolve6 } from 'node:dns/promises';
 import {
 	generateDnsRecords,
 	checkDnsRecord,
@@ -172,6 +179,34 @@ describe('checkDnsRecord', () => {
 		const resolveFn = vi.fn().mockResolvedValue(['2001:db8::1'])
 		const result = await checkDnsRecord(aaaa, resolveFn)
 		expect(result.resolved).toBe(true)
+	})
+
+	it('uses the default IPv4 resolver when no resolveFn is given', async () => {
+		vi.mocked(resolve4).mockResolvedValue(['1.2.3.4'])
+		vi.mocked(resolve6).mockClear()
+
+		const result = await checkDnsRecord(record)
+
+		expect(result.resolved).toBe(true)
+		expect(resolve4).toHaveBeenCalledWith('risved.example.com')
+		expect(resolve6).not.toHaveBeenCalled()
+	})
+
+	it('uses the default IPv6 resolver when no resolveFn is given', async () => {
+		const aaaa: DnsRecord = {
+			type: 'AAAA',
+			name: 'risved.example.com',
+			value: '2001:db8::1',
+			purpose: 'test'
+		}
+		vi.mocked(resolve6).mockResolvedValue(['2001:db8::1'])
+		vi.mocked(resolve4).mockClear()
+
+		const result = await checkDnsRecord(aaaa)
+
+		expect(result.resolved).toBe(true)
+		expect(resolve6).toHaveBeenCalledWith('risved.example.com')
+		expect(resolve4).not.toHaveBeenCalled()
 	})
 })
 
