@@ -262,6 +262,41 @@ describe('GET /api/projects/:id/deployments/:did/logs', () => {
 		expect(text).toContain('live');
 	});
 
+	it('polls again with a delay when the deployment is still in progress', async () => {
+		/* Select call sequence:
+		 * 0 – initial deployment lookup    → non-terminal (building)
+		 * 1 – loop 1: log poll             → no new logs
+		 * 2 – loop 1: status re-check      → still non-terminal → hits the poll delay
+		 * 3 – loop 2: log poll             → no new logs
+		 * 4 – loop 2: status re-check      → terminal (live) → loop exits
+		 */
+		let selectCallIdx = 0;
+		mockDb.select.mockImplementation(() => {
+			const idx = selectCallIdx++;
+			return {
+				from: vi.fn().mockReturnValue({
+					where: vi.fn().mockReturnValue({
+						limit: vi.fn().mockImplementation(() => {
+							if (idx === 0 || idx === 2) {
+								return Promise.resolve([{ id: 'd-4', projectId: 'p-1', status: 'building' }]);
+							}
+							return Promise.resolve([{ id: 'd-4', projectId: 'p-1', status: 'live' }]);
+						}),
+						orderBy: vi.fn().mockResolvedValue([])
+					})
+				})
+			};
+		});
+
+		const { GET } = await import('./[did]/logs/+server');
+		const res = await GET(makeEvent({ params: { id: 'p-1', did: 'd-4' } }));
+
+		const text = await res.text();
+		expect(text).toContain('event: done');
+		expect(text).toContain('live');
+		expect(selectCallIdx).toBeGreaterThanOrEqual(5);
+	});
+
 	it('stream cancel() sets closed flag without throwing', async () => {
 		const deployment = { id: 'd-3', projectId: 'p-1', status: 'building' };
 		let selectCallIdx2 = 0;

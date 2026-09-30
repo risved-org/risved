@@ -157,4 +157,22 @@ describe('POST /api/projects/:id/deployments/:did/rebuild', () => {
 			expect.objectContaining({ deploymentId: body.deploymentId })
 		)
 	})
+
+	it('logs a pipeline error without failing the request', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+		const pipelineError = new Error('docker build failed')
+		mockRunPipeline.mockRejectedValueOnce(pipelineError)
+		setupSelectChain([[projectRow], [deploymentRow]])
+
+		const res = await POST(makeEvent())
+		expect(res.status).toBe(200)
+
+		await new Promise((resolve) => setImmediate(resolve))
+
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('[rebuild] Pipeline error for my-app@abc1234:'),
+			pipelineError
+		)
+		consoleErrorSpy.mockRestore()
+	})
 })
