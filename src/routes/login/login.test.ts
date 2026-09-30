@@ -105,6 +105,30 @@ describe('login action', () => {
 		expect(result?.data?.email).toBe('a@b.com');
 	});
 
+	it('defaults email and password to empty string when missing from form', async () => {
+		await expect(actions.default(makeActionEvent({}))).rejects.toMatchObject({
+			status: 302,
+			location: '/'
+		});
+
+		expect(auth.api.signInEmail).toHaveBeenCalledWith(
+			expect.objectContaining({
+				body: { email: '', password: '' }
+			})
+		);
+	});
+
+	it('falls back to a default message when the APIError has none', async () => {
+		const { APIError } = await import('better-auth/api');
+		vi.mocked(auth.api.signInEmail).mockRejectedValue(new APIError('BAD_REQUEST', { message: '' }));
+
+		const result = await actions.default(
+			makeActionEvent({ email: 'a@b.com', password: 'wrongpassword1' })
+		);
+		expect(result).toMatchObject({ status: 400 });
+		expect(result?.data?.error).toBe('Invalid email or password');
+	});
+
 	it('handles unexpected errors', async () => {
 		vi.mocked(auth.api.signInEmail).mockRejectedValue(new Error('DB down'));
 
