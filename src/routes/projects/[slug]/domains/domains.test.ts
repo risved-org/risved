@@ -72,6 +72,8 @@ vi.mock('$lib/server/caddy/repair', () => ({
 import { db } from '$lib/server/db';
 import { repairDomainRoute } from '$lib/server/caddy/repair';
 import { resolveSslStatus } from '$lib/server/ssl';
+import { getSetting } from '$lib/server/settings';
+import { getServerIps, checkDnsRecord } from '$lib/server/dns';
 import { load, actions } from './+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
@@ -118,6 +120,40 @@ describe('domains load', () => {
 
 		expect(result.project.slug).toBe('test');
 		expect(result.serverIps).toEqual({ ipv4: '1.2.3.4', ipv6: null });
+	});
+
+	it('derives defaultSubdomain from a valid domain_config setting', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{ id: 'proj-1', name: 'Test', slug: 'test', port: 3001 }
+		]);
+		dbAny.__whereMock.mockReturnValueOnce({ limit: dbAny.__limitMock });
+		dbAny.__whereMock.mockReturnValueOnce([]);
+		vi.mocked(getSetting).mockResolvedValueOnce(
+			JSON.stringify({ mode: 'domain', baseDomain: 'example.com' })
+		);
+
+		const result = (await load({
+			params: { slug: 'test' }
+		} as Parameters<typeof load>[0])) as { defaultSubdomain: string | null };
+
+		expect(result.defaultSubdomain).toBe('test.example.com');
+	});
+
+	it('leaves defaultSubdomain null when domain_config mode is ip', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{ id: 'proj-1', name: 'Test', slug: 'test', port: 3001 }
+		]);
+		dbAny.__whereMock.mockReturnValueOnce({ limit: dbAny.__limitMock });
+		dbAny.__whereMock.mockReturnValueOnce([]);
+		vi.mocked(getSetting).mockResolvedValueOnce(
+			JSON.stringify({ mode: 'ip', baseDomain: 'example.com' })
+		);
+
+		const result = (await load({
+			params: { slug: 'test' }
+		} as Parameters<typeof load>[0])) as { defaultSubdomain: string | null };
+
+		expect(result.defaultSubdomain).toBeNull();
 	});
 
 	it('calls db.select for project lookup', async () => {
@@ -174,6 +210,33 @@ describe('domains actions', () => {
 
 		expect(result).toMatchObject({ added: true });
 		expect(db.insert).toHaveBeenCalled();
+	});
+
+	it('add returns 404 when project not found', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([]);
+		const formData = new FormData();
+		formData.set('hostname', 'app.example.com');
+		const result = await actions.add({
+			params: { slug: 'ghost' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.add>[0]);
+
+		expect(result).toMatchObject({ status: 404 });
+	});
+
+	it('add returns 409 when the hostname is already in use', async () => {
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1', slug: 'test', port: 3001 }])
+			.mockResolvedValueOnce([{ id: 'dom-existing' }]);
+
+		const formData = new FormData();
+		formData.set('hostname', 'app.example.com');
+		const result = await actions.add({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.add>[0]);
+
+		expect(result).toMatchObject({ status: 409 });
 	});
 
 	it('verify returns 404 when project not found', async () => {
@@ -238,6 +301,28 @@ describe('domains actions', () => {
 
 		expect(result).toMatchObject({ verified: true, domainId: 'dom-1', sslStatus: 'provisioning' });
 		expect(repairDomainRoute).toHaveBeenCalledWith('app.example.com', 3001);
+	});
+
+	it('verify checks both A and AAAA records when the server has an IPv6 address', async () => {
+		vi.mocked(getServerIps).mockResolvedValueOnce({ ipv4: '1.2.3.4', ipv6: '2001:db8::1' });
+		vi.mocked(resolveSslStatus).mockResolvedValueOnce('active');
+		dbAny.__limitMock
+			.mockResolvedValueOnce([{ id: 'proj-1' }])
+			.mockResolvedValueOnce([{
+				id: 'dom-1', hostname: 'app.example.com',
+				sslStatus: 'pending', verifiedAt: null, projectId: 'proj-1'
+			}]);
+
+		const formData = new FormData();
+		formData.set('domainId', 'dom-1');
+		await actions.verify({
+			params: { slug: 'test' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.verify>[0]);
+
+		expect(checkDnsRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'AAAA', value: '2001:db8::1' })
+		);
 	});
 
 	it('primary returns 404 when project not found', async () => {

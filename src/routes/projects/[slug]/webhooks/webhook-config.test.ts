@@ -40,6 +40,7 @@ vi.mock('$lib/server/auto-webhook', () => ({
 }));
 
 import { db } from '$lib/server/db';
+import { getSetting } from '$lib/server/settings';
 import { load, actions } from './+page.server';
 
 const dbAny = db as unknown as Record<string, ReturnType<typeof vi.fn>>;
@@ -79,6 +80,28 @@ describe('webhook config load', () => {
 		expect(result.project.webhookSecret).toBe('whsec_test');
 		expect(result.payloadUrl).toContain('/api/webhooks/proj-1');
 		expect(result.risvedDomain).toBe('risved.example.com');
+	});
+
+	it('falls back to localhost:5173 when no hostname setting is configured', async () => {
+		vi.mocked(getSetting).mockResolvedValueOnce(null);
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{
+				id: 'proj-1',
+				name: 'My App',
+				slug: 'my-app',
+				branch: 'main',
+				webhookSecret: 'whsec_test',
+				webhookPushEnabled: true,
+				webhookPrMergedEnabled: true
+			}
+		]);
+
+		const result = (await load({ params: { slug: 'my-app' } } as Parameters<typeof load>[0])) as {
+			risvedDomain: string;
+			payloadUrl: string;
+		};
+		expect(result.risvedDomain).toBe('localhost:5173');
+		expect(result.payloadUrl).toContain('https://localhost:5173');
 	});
 
 	it('calls db.select for project lookup', async () => {
@@ -153,6 +176,19 @@ describe('webhook config update action', () => {
 		expect(result).toMatchObject({ updated: true });
 		expect(db.update).toHaveBeenCalled();
 	});
+
+	it('defaults branch to main when not provided', async () => {
+		dbAny.__limitMock.mockResolvedValueOnce([{ id: 'proj-1' }]);
+
+		const formData = new FormData();
+
+		await actions.update({
+			params: { slug: 'my-app' },
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.update>[0]);
+
+		expect(dbAny.__setMock).toHaveBeenCalledWith(expect.objectContaining({ branch: 'main' }));
+	});
 });
 
 describe('webhook config repair action', () => {
@@ -214,6 +250,26 @@ describe('webhook config repair action', () => {
 		expect(db.update).toHaveBeenCalled();
 		expect(mockRepairWebhook).toHaveBeenCalledWith(
 			expect.objectContaining({ webhookSecret: 'new-secret-abc123' })
+		);
+	});
+
+	it('falls back to localhost:5173 origin when no hostname setting is configured', async () => {
+		vi.mocked(getSetting).mockResolvedValueOnce(null);
+		dbAny.__limitMock.mockResolvedValueOnce([
+			{
+				id: 'proj-1',
+				repoUrl: 'https://github.com/owner/repo',
+				gitConnectionId: 'conn-1',
+				webhookSecret: 'whsec_test'
+			}
+		]);
+
+		await actions.repair({
+			params: { slug: 'my-app' }
+		} as Parameters<typeof actions.repair>[0]);
+
+		expect(mockRepairWebhook).toHaveBeenCalledWith(
+			expect.objectContaining({ origin: 'https://localhost:5173' })
 		);
 	});
 
