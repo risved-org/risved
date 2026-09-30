@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { detectFramework, createFsContext } from './index';
@@ -56,6 +56,29 @@ describe('Framework Detection', () => {
 			expect(result.framework?.id).toBe('sveltekit');
 			expect(result.framework?.confidence).toBe('high');
 		});
+
+		it('detects SvelteKit with dependency only (medium confidence)', async () => {
+			const ctx = mockContext({
+				'package.json': JSON.stringify({
+					dependencies: { '@sveltejs/kit': '^2.0.0' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('sveltekit');
+			expect(result.framework?.confidence).toBe('medium');
+		});
+
+		it('falls back to config-only medium confidence when package.json is malformed', async () => {
+			const ctx = mockContext({
+				'svelte.config.js': 'export default {};',
+				'package.json': '{ not valid json'
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('sveltekit');
+			expect(result.framework?.confidence).toBe('medium');
+		});
 	});
 
 	describe('Fresh', () => {
@@ -82,6 +105,39 @@ describe('Framework Detection', () => {
 			expect(result.detected).toBe(true);
 			expect(result.framework?.id).toBe('fresh');
 			expect(result.framework?.confidence).toBe('high');
+		});
+
+		it('detects Fresh when an import value references fresh (high confidence)', async () => {
+			const ctx = mockContext({
+				'deno.json': JSON.stringify({
+					imports: {
+						'utils/': 'https://deno.land/x/fresh@1.6.0/utils/'
+					}
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('fresh');
+			expect(result.framework?.confidence).toBe('high');
+		});
+
+		it('falls back to deno.jsonc when deno.json is absent', async () => {
+			const ctx = mockContext({
+				'deno.jsonc': JSON.stringify({
+					imports: { '$fresh/': 'https://deno.land/x/fresh@1.6.0/' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('fresh');
+		});
+
+		it('does not detect Fresh from an unparseable deno.json', async () => {
+			const ctx = mockContext({
+				'deno.json': 'not valid json'
+			});
+			const result = await detectFramework(ctx);
+			expect(result.framework?.id).not.toBe('fresh');
 		});
 	});
 
@@ -179,6 +235,18 @@ describe('Framework Detection', () => {
 			expect(result.detected).toBe(true);
 			expect(result.framework?.id).toBe('nextjs');
 		});
+
+		it('detects Next.js with dependency only (medium confidence)', async () => {
+			const ctx = mockContext({
+				'package.json': JSON.stringify({
+					dependencies: { next: '^14.0.0' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('nextjs');
+			expect(result.framework?.confidence).toBe('medium');
+		});
 	});
 
 	describe('Nuxt', () => {
@@ -194,6 +262,95 @@ describe('Framework Detection', () => {
 			expect(result.framework?.id).toBe('nuxt');
 			expect(result.framework?.tier).toBe('node');
 			expect(result.framework?.confidence).toBe('high');
+		});
+
+		it('detects Nuxt with dependency only (medium confidence)', async () => {
+			const ctx = mockContext({
+				'package.json': JSON.stringify({
+					dependencies: { nuxt: '^3.4.0' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('nuxt');
+			expect(result.framework?.confidence).toBe('medium');
+		});
+
+		it('detects Nuxt with config only (medium confidence)', async () => {
+			const ctx = mockContext({
+				'nuxt.config.ts': 'export default defineNuxtConfig({});'
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('nuxt');
+			expect(result.framework?.confidence).toBe('medium');
+		});
+	});
+
+	describe('Nuxt 2', () => {
+		it('detects Nuxt 2 with config + dependency (high confidence)', async () => {
+			const ctx = mockContext({
+				'nuxt.config.js': 'module.exports = {};',
+				'package.json': JSON.stringify({
+					dependencies: { nuxt: '^2.15.0' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('nuxt2');
+			expect(result.framework?.tier).toBe('node');
+			expect(result.framework?.confidence).toBe('high');
+		});
+
+		it('detects Nuxt 2 with dependency only (medium confidence)', async () => {
+			const ctx = mockContext({
+				'package.json': JSON.stringify({
+					devDependencies: { nuxt: '2.16.3' }
+				})
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('nuxt2');
+			expect(result.framework?.confidence).toBe('medium');
+		});
+
+		it('falls back to generic Nuxt when config exists but version cannot be resolved', async () => {
+			const ctx = mockContext({
+				'nuxt.config.js': 'module.exports = {};'
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(true);
+			expect(result.framework?.id).toBe('nuxt');
+			expect(result.framework?.confidence).toBe('medium');
+		});
+
+		it('extracts srcDir metadata from nuxt.config.ts when set', async () => {
+			const ctx = mockContext({
+				'nuxt.config.ts': `export default { srcDir: 'app' }`,
+				'package.json': JSON.stringify({ dependencies: { nuxt: '^2.9.0' } })
+			});
+			const result = await detectFramework(ctx);
+			expect(result.framework?.id).toBe('nuxt2');
+			expect(result.framework?.meta).toEqual({ srcDir: 'app/' });
+		});
+
+		it('does not include meta when srcDir is not set in config', async () => {
+			const ctx = mockContext({
+				'nuxt.config.js': 'module.exports = {};',
+				'package.json': JSON.stringify({ dependencies: { nuxt: '^2.9.0' } })
+			});
+			const result = await detectFramework(ctx);
+			expect(result.framework?.id).toBe('nuxt2');
+			expect(result.framework?.meta).toBeUndefined();
+		});
+
+		it('does not match Nuxt 2 for an unparseable package.json version', async () => {
+			const ctx = mockContext({
+				'nuxt.config.js': 'module.exports = {};',
+				'package.json': 'not valid json'
+			});
+			const result = await detectFramework(ctx);
+			expect(result.framework?.id).not.toBe('nuxt2');
 		});
 	});
 
@@ -272,6 +429,14 @@ describe('Framework Detection', () => {
 			});
 			const result = await detectFramework(ctx);
 			expect(result.framework?.id).toBe('tanstack-start');
+		});
+
+		it('does not match either when app.config.ts exists without a matching dependency', async () => {
+			const ctx = mockContext({
+				'app.config.ts': 'export default defineConfig({});'
+			});
+			const result = await detectFramework(ctx);
+			expect(result.detected).toBe(false);
 		});
 	});
 
