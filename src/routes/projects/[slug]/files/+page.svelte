@@ -144,7 +144,10 @@
 	{#if data.truncated}<p class="form-hint">
 			Showing the first 1,000 entries. Open a subfolder to browse more.
 		</p>{/if}
-	<p class="form-hint">Files are available to your running app, but not during builds.</p>
+	<p class="form-hint">
+		Files are available at runtime and during release commands, but not during builds. You can
+		manage files here even when your app is stopped.
+	</p>
 </section>
 
 <style>
