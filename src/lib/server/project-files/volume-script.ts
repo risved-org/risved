@@ -28,26 +28,40 @@ function directory(parts, create) {
 	}
 }
 
-/** Return regular files and directories only, without reading their contents. */
-function list(base, requestedPage) {
-	const candidates = fs.readdirSync(base, { withFileTypes: true })
-		.filter(entry => !entry.name.startsWith('.risved-upload-') && (entry.isFile() || entry.isDirectory()))
-		.sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-	const totalPages = Math.max(1, Math.ceil(candidates.length / 1000))
-	const page = Math.min(requestedPage, totalPages)
+/** Scan to the requested page, retaining at most 1,000 entries and one lookahead. */
+function list(base, page) {
 	const entries = []
-	for (const entry of candidates.slice((page - 1) * 1000, page * 1000)) {
-		let stat
-		try {
-			stat = fs.lstatSync(base + '/' + entry.name)
-		} catch (error) {
-			if (error.code === 'ENOENT') continue
-			throw error
+	const dir = fs.opendirSync(base)
+	const offset = (page - 1) * 1000
+	let skipped = 0
+	let hasNext = false
+	try {
+		let entry
+		while ((entry = dir.readSync())) {
+			if (entry.name.startsWith('.risved-upload-') || (!entry.isFile() && !entry.isDirectory())) continue
+			if (skipped < offset) {
+				skipped++
+				continue
+			}
+			let stat
+			try {
+				stat = fs.lstatSync(base + '/' + entry.name)
+			} catch (error) {
+				if (error.code === 'ENOENT') continue
+				throw error
+			}
+			if (!stat.isFile() && !stat.isDirectory()) continue
+			if (entries.length === 1000) {
+				hasNext = true
+				break
+			}
+			entries.push({ name: entry.name, kind: stat.isDirectory() ? 'directory' : 'file', size: stat.size, modifiedAt: stat.mtime.toISOString() })
 		}
-		if (!stat.isFile() && !stat.isDirectory()) continue
-		entries.push({ name: entry.name, kind: stat.isDirectory() ? 'directory' : 'file', size: stat.size, modifiedAt: stat.mtime.toISOString() })
+	} finally {
+		dir.closeSync()
 	}
-	return { entries, page, totalPages }
+	entries.sort((a, b) => a.kind.localeCompare(b.kind) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+	return { entries, page, hasNext }
 }
 
 /** Write through a private temporary file, then publish atomically without following links. */

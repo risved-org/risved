@@ -64,7 +64,11 @@
 	{#if data.storageError}
 		<p class="form-error" role="alert">{data.storageError}</p>
 	{:else if data.entries.length === 0}
-		<p class="empty-text">This folder is empty.</p>
+		<p class="empty-text">
+			{data.page > 1
+				? 'No files on this page. Return to the previous page.'
+				: 'This folder is empty.'}
+		</p>
 	{:else}
 		<ul>
 			{#each data.entries as file (file.name)}
@@ -141,7 +145,7 @@
 			{/each}
 		</ul>
 	{/if}
-	{#if data.totalPages > 1}
+	{#if data.page > 1 || data.hasNext}
 		<nav aria-label="File pages">
 			{#if data.page > 1}
 				<a
@@ -150,8 +154,8 @@
 					)}&page={data.page - 1}">Previous page</a
 				>
 			{/if}
-			<span>Page {data.page} of {data.totalPages}</span>
-			{#if data.page < data.totalPages}
+			<span>Page {data.page}</span>
+			{#if data.hasNext}
 				<a
 					href="{resolve(`/projects/${data.project.slug}/files`)}?directory={encodeURIComponent(
 						data.directory

@@ -44,11 +44,11 @@ export const load: PageServerLoad = async event => {
 			directory,
 			entries: result.entries ?? [],
 			page: result.page ?? 1,
-			totalPages: result.totalPages ?? 1,
+			hasNext: result.hasNext ?? false,
 			storageError: null
 		}
 	} catch (cause) {
-		return { directory, entries: [], page: 1, totalPages: 1, storageError: failure(cause).message }
+		return { directory, entries: [], page: 1, hasNext: false, storageError: failure(cause).message }
 	}
 }
 

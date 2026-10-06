@@ -41,8 +41,8 @@ describe('project Files page', () => {
 		const request = event()
 		request.url.searchParams.set('directory', 'fonts')
 		request.url.searchParams.set('page', '2')
-		vi.mocked(projectFiles).mockResolvedValue({ entries: [], page: 2, totalPages: 3 })
-		expect(await load(request)).toMatchObject({ directory: 'fonts', page: 2, totalPages: 3 })
+		vi.mocked(projectFiles).mockResolvedValue({ entries: [], page: 2, hasNext: true })
+		expect(await load(request)).toMatchObject({ directory: 'fonts', page: 2, hasNext: true })
 		expect(projectFiles).toHaveBeenCalledWith('immutable-project-id', {
 			operation: 'list',
 			path: 'fonts',

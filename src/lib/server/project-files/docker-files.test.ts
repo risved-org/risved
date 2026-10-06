@@ -125,7 +125,7 @@ describe.skipIf(!enabled)('real project data volumes', () => {
 		).toBe('new')
 	}, 30_000)
 
-	it('paginates sorted directories and files and manages entries beyond the first page', async () => {
+	it('paginates directories and files and manages entries beyond the first page', async () => {
 		inspect(`const fs = require('fs')
 			fs.mkdirSync('/data/many')
 			for (let i = 1000; i >= 0; i--) fs.mkdirSync('/data/many/dir-' + String(i).padStart(4, '0'))
@@ -135,9 +135,11 @@ describe.skipIf(!enabled)('real project data volumes', () => {
 		const first = await projectFiles(projectId, { operation: 'list', path: 'many' })
 		const second = await projectFiles(projectId, { operation: 'list', path: 'many', page: 2 })
 		expect(first.entries).toHaveLength(1000)
-		expect(first.entries?.[0].name).toBe('dir-0000')
-		expect(second).toMatchObject({ page: 2, totalPages: 2 })
-		expect(second.entries?.map(entry => entry.name)).toEqual(['dir-1000', 'z-file'])
+		expect(second).toMatchObject({ page: 2, hasNext: false })
+		const names = [...first.entries!, ...second.entries!].map(entry => entry.name)
+		expect(new Set(names).size).toBe(1002)
+		expect(names).toContain('dir-1000')
+		expect(names).toContain('z-file')
 		expect(
 			(await projectFiles(projectId, { operation: 'list', path: 'many/dir-1000' })).entries
 		).toEqual([])
@@ -149,8 +151,8 @@ describe.skipIf(!enabled)('real project data volumes', () => {
 		})
 		await projectFiles(projectId, { operation: 'delete', path: 'many/z-file' })
 		const last = await projectFiles(projectId, { operation: 'list', path: 'many', page: 999 })
-		expect(last.page).toBe(2)
-		expect(last.entries?.map(entry => entry.name)).toEqual(['dir-1000'])
+		expect(last.page).toBe(999)
+		expect(last.entries).toEqual([])
 	}, 60_000)
 	it('deletes only the selected file and refuses directories', async () => {
 		await expect(

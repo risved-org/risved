@@ -24,7 +24,7 @@ export interface FileRequest {
 export interface FileResult {
 	entries?: ProjectFile[]
 	page?: number
-	totalPages?: number
+	hasNext?: boolean
 	error?: string
 	status?: number
 }
