@@ -20,7 +20,7 @@ export function validateFilePath(path: string, allowRoot = false): string {
 					!part ||
 					part === '.' ||
 					part === '..' ||
-					part.length > 255 ||
+					new TextEncoder().encode(part).length > 255 ||
 					part.startsWith('.risved-upload-')
 			) ||
 		/\\/.test(path) ||

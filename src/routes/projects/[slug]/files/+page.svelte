@@ -141,9 +141,25 @@
 			{/each}
 		</ul>
 	{/if}
-	{#if data.truncated}<p class="form-hint">
-			Showing the first 1,000 entries. Open a subfolder to browse more.
-		</p>{/if}
+	{#if data.totalPages > 1}
+		<nav aria-label="File pages">
+			{#if data.page > 1}
+				<a
+					href="{resolve(`/projects/${data.project.slug}/files`)}?directory={encodeURIComponent(
+						data.directory
+					)}&page={data.page - 1}">Previous page</a
+				>
+			{/if}
+			<span>Page {data.page} of {data.totalPages}</span>
+			{#if data.page < data.totalPages}
+				<a
+					href="{resolve(`/projects/${data.project.slug}/files`)}?directory={encodeURIComponent(
+						data.directory
+					)}&page={data.page + 1}">Next page</a
+				>
+			{/if}
+		</nav>
+	{/if}
 	<p class="form-hint">
 		Files are available at runtime and during release commands, but not during builds. You can
 		manage files here even when your app is stopped.

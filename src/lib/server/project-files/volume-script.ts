@@ -29,32 +29,25 @@ function directory(parts, create) {
 }
 
 /** Return regular files and directories only, without reading their contents. */
-function list(base) {
+function list(base, requestedPage) {
+	const candidates = fs.readdirSync(base, { withFileTypes: true })
+		.filter(entry => !entry.name.startsWith('.risved-upload-') && (entry.isFile() || entry.isDirectory()))
+		.sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+	const totalPages = Math.max(1, Math.ceil(candidates.length / 1000))
+	const page = Math.min(requestedPage, totalPages)
 	const entries = []
-	const dir = fs.opendirSync(base)
-	let truncated = false
-	try {
-		let entry
-		while ((entry = dir.readSync())) {
-			if (entries.length === 1000) {
-				truncated = true
-				break
-			}
-			if (entry.name.startsWith('.risved-upload-')) continue
-			const stat = fs.lstatSync(base + '/' + entry.name)
-			if (!stat.isFile() && !stat.isDirectory()) continue
-			entries.push({
-				name: entry.name,
-				kind: stat.isDirectory() ? 'directory' : 'file',
-				size: stat.size,
-				modifiedAt: stat.mtime.toISOString()
-			})
+	for (const entry of candidates.slice((page - 1) * 1000, page * 1000)) {
+		let stat
+		try {
+			stat = fs.lstatSync(base + '/' + entry.name)
+		} catch (error) {
+			if (error.code === 'ENOENT') continue
+			throw error
 		}
-	} finally {
-		dir.closeSync()
+		if (!stat.isFile() && !stat.isDirectory()) continue
+		entries.push({ name: entry.name, kind: stat.isDirectory() ? 'directory' : 'file', size: stat.size, modifiedAt: stat.mtime.toISOString() })
 	}
-	entries.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name))
-	return { entries, truncated }
+	return { entries, page, totalPages }
 }
 
 /** Write through a private temporary file, then publish atomically without following links. */
@@ -117,7 +110,7 @@ async function main() {
 	const fd = directory(parts, input.operation === 'upload')
 	const base = '/proc/self/fd/' + fd
 	try {
-		if (input.operation === 'list') return list(base)
+		if (input.operation === 'list') return list(base, input.page ?? 1)
 		if (input.operation === 'upload') return upload(base, name, input)
 		if (input.operation === 'delete') {
 			if (!fs.lstatSync(base + '/' + name).isFile())
@@ -138,6 +131,7 @@ main()
 			ENOENT: [404, 'File or folder not found.'],
 			EEXIST: [409, 'A file already exists at this path.'],
 			ELOOP: [400, 'Symbolic links are not supported.'],
+			ENAMETOOLONG: [400, 'A filename or folder name is too long.'],
 			ENOTDIR: [400, 'The path contains a file or symbolic link.'],
 			ENOSPC: [507, 'The project storage is full.'],
 			EACCES: [403, 'The file permissions prevent this operation.']

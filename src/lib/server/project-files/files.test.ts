@@ -20,6 +20,24 @@ describe('project file boundaries', () => {
 			status: 400
 		})
 	})
+	it.each(['é'.repeat(128), '😀'.repeat(64)])(
+		'rejects components over 255 UTF-8 bytes',
+		async name => {
+			expect(() => validateFilePath(`fonts/${name}`)).toThrow()
+			await expect(
+				projectFiles('project-1', { operation: 'upload', path: name })
+			).rejects.toMatchObject({ status: 400 })
+		}
+	)
+	it('accepts a component at the 255-byte boundary', () => {
+		const path = `fonts/${'é'.repeat(127)}a`
+		expect(validateFilePath(path)).toBe(path)
+	})
+	it.each([0, -1, 1.5, NaN, Infinity])('rejects invalid listing page %s', async page => {
+		await expect(
+			projectFiles('project-1', { operation: 'list', path: '', page })
+		).rejects.toMatchObject({ status: 400 })
+	})
 	it('accepts nested filenames with spaces and Unicode', () => {
 		expect(validateFilePath('fonts/Éuropa regular.woff2')).toBe('fonts/Éuropa regular.woff2')
 		expect(validateFilePath('', true)).toBe('')
