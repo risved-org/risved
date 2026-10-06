@@ -29,6 +29,7 @@ COPY --from=build /app/scripts ./scripts
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV BODY_SIZE_LIMIT=12M
 
 EXPOSE 3000
 

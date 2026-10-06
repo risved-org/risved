@@ -9,6 +9,7 @@
 		{ href: '/deployments', label: 'Deployments' },
 		{ href: '/logs', label: 'Logs' },
 		{ href: '/metrics', label: 'Metrics' },
+		{ href: '/files', label: 'Files' },
 		{ href: '/settings', label: 'Settings' }
 	]
 

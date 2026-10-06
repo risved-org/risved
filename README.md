@@ -65,6 +65,22 @@ Risved auto-detects the framework used in your project and generates the appropr
 | TanStack Start | Node |
 | Generic (Node/Deno) | Auto |
 
+## Project files
+
+Use a project's **Files** tab to upload files outside Git into its persistent `/app/data` volume. Uploads work even while the app is stopped. Select one or more files and enter a destination folder such as `private/bank` or `fonts`, or leave it blank for `/app/data`. Original filenames are kept and missing folders are created automatically. Files are uploaded individually with a 10 MiB limit each, so a selection can exceed 10 MiB in total. Each file shows its result, and failed uploads can be retried without sending successful files again. Existing files require an explicit **Replace**, and deletion requires confirmation.
+
+Files survive deployments and rollbacks, but deleting the project removes its volume. They are available to release commands and the running app, not during image builds, and are not copied into preview deployments. Risved does not publish or download their contents. Configure the application to read the full filesystem path, or deliberately serve selected assets using its framework's routing. A browser font remains downloadable if the app serves it.
+
+Storage operations use a short-lived `node:22-slim` helper container with only the project's volume mounted and networking disabled. Docker must be able to pull this official image on first use. New files use mode `0644` and directories `0755` so non-root app containers can read them; replacements preserve the existing owner and permission bits. Contents are stored as ordinary files in the project volume, so protect the host and volume backups as you would other application secrets.
+
+The production image sets `BODY_SIZE_LIMIT=12M` to accommodate multipart uploads. If running the Node adapter directly, set the same limit (and allow it through any external proxy). Application-level validation still limits each file to 10 MiB.
+
+To run the Docker storage integration tests against disposable volumes:
+
+```sh
+RUN_DOCKER_FILE_TESTS=1 bun run test:unit --run --project server src/lib/server/project-files/docker-files.test.ts
+```
+
 ## Managed Postgres
 
 Projects can opt into an adjacent Postgres container from the project settings page. Apps that do not opt in, including apps using SQLite with the default `/app/data` volume, are unchanged.
