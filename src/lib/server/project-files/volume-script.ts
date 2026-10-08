@@ -38,14 +38,19 @@ function list(base, page) {
 	try {
 		let entry
 		while ((entry = dir.readSync())) {
-			if (entry.name.startsWith('.risved-upload-') || (!entry.isFile() && !entry.isDirectory())) continue
-			if (skipped < offset) {
-				skipped++
-				continue
-			}
+			if (entry.name.startsWith('.risved-upload-')) continue
+			if (entry.isSymbolicLink() || entry.isBlockDevice() || entry.isCharacterDevice() || entry.isFIFO() || entry.isSocket()) continue
 			let stat
 			try {
-				stat = fs.lstatSync(base + '/' + entry.name)
+				if (!entry.isFile() && !entry.isDirectory()) {
+					stat = fs.lstatSync(base + '/' + entry.name)
+					if (!stat.isFile() && !stat.isDirectory()) continue
+				}
+				if (skipped < offset) {
+					skipped++
+					continue
+				}
+				stat ??= fs.lstatSync(base + '/' + entry.name)
 			} catch (error) {
 				if (error.code === 'ENOENT') continue
 				throw error
