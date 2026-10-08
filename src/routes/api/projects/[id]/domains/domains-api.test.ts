@@ -363,6 +363,32 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 
 		expect(res.status).toBe(404);
 	});
+
+	it('also checks the AAAA record when the server has an IPv6 address', async () => {
+		const { checkDnsRecord, getServerIps } = await import('$lib/server/dns');
+		vi.mocked(getServerIps).mockResolvedValueOnce({ ipv4: '1.2.3.4', ipv6: '::1' });
+		resolveSslStatusMock.mockResolvedValueOnce('active');
+		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }]);
+
+		const setMock = vi.fn().mockReturnValue({
+			where: vi.fn().mockReturnValue({
+				returning: vi.fn().mockResolvedValue([
+					{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }
+				])
+			})
+		});
+		mockDb.update.mockReturnValue({ set: setMock });
+
+		const { POST } = await import('./[did]/verify/+server');
+		const res = await POST(
+			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
+		);
+
+		expect(res.status).toBe(200);
+		expect(checkDnsRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'AAAA', value: '::1' })
+		);
+	});
 });
 
 /* ── Tests: POST primary ──────────────────────────────────────────── */
