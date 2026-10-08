@@ -16,13 +16,15 @@ export class FileOperationError extends Error {
 export interface FileRequest {
 	operation: 'list' | 'upload' | 'delete'
 	path: string
+	page?: number
 	content?: string
 	replace?: boolean
 }
 
 export interface FileResult {
 	entries?: ProjectFile[]
-	truncated?: boolean
+	page?: number
+	hasNext?: boolean
 	error?: string
 	status?: number
 }
@@ -35,6 +37,8 @@ export async function projectFiles(projectId: string, input: FileRequest): Promi
 	} catch (error) {
 		throw new FileOperationError(400, (error as Error).message)
 	}
+	if (input.page !== undefined && (!Number.isSafeInteger(input.page) || input.page < 1))
+		throw new FileOperationError(400, 'Choose a valid page number.')
 	const name = `risved-files-${randomUUID()}`
 	const args = [
 		'run',

@@ -35,15 +35,20 @@ export const load: PageServerLoad = async event => {
 	const project = await findProject(event)
 	const directory = event.url.searchParams.get('directory') ?? ''
 	try {
-		const result = await projectFiles(project.id, { operation: 'list', path: directory })
+		const result = await projectFiles(project.id, {
+			operation: 'list',
+			path: directory,
+			page: Number(event.url.searchParams.get('page') ?? '1')
+		})
 		return {
 			directory,
 			entries: result.entries ?? [],
-			truncated: result.truncated ?? false,
+			page: result.page ?? 1,
+			hasNext: result.hasNext ?? false,
 			storageError: null
 		}
 	} catch (cause) {
-		return { directory, entries: [], truncated: false, storageError: failure(cause).message }
+		return { directory, entries: [], page: 1, hasNext: false, storageError: failure(cause).message }
 	}
 }
 

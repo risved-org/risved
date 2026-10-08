@@ -37,6 +37,18 @@ beforeEach(() => {
 })
 
 describe('project Files page', () => {
+	it('passes the selected folder and page to storage and returns pagination', async () => {
+		const request = event()
+		request.url.searchParams.set('directory', 'fonts')
+		request.url.searchParams.set('page', '2')
+		vi.mocked(projectFiles).mockResolvedValue({ entries: [], page: 2, hasNext: true })
+		expect(await load(request)).toMatchObject({ directory: 'fonts', page: 2, hasNext: true })
+		expect(projectFiles).toHaveBeenCalledWith('immutable-project-id', {
+			operation: 'list',
+			path: 'fonts',
+			page: 2
+		})
+	})
 	it('rejects multiple files in one request instead of silently dropping extra files', async () => {
 		const request = event({ path: 'fonts/a', file: new File(['a'], 'a') })
 		const form = await request.request.formData()

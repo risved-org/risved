@@ -28,33 +28,45 @@ function directory(parts, create) {
 	}
 }
 
-/** Return regular files and directories only, without reading their contents. */
-function list(base) {
+/** Scan to the requested page, retaining at most 1,000 entries and one lookahead. */
+function list(base, page) {
 	const entries = []
 	const dir = fs.opendirSync(base)
-	let truncated = false
+	const offset = (page - 1) * 1000
+	let skipped = 0
+	let hasNext = false
 	try {
 		let entry
 		while ((entry = dir.readSync())) {
+			if (entry.name.startsWith('.risved-upload-')) continue
+			if (entry.isSymbolicLink() || entry.isBlockDevice() || entry.isCharacterDevice() || entry.isFIFO() || entry.isSocket()) continue
+			let stat
+			try {
+				if (!entry.isFile() && !entry.isDirectory()) {
+					stat = fs.lstatSync(base + '/' + entry.name)
+					if (!stat.isFile() && !stat.isDirectory()) continue
+				}
+				if (skipped < offset) {
+					skipped++
+					continue
+				}
+				stat ??= fs.lstatSync(base + '/' + entry.name)
+			} catch (error) {
+				if (error.code === 'ENOENT') continue
+				throw error
+			}
+			if (!stat.isFile() && !stat.isDirectory()) continue
 			if (entries.length === 1000) {
-				truncated = true
+				hasNext = true
 				break
 			}
-			if (entry.name.startsWith('.risved-upload-')) continue
-			const stat = fs.lstatSync(base + '/' + entry.name)
-			if (!stat.isFile() && !stat.isDirectory()) continue
-			entries.push({
-				name: entry.name,
-				kind: stat.isDirectory() ? 'directory' : 'file',
-				size: stat.size,
-				modifiedAt: stat.mtime.toISOString()
-			})
+			entries.push({ name: entry.name, kind: stat.isDirectory() ? 'directory' : 'file', size: stat.size, modifiedAt: stat.mtime.toISOString() })
 		}
 	} finally {
 		dir.closeSync()
 	}
-	entries.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name))
-	return { entries, truncated }
+	entries.sort((a, b) => a.kind.localeCompare(b.kind) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+	return { entries, page, hasNext }
 }
 
 /** Write through a private temporary file, then publish atomically without following links. */
@@ -117,7 +129,7 @@ async function main() {
 	const fd = directory(parts, input.operation === 'upload')
 	const base = '/proc/self/fd/' + fd
 	try {
-		if (input.operation === 'list') return list(base)
+		if (input.operation === 'list') return list(base, input.page ?? 1)
 		if (input.operation === 'upload') return upload(base, name, input)
 		if (input.operation === 'delete') {
 			if (!fs.lstatSync(base + '/' + name).isFile())
@@ -138,6 +150,7 @@ main()
 			ENOENT: [404, 'File or folder not found.'],
 			EEXIST: [409, 'A file already exists at this path.'],
 			ELOOP: [400, 'Symbolic links are not supported.'],
+			ENAMETOOLONG: [400, 'A filename or folder name is too long.'],
 			ENOTDIR: [400, 'The path contains a file or symbolic link.'],
 			ENOSPC: [507, 'The project storage is full.'],
 			EACCES: [403, 'The file permissions prevent this operation.']

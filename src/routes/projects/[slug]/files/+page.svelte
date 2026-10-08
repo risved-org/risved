@@ -64,7 +64,11 @@
 	{#if data.storageError}
 		<p class="form-error" role="alert">{data.storageError}</p>
 	{:else if data.entries.length === 0}
-		<p class="empty-text">This folder is empty.</p>
+		<p class="empty-text">
+			{data.page > 1
+				? 'No files on this page. Return to the previous page.'
+				: 'This folder is empty.'}
+		</p>
 	{:else}
 		<ul>
 			{#each data.entries as file (file.name)}
@@ -141,9 +145,25 @@
 			{/each}
 		</ul>
 	{/if}
-	{#if data.truncated}<p class="form-hint">
-			Showing the first 1,000 entries. Open a subfolder to browse more.
-		</p>{/if}
+	{#if data.page > 1 || data.hasNext}
+		<nav aria-label="File pages">
+			{#if data.page > 1}
+				<a
+					href="{resolve(`/projects/${data.project.slug}/files`)}?directory={encodeURIComponent(
+						data.directory
+					)}&page={data.page - 1}">Previous page</a
+				>
+			{/if}
+			<span>Page {data.page}</span>
+			{#if data.hasNext}
+				<a
+					href="{resolve(`/projects/${data.project.slug}/files`)}?directory={encodeURIComponent(
+						data.directory
+					)}&page={data.page + 1}">Next page</a
+				>
+			{/if}
+		</nav>
+	{/if}
 	<p class="form-hint">
 		Files are available at runtime and during release commands, but not during builds. You can
 		manage files here even when your app is stopped.
