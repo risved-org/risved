@@ -132,6 +132,24 @@ describe('POST /api/projects/:id/deployments/:did/rebuild', () => {
 		expect(res.status).toBe(400)
 	})
 
+	it('does not fail the request when the background pipeline rejects', async () => {
+		setupSelectChain([[projectRow], [deploymentRow]])
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+		mockRunPipeline.mockRejectedValueOnce(new Error('pipeline exploded'))
+
+		const res = await POST(makeEvent())
+		expect(res.status).toBe(200)
+
+		/* Let the fire-and-forget .catch() handler run before asserting on it. */
+		await new Promise((resolve) => setTimeout(resolve, 0))
+
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('[rebuild] Pipeline error'),
+			expect.any(Error)
+		)
+		consoleErrorSpy.mockRestore()
+	})
+
 	it('creates a rebuild deployment and starts the pipeline at the saved commit', async () => {
 		setupSelectChain([[projectRow], [deploymentRow]])
 

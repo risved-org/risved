@@ -1,4 +1,27 @@
 import { describe, it, expect, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
+
+const { mockSpawn, mockExecFile } = vi.hoisted(() => ({
+	mockSpawn: vi.fn(),
+	mockExecFile: vi.fn()
+}));
+
+vi.mock('node:child_process', () => ({
+	spawn: mockSpawn,
+	execFile: mockExecFile
+}));
+
+vi.mock('node:util', () => ({
+	promisify: (fn: unknown) => fn
+}));
+
+vi.mock('node:fs/promises', () => ({
+	writeFile: vi.fn().mockResolvedValue(undefined),
+	rm: vi.fn().mockResolvedValue(undefined),
+	chmod: vi.fn().mockResolvedValue(undefined)
+}));
+
+import { writeFile, rm, chmod } from 'node:fs/promises';
 import {
 	dockerBuild,
 	dockerRun,
@@ -11,9 +34,18 @@ import {
 	toSshUrl,
 	getCommitSha,
 	gitClone,
-	waitForHealthy
+	waitForHealthy,
+	createCommandRunner
 } from './docker';
 import type { CommandRunner } from './types';
+
+/** Build a fake ChildProcess-like object with EventEmitter stdout/stderr. */
+function makeFakeChild() {
+	const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
+	child.stdout = new EventEmitter();
+	child.stderr = new EventEmitter();
+	return child;
+}
 
 function mockRunner(
 	responses: Record<string, { exitCode: number; stdout: string; stderr: string }>
@@ -155,6 +187,29 @@ describe('dockerBuild', () => {
 		expect(result.success).toBe(true)
 		expect(calls[0]).toContain('--network')
 		expect(calls[0]).toContain('risved')
+	})
+
+	it('builds with a target stage and build args', async () => {
+		const calls: string[][] = []
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args])
+				return { exitCode: 0, stdout: '', stderr: '' }
+			}
+		}
+
+		const result = await dockerBuild(runner, {
+			contextDir: '/tmp/ctx',
+			imageTag: 'myapp:abc1234',
+			target: 'build',
+			buildArgs: { NODE_ENV: 'production' }
+		})
+
+		expect(result.success).toBe(true)
+		expect(calls[0]).toContain('--target')
+		expect(calls[0]).toContain('build')
+		expect(calls[0]).toContain('--build-arg')
+		expect(calls[0]).toContain('NODE_ENV=production')
 	})
 
 	it('returns error on build failure', async () => {
@@ -506,6 +561,264 @@ describe('getContainerLogs', () => {
 		};
 		await getContainerLogs(runner, 'my-app', 50);
 		expect(calls[0]).toContain('50');
+	});
+});
+
+describe('gitClone with SSH key', () => {
+	it('writes the key file, converts the URL to SSH, and sets GIT_SSH_COMMAND', async () => {
+		const calls: { cmd: string; args: string[]; env?: Record<string, string> }[] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args, options) {
+				calls.push({ cmd, args, env: options?.env });
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const keyB64 = btoa('FAKE_PRIVATE_KEY');
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			keyB64
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls[0].args).toContain('git@github.com:user/repo.git');
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('ssh -i ');
+		expect(calls[0].env?.GIT_SSH_COMMAND).toContain('StrictHostKeyChecking=accept-new');
+
+		expect(vi.mocked(writeFile)).toHaveBeenCalledWith(
+			expect.stringContaining('risved-ssh-'),
+			'FAKE_PRIVATE_KEY',
+			{ mode: 0o600 }
+		);
+		expect(vi.mocked(chmod)).toHaveBeenCalledWith(expect.stringContaining('risved-ssh-'), 0o600);
+		expect(vi.mocked(rm)).toHaveBeenCalledWith(expect.stringContaining('risved-ssh-'), {
+			force: true
+		});
+	});
+
+	it('removes the temp key file even when the clone fails', async () => {
+		vi.mocked(rm).mockClear();
+
+		const runner: CommandRunner = {
+			async exec() {
+				return { exitCode: 128, stdout: '', stderr: 'fatal: auth failed' };
+			}
+		};
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			btoa('FAKE_KEY')
+		);
+
+		expect(result.success).toBe(false);
+		expect(vi.mocked(rm)).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(rm)).toHaveBeenCalledWith(expect.stringContaining('risved-ssh-'), {
+			force: true
+		});
+	});
+});
+
+describe('gitClone checkout ref failure', () => {
+	it('returns an error when checking out the ref fails', async () => {
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				if (args[0] === 'checkout') {
+					return { exitCode: 1, stdout: '', stderr: 'fatal: reference not found' };
+				}
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			undefined,
+			'deadbeef'
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('reference not found');
+	});
+});
+
+describe('createCommandRunner (non-streaming, execFile path)', () => {
+	it('returns exitCode 0 with stdout/stderr on success', async () => {
+		mockExecFile.mockResolvedValueOnce({ stdout: 'ok\n', stderr: '' });
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['ps']);
+
+		expect(result).toEqual({ exitCode: 0, stdout: 'ok\n', stderr: '' });
+	});
+
+	it('returns the captured exit code, stdout and stderr on failure', async () => {
+		mockExecFile.mockRejectedValueOnce(
+			Object.assign(new Error('boom'), { code: 127, stdout: 'partial', stderr: 'not found' })
+		);
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['bogus']);
+
+		expect(result).toEqual({ exitCode: 127, stdout: 'partial', stderr: 'not found' });
+	});
+
+	it('defaults to exit code 1 and empty output when the error has no details', async () => {
+		mockExecFile.mockRejectedValueOnce(new Error('boom'));
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['bogus']);
+
+		expect(result).toEqual({ exitCode: 1, stdout: '', stderr: '' });
+	});
+
+	it('passes cwd and merged env through to execFile', async () => {
+		mockExecFile.mockResolvedValueOnce({ stdout: '', stderr: '' });
+		vi.stubEnv('RISVED_TEST_INHERITED', 'yes');
+
+		const runner = createCommandRunner();
+		await runner.exec('git', ['status'], { cwd: '/tmp/x', env: { FOO: 'bar' } });
+
+		expect(mockExecFile).toHaveBeenCalledWith(
+			'git',
+			['status'],
+			expect.objectContaining({
+				cwd: '/tmp/x',
+				/* Merged with process.env, not replaced by it */
+				env: expect.objectContaining({ FOO: 'bar', RISVED_TEST_INHERITED: 'yes' }),
+				maxBuffer: 10 * 1024 * 1024
+			})
+		);
+
+		vi.unstubAllEnvs();
+	});
+});
+
+describe('createCommandRunner (streaming, onLine/spawn path)', () => {
+	it('streams stdout/stderr lines via onLine and resolves on close', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => {
+				child.stdout.emit('data', Buffer.from('line one\nline two\n'));
+				child.stderr.emit('data', Buffer.from('warn line\n'));
+				child.emit('close', 0);
+			});
+			return child;
+		});
+
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec('docker', ['build', '.'], {
+			onLine: (line) => lines.push(line)
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toContain('line one');
+		expect(result.stderr).toContain('warn line');
+		expect(lines).toEqual(['line one', 'line two', 'warn line']);
+	});
+
+	it('joins a log line that arrives split across multiple data chunks', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => {
+				child.stdout.emit('data', Buffer.from('line '));
+				child.stdout.emit('data', Buffer.from('one\n'));
+				child.emit('close', 0);
+			});
+			return child;
+		});
+
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec('docker', ['build', '.'], {
+			onLine: (line) => lines.push(line)
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(lines).toEqual(['line one']);
+	});
+
+	it('flushes a trailing line with no newline once the process closes', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => {
+				child.stdout.emit('data', Buffer.from('no trailing newline'));
+				child.emit('close', 0);
+			});
+			return child;
+		});
+
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec('docker', ['build', '.'], {
+			onLine: (line) => lines.push(line)
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(lines).toEqual(['no trailing newline']);
+	});
+
+	it('resolves with exit code 1 on a spawn error event', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => child.emit('error', new Error('spawn ENOENT')));
+			return child;
+		});
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['build', '.'], { onLine: () => {} });
+
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toBe('spawn ENOENT');
+	});
+
+	it('defaults exit code to 1 when close fires with a null code', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => child.emit('close', null));
+			return child;
+		});
+
+		const runner = createCommandRunner();
+		const result = await runner.exec('docker', ['build', '.'], { onLine: () => {} });
+
+		expect(result.exitCode).toBe(1);
+	});
+
+	it('passes cwd and merged env through to spawn', async () => {
+		mockSpawn.mockImplementationOnce(() => {
+			const child = makeFakeChild();
+			queueMicrotask(() => child.emit('close', 0));
+			return child;
+		});
+		vi.stubEnv('RISVED_TEST_INHERITED', 'yes');
+
+		const runner = createCommandRunner();
+		await runner.exec('git', ['clone'], {
+			cwd: '/tmp/x',
+			env: { FOO: 'bar' },
+			onLine: () => {}
+		});
+
+		expect(mockSpawn).toHaveBeenCalledWith(
+			'git',
+			['clone'],
+			expect.objectContaining({
+				cwd: '/tmp/x',
+				/* Merged with process.env, not replaced by it */
+				env: expect.objectContaining({ FOO: 'bar', RISVED_TEST_INHERITED: 'yes' })
+			})
+		);
+
+		vi.unstubAllEnvs();
 	});
 });
 
