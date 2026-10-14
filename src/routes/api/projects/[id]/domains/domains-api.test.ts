@@ -227,6 +227,68 @@ describe('POST /api/projects/:id/domains', () => {
 
 		expect(res.status).toBe(409);
 	});
+
+	it('returns 404 when the project does not exist', async () => {
+		mockDb.select.mockImplementationOnce(() => ({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue([])
+				})
+			})
+		}));
+
+		const { POST } = await import('./+server');
+		const res = await POST(
+			makeEvent({
+				method: 'POST',
+				params: { id: 'nope' },
+				body: { hostname: 'app.example.com' }
+			})
+		);
+
+		expect(res.status).toBe(404);
+	});
+
+	it('returns 400 for an unparseable JSON body', async () => {
+		mockDb.select.mockImplementationOnce(() => ({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue([{ id: 'p-1' }])
+				})
+			})
+		}));
+
+		const { POST } = await import('./+server');
+		const res = await POST({
+			request: { json: () => Promise.reject(new Error('bad json')) },
+			locals: { user: { id: 'user-1' }, session: {} },
+			params: { id: 'p-1' },
+			url: new URL('http://localhost/api/projects/p-1/domains')
+		} as never);
+
+		expect(res.status).toBe(400);
+	});
+
+	it('returns 400 when hostname is missing', async () => {
+		mockDb.select.mockImplementationOnce(() => ({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					limit: vi.fn().mockResolvedValue([{ id: 'p-1' }])
+				})
+			})
+		}));
+
+		const { POST } = await import('./+server');
+		const res = await POST(
+			makeEvent({
+				method: 'POST',
+				params: { id: 'p-1' },
+				body: { hostname: '   ' }
+			})
+		);
+
+		expect(res.status).toBe(400);
+	});
 });
 
 /* ── Tests: DELETE /api/projects/:id/domains/:did ─────────────────── */
@@ -362,6 +424,31 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 		);
 
 		expect(res.status).toBe(404);
+	});
+
+	it('also checks the AAAA record when the server has an IPv6 address', async () => {
+		resolveSslStatusMock.mockResolvedValueOnce('active');
+		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi.fn().mockResolvedValue([
+						{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }
+					])
+				})
+			})
+		});
+
+		const { getServerIps, checkDnsRecord } = await import('$lib/server/dns');
+		vi.mocked(getServerIps).mockResolvedValueOnce({ ipv4: '1.2.3.4', ipv6: '::1' });
+
+		const { POST } = await import('./[did]/verify/+server');
+		await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }));
+
+		expect(checkDnsRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'AAAA', value: '::1' })
+		);
 	});
 });
 
