@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { getServerIps, checkDnsRecord } from '$lib/server/dns';
 
 /* ── Hoisted mock handles ─────────────────────────────────────────── */
 
@@ -312,6 +313,35 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 		expect(resolveSslStatusMock).toHaveBeenCalledWith('app.example.com', true);
 		expect(repairDomainRouteMock).not.toHaveBeenCalled();
 		expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'active' }));
+	});
+
+	it('checks both A and AAAA records when the server has an IPv6 address', async () => {
+		vi.mocked(getServerIps).mockResolvedValueOnce({ ipv4: '1.2.3.4', ipv6: '::1' });
+		resolveSslStatusMock.mockResolvedValueOnce('active');
+		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }]);
+
+		mockDb.update.mockReturnValue({
+			set: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({
+					returning: vi.fn().mockResolvedValue([
+						{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }
+					])
+				})
+			})
+		});
+
+		const { POST } = await import('./[did]/verify/+server');
+		const res = await POST(
+			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
+		);
+
+		expect(res.status).toBe(200);
+		expect(checkDnsRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'A', value: '1.2.3.4' })
+		);
+		expect(checkDnsRecord).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'AAAA', value: '::1' })
+		);
 	});
 
 	it('repairs caddy route when DNS resolves but SSL is still provisioning', async () => {

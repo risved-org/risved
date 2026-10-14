@@ -157,4 +157,22 @@ describe('POST /api/projects/:id/deployments/:did/rebuild', () => {
 			expect.objectContaining({ deploymentId: body.deploymentId })
 		)
 	})
+
+	it('logs and does not throw when the background pipeline rejects', async () => {
+		setupSelectChain([[projectRow], [deploymentRow]])
+		mockRunPipeline.mockRejectedValue(new Error('docker daemon unreachable'))
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+		const res = await POST(makeEvent())
+		expect(res.status).toBe(200)
+
+		/* Pipeline runs detached (fire-and-forget); flush its rejection handler. */
+		await new Promise((resolve) => setTimeout(resolve, 0))
+
+		expect(errorSpy).toHaveBeenCalledWith(
+			expect.stringContaining('[rebuild] Pipeline error for my-app@abc1234:'),
+			expect.any(Error)
+		)
+		errorSpy.mockRestore()
+	})
 })
