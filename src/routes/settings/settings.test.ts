@@ -165,6 +165,42 @@ describe('settings actions', () => {
 		expect(result).toMatchObject({ status: 400 });
 	});
 
+	it('email updates the user email when authenticated', async () => {
+		const formData = new FormData();
+		formData.set('email', 'new@test.com');
+
+		const result = await actions.email({
+			request: { formData: () => Promise.resolve(formData) },
+			locals: { user: { id: 'u-1' } }
+		} as unknown as Parameters<typeof actions.email>[0]);
+
+		expect(result).toMatchObject({ emailSaved: true });
+	});
+
+	it('email returns 401 when not authenticated', async () => {
+		const formData = new FormData();
+		formData.set('email', 'new@test.com');
+
+		const result = await actions.email({
+			request: { formData: () => Promise.resolve(formData) },
+			locals: { user: null }
+		} as unknown as Parameters<typeof actions.email>[0]);
+
+		expect(result).toMatchObject({ status: 401 });
+	});
+
+	it('password returns error when current password is missing', async () => {
+		const formData = new FormData();
+		formData.set('newPassword', 'newpass12345abc');
+		formData.set('confirmPassword', 'newpass12345abc');
+
+		const result = await actions.password({
+			request: { formData: () => Promise.resolve(formData) }
+		} as unknown as Parameters<typeof actions.password>[0]);
+
+		expect(result).toMatchObject({ status: 400, data: { passwordError: 'Current password is required' } });
+	});
+
 	it('password returns error for short password', async () => {
 		const formData = new FormData();
 		formData.set('currentPassword', 'oldpass12345x');
