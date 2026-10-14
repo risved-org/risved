@@ -41,6 +41,16 @@ describe('verifySignature', () => {
 		const sig = `sha256=${hmac(payload, 'wrong-secret')}`;
 		expect(verifySignature(payload, secret, { 'x-hub-signature-256': sig })).toBe(false);
 	});
+
+	it('rejects when equal-length strings have mismatched byte lengths', () => {
+		/* A multi-byte char keeps .length equal to the 64-char hex digest while
+		 * its UTF-8 byte length differs, which throws inside timingSafeEqual
+		 * and must be caught. */
+		const sameLengthDifferentBytes = `é${'0'.repeat(63)}`;
+		expect(
+			verifySignature(payload, secret, { 'x-hub-signature-256': sameLengthDifferentBytes })
+		).toBe(false);
+	});
 });
 
 describe('parseWebhookPayload', () => {
@@ -270,6 +280,51 @@ describe('parseWebhookPayload', () => {
 				pull_request: { number: 1, head: { ref: 'feat', sha: 'abc' } },
 				sender: { login: 'dev' }
 			}
+		);
+
+		expect(result.type).toBe('unknown');
+	});
+
+	it('parses GitHub push event with a non-branch ref as-is', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'push' },
+			{ ref: 'refs/tags/v1.0.0', after: 'tag123' }
+		);
+
+		expect(result.branch).toBe('refs/tags/v1.0.0');
+		expect(result.commitMessage).toBeNull();
+		expect(result.sender).toBeNull();
+	});
+
+	it('parses GitHub PR opened event with missing pull_request fields', () => {
+		const result = parseWebhookPayload(
+			{ 'x-github-event': 'pull_request' },
+			{ action: 'opened' }
+		);
+
+		expect(result.type).toBe('pr_open');
+		expect(result.prNumber).toBeNull();
+		expect(result.branch).toBeNull();
+		expect(result.commitSha).toBeNull();
+		expect(result.sender).toBeNull();
+	});
+
+	it('parses GitLab push event with a non-branch ref and no commits', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Push Hook' },
+			{ ref: 'refs/tags/v2.0.0' }
+		);
+
+		expect(result.branch).toBe('refs/tags/v2.0.0');
+		expect(result.commitSha).toBeNull();
+		expect(result.commitMessage).toBeNull();
+		expect(result.sender).toBeNull();
+	});
+
+	it('parses GitLab MR event with missing object_attributes', () => {
+		const result = parseWebhookPayload(
+			{ 'x-gitlab-event': 'Merge Request Hook' },
+			{ user: { username: 'gl-dev' } }
 		);
 
 		expect(result.type).toBe('unknown');
