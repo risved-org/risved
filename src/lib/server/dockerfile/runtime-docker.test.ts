@@ -30,11 +30,11 @@ describe.skipIf(process.env.RUN_DOCKER_RUNTIME_TESTS !== '1')('Bun runtime conta
 				)
 				writeFileSync(
 					join(dir, 'index.js'),
-					'import { Database } from "bun:sqlite"\nconst db = new Database(":memory:")\nimport { createServer } from "node:http"\ncreateServer((req, res) => res.end(db.query("SELECT 1 AS ok").get().ok === 1 ? "bun-ok" : "failed")).listen(8000, "0.0.0.0")\n'
+					'if (Bun.semver.order(Bun.version, "1.4.0") < 0) throw new Error("Bun 1.4 or newer required")\nimport { Database } from "bun:sqlite"\nconst db = new Database(":memory:")\nimport { createServer } from "node:http"\ncreateServer((req, res) => res.end(db.query("SELECT 1 AS ok").get().ok === 1 ? "bun-ok" : "failed")).listen(8000, "0.0.0.0")\n'
 				)
 				writeFileSync(
 					join(dir, 'build.js'),
-					'import { Database } from "bun:sqlite"\nimport { mkdirSync, copyFileSync } from "node:fs"\nnew Database(":memory:").query("SELECT 1").get()\nmkdirSync("build", { recursive: true })\ncopyFileSync("index.js", "build/index.js")\n'
+					'if (Bun.semver.order(Bun.version, "1.4.0") < 0) throw new Error("Bun 1.4 or newer required")\nimport { Database } from "bun:sqlite"\nimport { mkdirSync, copyFileSync } from "node:fs"\nnew Database(":memory:").query("SELECT 1").get()\nmkdirSync("build", { recursive: true })\ncopyFileSync("index.js", "build/index.js")\n'
 				)
 				const { content } = generateDockerfile({
 					frameworkId,

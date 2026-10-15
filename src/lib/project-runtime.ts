@@ -1,6 +1,6 @@
 export type ProjectRuntime = 'node' | 'bun'
 
-export const BUN_VERSION = '1.3.14'
+export const BUN_VERSION = '1.4.3'
 
 /** Whether the framework can use the optional Bun server runtime. */
 export function supportsBun(frameworkId?: string | null, tier?: string | null): boolean {
