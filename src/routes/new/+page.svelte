@@ -401,7 +401,13 @@
 		<!-- Scripts: build, start, release -->
 		<section class="section" data-testid="scripts-section">
 			<h2 class="section-title">How do we run your code</h2>
+			<ProjectRuntimeField
+				bind:runtime
+				{frameworkId}
+				tier={data.frameworks.find(f => f.id === frameworkId)?.tier}
+			/>
 			<ProjectScriptsForm
+				{runtime}
 				bind:buildCommand
 				bind:startCommand
 				bind:releaseCommand
