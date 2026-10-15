@@ -7,13 +7,10 @@ import type { PageServerLoad } from './$types'
 /** Map framework IDs to display names */
 export const _FRAMEWORK_NAMES: Record<string, string> = {
 	sveltekit: 'SvelteKit',
-	fresh: 'Fresh',
 	astro: 'Astro',
-	hono: 'Hono',
 	nextjs: 'Next.js',
 	nuxt2: 'Nuxt 2',
 	nuxt: 'Nuxt',
-	lume: 'Lume',
 	solidstart: 'SolidStart'
 }
 

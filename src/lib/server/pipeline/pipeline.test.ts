@@ -67,8 +67,8 @@ vi.mock('../dockerfile', () => ({
 		.fn()
 		.mockReturnValue({
 			content: 'FROM node:20\nCMD ["node", "index.js"]',
-			frameworkId: 'fresh',
-			tier: 'deno'
+			frameworkId: 'generic',
+			tier: 'node'
 		})
 }));
 
@@ -142,7 +142,7 @@ describe('runPipeline', () => {
 		vi.clearAllMocks();
 		vi.mocked(detectFramework).mockResolvedValue({
 			detected: true,
-			framework: { id: 'fresh', name: 'Fresh', tier: 'deno', confidence: 'high' }
+			framework: { id: 'generic', name: 'Generic', tier: 'node', confidence: 'high' }
 		});
 	});
 
@@ -426,7 +426,7 @@ describe('runPipeline', () => {
 	it('falls back to saved framework when detection fails', async () => {
 		vi.mocked(detectFramework).mockResolvedValueOnce({ detected: false, framework: null });
 		const result = await runPipeline(
-			makeConfig({ frameworkId: 'hono', tier: 'deno' }),
+			makeConfig({ frameworkId: 'generic', tier: 'node' }),
 			makeSuccessRunner(),
 			{ caddy: makeCaddy() as never, fetchFn: makeHealthyFetch() }
 		);
@@ -435,7 +435,7 @@ describe('runPipeline', () => {
 		const detectLog = result.logs.find(
 			(l) => l.phase === 'detect' && l.message.includes('Using saved')
 		);
-		expect(detectLog?.message).toContain('hono');
+		expect(detectLog?.message).toContain('generic');
 	});
 
 	it('frees port before starting new container', async () => {
@@ -712,7 +712,7 @@ describe('runPipeline supersedes the previous live deployment', () => {
 		vi.clearAllMocks();
 		vi.mocked(detectFramework).mockResolvedValue({
 			detected: true,
-			framework: { id: 'fresh', name: 'Fresh', tier: 'deno', confidence: 'high' }
+			framework: { id: 'generic', name: 'Generic', tier: 'node', confidence: 'high' }
 		});
 	});
 

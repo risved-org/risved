@@ -1,5 +1,5 @@
 import type { ProjectRuntime } from '$lib/project-runtime'
-import type { FrameworkId, Tier } from '../detection/types';
+import type { FrameworkId, Tier } from '../detection/types'
 
 /** Supported lockfile types for auto-detecting package manager */
 export type Lockfile =
@@ -13,54 +13,54 @@ export type Lockfile =
 /** Options for generating a Dockerfile */
 export interface DockerfileOptions {
 	/** Detected or overridden framework */
-	frameworkId: FrameworkId;
+	frameworkId: FrameworkId
 	/** Runtime tier from detection */
-	tier: Tier;
+	tier: Tier
 	/** Port the app listens on inside the container */
-	port?: number;
+	port?: number
 	/** Custom install command override (default: auto-detected from lockfile) */
-	installCommand?: string;
+	installCommand?: string
 	/** Custom build command override (default: npm run build) */
-	buildCommand?: string;
+	buildCommand?: string
 	/** Server runtime; omitted values preserve the framework default. */
 	runtime?: ProjectRuntime
 	/** Custom start/serve command override (default: framework-specific) */
-	startCommand?: string;
+	startCommand?: string
 	/** Detected lockfile in the project root */
-	lockfile?: Lockfile;
+	lockfile?: Lockfile
 	/** Yarn release line (only relevant when lockfile === 'yarn.lock') */
-	yarnVersion?: 'classic' | 'berry';
+	yarnVersion?: 'classic' | 'berry'
 	/** Framework-specific metadata from detection (e.g. nuxt2 srcDir) */
-	meta?: Record<string, string>;
+	meta?: Record<string, string>
 	/** The pipeline injected a build-time .env that must stay out of the runtime image */
-	stripBuildEnv?: boolean;
+	stripBuildEnv?: boolean
 }
 
 /** Result of Dockerfile generation */
 export interface DockerfileResult {
 	/** The generated Dockerfile content */
-	content: string;
+	content: string
 	/** Framework used for generation */
-	frameworkId: FrameworkId;
+	frameworkId: FrameworkId
 	/** Tier used for generation */
-	tier: Tier;
+	tier: Tier
 }
 
 /** Framework-specific build configuration */
 export interface FrameworkBuildConfig {
 	/** Directory where build output lands */
-	outputDir: string;
+	outputDir: string
 	/** Default build command */
-	buildCommand: string;
+	buildCommand: string
 	/** Default install command */
-	installCommand: string;
+	installCommand: string
 	/** Entrypoint command for serving */
-	serveCommand: string;
+	serveCommand: string
 	/** Files/dirs to copy to the runtime stage */
-	copyPaths: string[];
-	/** Additional Deno permissions (for deno/hybrid tiers) */
-	denoPermissions?: string;
+	copyPaths: string[]
+	/** Default server environment, overridable by project settings. */
+	runtimeEnv?: Record<string, string>
 }
 
 /** Map of framework IDs to their build configurations */
-export type FrameworkConfigs = Record<FrameworkId, FrameworkBuildConfig>;
+export type FrameworkConfigs = Record<FrameworkId, FrameworkBuildConfig>

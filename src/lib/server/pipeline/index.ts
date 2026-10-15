@@ -252,7 +252,7 @@ async function _runPipeline(
 		     available when SvelteKit analyzes server modules during build
 		   The .env file lives only in the builder stage — it is NOT copied
 		   to the runtime image. Frameworks that ship the whole build context
-		   (Tier 1 Deno, generic) empty it in a throwaway stage first, see
+		   (generic projects) empty it in a throwaway stage first, see
 		   stripBuildEnv in the Dockerfile templates.
 		   At runtime, all env vars are passed via `docker run -e`. */
 		const buildEnv = Object.entries(envMap)
@@ -310,11 +310,11 @@ async function _runPipeline(
 			}
 		}
 
-		/* The node and hybrid templates use a locally built warm builder image
+		/* The server templates use a locally built warm builder image
 		   (risved-node-build:22). If it is missing we have to build it before
 		   the user's docker build, otherwise BuildKit tries to pull it from
 		   Docker Hub and fails with "pull access denied". */
-		if (tier === 'node' || tier === 'hybrid') {
+		if (tier === 'node') {
 			const warm = await ensureWarmImage(runner, {
 				onLine: (line) => emit('build', line)
 			});

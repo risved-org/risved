@@ -101,7 +101,7 @@ describe('deploy load', () => {
 
 		const result = (await load({} as LoadParams)) as Record<string, unknown>;
 		expect(result.templates).toEqual(STARTER_TEMPLATES);
-		expect(result.templates).toHaveLength(4);
+		expect(result.templates).toHaveLength(2);
 	});
 });
 
@@ -121,14 +121,14 @@ describe('deploy starter action', () => {
 	});
 
 	it('saves first_deploy and redirects to success for valid template', async () => {
-		await expect(actions.starter(makeActionEvent({ templateId: 'fresh' }))).rejects.toMatchObject({
+		await expect(actions.starter(makeActionEvent({ templateId: 'sveltekit' }))).rejects.toMatchObject({
 			status: 303,
 			location: '/onboarding/success'
 		});
 
 		expect(setSetting).toHaveBeenCalledWith(
 			'first_deploy',
-			expect.stringContaining('"templateId":"fresh"')
+			expect.stringContaining('"templateId":"sveltekit"')
 		);
 	});
 });
@@ -239,8 +239,8 @@ describe('deploy page source', () => {
 });
 
 describe('STARTER_TEMPLATES', () => {
-	it('has 4 templates', () => {
-		expect(STARTER_TEMPLATES).toHaveLength(4);
+	it('has 2 supported templates', () => {
+		expect(STARTER_TEMPLATES).toHaveLength(2);
 	});
 
 	it('each template has required fields', () => {
@@ -256,8 +256,6 @@ describe('STARTER_TEMPLATES', () => {
 
 	it('includes expected frameworks', () => {
 		const ids = STARTER_TEMPLATES.map((t) => t.id);
-		expect(ids).toContain('fresh');
-		expect(ids).toContain('hono');
 		expect(ids).toContain('sveltekit');
 		expect(ids).toContain('astro');
 	});

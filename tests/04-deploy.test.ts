@@ -44,14 +44,12 @@ test.describe('Onboarding: First Deploy', () => {
 		await page.screenshot({ path: '.agent/screenshots/TASK-5-1.png', fullPage: true });
 	});
 
-	test('shows 4 starter template cards in 2x2 grid', async ({ page }) => {
+	test('shows supported starter template cards', async ({ page }) => {
 		const cards = page.locator('.template-card');
-		await expect(cards).toHaveCount(4);
+		await expect(cards).toHaveCount(2);
 
-		await expect(cards.nth(0)).toContainText('Fresh');
-		await expect(cards.nth(1)).toContainText('Hono');
-		await expect(cards.nth(2)).toContainText('SvelteKit');
-		await expect(cards.nth(3)).toContainText('Astro');
+		await expect(cards.nth(0)).toContainText('SvelteKit');
+		await expect(cards.nth(1)).toContainText('Astro');
 	});
 
 	test('selecting a template enables deploy button', async ({ page }) => {

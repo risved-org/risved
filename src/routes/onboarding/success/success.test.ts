@@ -54,9 +54,9 @@ describe('success load', () => {
 			if (key === 'first_deploy')
 				return JSON.stringify({
 					type: 'starter',
-					templateId: 'fresh',
-					repoUrl: 'https://github.com/denoland/fresh',
-					framework: 'fresh'
+					templateId: 'sveltekit',
+					repoUrl: 'https://github.com/risved/starter-sveltekit',
+					framework: 'sveltekit'
 				});
 			if (key === 'domain_config')
 				return JSON.stringify({
@@ -69,8 +69,8 @@ describe('success load', () => {
 
 		const result = (await load({} as LoadParams)) as Record<string, unknown>;
 		expect(result.deployType).toBe('starter');
-		expect(result.templateId).toBe('fresh');
-		expect(result.appUrl).toBe('https://fresh.risved.example.com');
+		expect(result.templateId).toBe('sveltekit');
+		expect(result.appUrl).toBe('https://sveltekit.risved.example.com');
 	});
 
 	it('returns repo deploy data', async () => {
@@ -109,7 +109,7 @@ describe('success load', () => {
 	it('returns empty appUrl when no domain config', async () => {
 		vi.mocked(isFirstRun).mockResolvedValue(false);
 		vi.mocked(getSetting).mockImplementation(async (key: string) => {
-			if (key === 'first_deploy') return JSON.stringify({ type: 'starter', templateId: 'fresh' });
+			if (key === 'first_deploy') return JSON.stringify({ type: 'starter', templateId: 'sveltekit' });
 			return null;
 		});
 

@@ -23,9 +23,7 @@
 <label>
 	Server runtime
 	<select name="runtime" bind:value={runtime} aria-describedby="runtime-hint">
-		<option value="node"
-			>{tier && tier !== 'node' ? 'Framework default' : 'Node.js (default)'}</option
-		>
+		<option value="node">Node.js (default)</option>
 		<option value="bun" disabled={!bunSupported}>Bun {BUN_VERSION}</option>
 	</select>
 	<span id="runtime-hint">

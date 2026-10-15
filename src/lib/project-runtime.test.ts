@@ -8,8 +8,4 @@ describe('runtime validation', () => {
 	it('allows an explicit Bun choice before framework detection', () => {
 		expect(runtimeError('bun')).toBeNull()
 	})
-	it('keeps default runtime valid for Deno and hybrid projects', () => {
-		expect(runtimeError('node', 'fresh', 'deno')).toBeNull()
-		expect(runtimeError('node', 'astro', 'hybrid')).toBeNull()
-	})
 })
