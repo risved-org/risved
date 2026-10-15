@@ -265,6 +265,26 @@ describe('settings saveScripts action', () => {
 		expect(result).toMatchObject({ status: 404 })
 	})
 
+	it('persists Bun and allows switching back to Node', async () => {
+		for (const runtime of ['bun', 'node']) {
+			limitMock.mockResolvedValueOnce([
+				{ ...sampleProject, frameworkId: 'sveltekit', tier: 'node' }
+			])
+			const result = await actions.saveScripts(makeFormEvent({ slug: 'test-app' }, { runtime }))
+			expect(result).toMatchObject({ scriptsSaved: true })
+			expect(updateSetMock).toHaveBeenLastCalledWith(expect.objectContaining({ runtime }))
+		}
+	})
+
+	it('rejects unsupported Bun selections without updating the project', async () => {
+		limitMock.mockResolvedValueOnce([{ ...sampleProject, frameworkId: 'nextjs', tier: 'node' }])
+		const result = await actions.saveScripts(
+			makeFormEvent({ slug: 'test-app' }, { runtime: 'bun' })
+		)
+		expect(result).toMatchObject({ status: 400 })
+		expect(updateSetMock).not.toHaveBeenCalled()
+	})
+
 	it('updates build/start/release commands', async () => {
 		limitMock.mockResolvedValueOnce([sampleProject])
 		const result = await actions.saveScripts(

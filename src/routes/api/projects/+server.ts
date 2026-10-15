@@ -1,3 +1,4 @@
+import { runtimeError, type ProjectRuntime } from '$lib/project-runtime'
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { projects } from '$lib/server/db/schema';
@@ -29,7 +30,7 @@ export const POST: RequestHandler = async (event) => {
 		return jsonError(400, 'Invalid JSON body');
 	}
 
-	const { name, git_url, branch, framework_id } = body as Record<string, unknown>;
+	const { name, git_url, branch, framework_id, runtime = 'node' } = body as Record<string, unknown>
 
 	if (!name || typeof name !== 'string' || name.trim().length === 0) {
 		return jsonError(400, 'name is required');
@@ -37,6 +38,9 @@ export const POST: RequestHandler = async (event) => {
 	if (!git_url || typeof git_url !== 'string' || git_url.trim().length === 0) {
 		return jsonError(400, 'git_url is required');
 	}
+
+	const validationError = runtimeError(runtime, typeof framework_id === 'string' ? framework_id : undefined)
+	if (validationError) return jsonError(400, validationError)
 
 	const slug = slugify(name);
 	if (!slug) {
@@ -61,6 +65,7 @@ export const POST: RequestHandler = async (event) => {
 			branch: typeof branch === 'string' && branch.trim() ? branch.trim() : 'main',
 			frameworkId: typeof framework_id === 'string' ? framework_id : undefined,
 			port,
+			runtime: runtime as ProjectRuntime,
 			webhookSecret
 		})
 		.returning();

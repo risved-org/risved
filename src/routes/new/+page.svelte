@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { ProjectRuntime } from '$lib/project-runtime'
+	import ProjectRuntimeField from '$lib/components/ProjectRuntimeField.svelte'
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
 	import ProjectScriptsForm from '$lib/components/ProjectScriptsForm.svelte'
@@ -18,6 +20,7 @@
 	// svelte-ignore state_referenced_locally
 	let frameworkId = $state(form?.frameworkId ?? '')
 	let buildCommand = $state('')
+	let runtime = $state<ProjectRuntime>('node')
 	let startCommand = $state('')
 	let releaseCommand = $state('')
 	let detection = $state<DetectScriptsResult | null>(null)

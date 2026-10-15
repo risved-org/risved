@@ -1,77 +1,15 @@
+import { pmFromLockfile } from './package-manager'
+import { BUN_VERSION, type ProjectRuntime } from '$lib/project-runtime'
 import type { FrameworkBuildConfig, Lockfile } from './types';
 
 const DENO_IMAGE = 'denoland/deno:latest';
 const NODE_IMAGE = 'node:22-slim';
+const BUN_IMAGE = `oven/bun:${BUN_VERSION}-debian`
 
 /* Unified warm base image for Node-tier builds. Contains Node 22, Corepack-
    managed pnpm and Yarn (Classic + Berry), and Bun installed globally.
    Rebuilt on the Sunday cron schedule. */
 const NODE_BUILD_IMAGE = 'risved-node-build:22';
-
-function isBun(lockfile?: Lockfile | null): boolean {
-	return lockfile === 'bun.lockb' || lockfile === 'bun.lock'
-}
-
-interface PackageManagerCommands {
-	/** Line that copies package.json and any relevant lockfile wildcards. */
-	copyLine: string;
-	/** Install command that honours frozen-lockfile semantics. */
-	install: string;
-	/** `<pm> run` prefix for substituting into the framework build command. */
-	run: string;
-	/** Prune command for frameworks that copy node_modules to runtime. */
-	prune: string;
-}
-
-/**
- * Map a detected lockfile (and optionally the Yarn release line) to the right
- * shell commands. All package managers live in the unified warm image, so no
- * per-manager cache-mount or conditional install step is needed here.
- */
-function pmFromLockfile(
-	lockfile?: Lockfile | null,
-	yarnVersion?: 'classic' | 'berry'
-): PackageManagerCommands {
-	switch (lockfile) {
-		case 'bun.lockb':
-		case 'bun.lock':
-			return {
-				copyLine: 'COPY package.json bun.lockb* bun.lock* ./',
-				install: 'bun install --frozen-lockfile',
-				run: 'bun run',
-				prune: 'rm -rf node_modules && bun install --frozen-lockfile --production'
-			}
-		case 'pnpm-lock.yaml':
-			return {
-				copyLine: 'COPY package.json pnpm-lock.yaml ./',
-				install: 'pnpm install --frozen-lockfile',
-				run: 'pnpm run',
-				prune: 'pnpm prune --prod'
-			}
-		case 'yarn.lock':
-			if (yarnVersion === 'berry') {
-				return {
-					copyLine: 'COPY package.json yarn.lock .yarnrc.yml* ./',
-					install: 'yarn install --immutable',
-					run: 'yarn',
-					prune: 'yarn workspaces focus --production --all'
-				}
-			}
-			return {
-				copyLine: 'COPY package.json yarn.lock ./',
-				install: 'yarn install --frozen-lockfile',
-				run: 'yarn',
-				prune: 'yarn install --production --ignore-scripts'
-			}
-		default:
-			return {
-				copyLine: 'COPY package.json package-lock.json* ./',
-				install: 'npm ci || npm install',
-				run: 'npm run',
-				prune: 'npm prune --omit=dev'
-			}
-	}
-}
 
 /** Wildcard copy line that captures every lockfile we support at once. */
 const ALL_LOCKFILES_COPY =
@@ -172,18 +110,13 @@ export function hybridTemplate(
 		`RUN ${install}`,
 		'',
 		'COPY . .',
-		`RUN ${build}`,
+		`RUN ${build}`
 	]
 
 	/* Prune in a separate stage so --target build still has dev deps */
 	let copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {
-		lines.push(
-			'',
-			`# Pruned deps stage`,
-			`FROM build AS deps`,
-			`RUN ${pm.prune}`
-		)
+		lines.push('', `# Pruned deps stage`, `FROM build AS deps`, `RUN ${pm.prune}`)
 	}
 
 	if (stripBuildEnv && copiesWholeContext(config)) {
@@ -191,14 +124,7 @@ export function hybridTemplate(
 		copyFrom = 'output'
 	}
 
-	lines.push(
-		'',
-		`# Runtime stage`,
-		`FROM ${DENO_IMAGE}`,
-		'',
-		'WORKDIR /app',
-		''
-	)
+	lines.push('', `# Runtime stage`, `FROM ${DENO_IMAGE}`, '', 'WORKDIR /app', '')
 
 	// Copy build output from builder
 	for (const copyPath of config.copyPaths) {
@@ -227,11 +153,16 @@ export function nodeTemplate(
 	buildCommand?: string,
 	lockfile?: Lockfile | null,
 	yarnVersion?: 'classic' | 'berry',
-	stripBuildEnv = false
+	stripBuildEnv = false,
+	runtime: ProjectRuntime = 'node'
 ): string {
 	const pm = pmFromLockfile(lockfile, yarnVersion)
 	const install = installCommand ?? pm.install
-	const build = buildCommand ?? config.buildCommand.replace('npm run', pm.run)
+	const build =
+		buildCommand ??
+		(runtime === 'bun'
+			? config.buildCommand.replace('npm run', 'bun --bun run')
+			: config.buildCommand.replace('npm run', pm.run))
 
 	const copyLine = installCommand ? ALL_LOCKFILES_COPY : pm.copyLine
 	const needsNodeModules = config.copyPaths.includes('node_modules')
@@ -241,13 +172,14 @@ export function nodeTemplate(
 	const ensureDirs = config.copyPaths.filter(
 		p => !p.includes('*') && !p.includes('.') && p !== 'node_modules'
 	)
-	const ensureCmd = ensureDirs.length > 0
-		? ` && mkdir -p ${ensureDirs.join(' ')}`
-		: ''
+	const ensureCmd = ensureDirs.length > 0 ? ` && mkdir -p ${ensureDirs.join(' ')}` : ''
 
 	const lines: string[] = [
 		`# Build stage (retains dev deps for release commands)`,
 		`FROM ${NODE_BUILD_IMAGE} AS build`,
+		...(runtime === 'bun'
+			? [`COPY --from=${BUN_IMAGE} /usr/local/bin/bun /usr/local/bin/bun`]
+			: []),
 		'',
 		'WORKDIR /app',
 		'',
@@ -255,18 +187,13 @@ export function nodeTemplate(
 		`RUN ${install}`,
 		'',
 		'COPY . .',
-		`RUN ${build}${ensureCmd}`,
+		`RUN ${build}${ensureCmd}`
 	]
 
 	/* Prune in a separate stage so --target build still has dev deps */
 	let copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {
-		lines.push(
-			'',
-			`# Pruned deps stage`,
-			`FROM build AS deps`,
-			`RUN ${pm.prune}`
-		)
+		lines.push('', `# Pruned deps stage`, `FROM build AS deps`, `RUN ${pm.prune}`)
 	}
 
 	if (stripBuildEnv && copiesWholeContext(config)) {
@@ -277,7 +204,7 @@ export function nodeTemplate(
 	lines.push(
 		'',
 		`# Runtime stage`,
-		`FROM ${NODE_IMAGE} AS runtime`,
+		`FROM ${runtime === 'bun' ? BUN_IMAGE : NODE_IMAGE} AS runtime`,
 		'',
 		'WORKDIR /app',
 		''

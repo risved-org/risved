@@ -1,3 +1,4 @@
+import { generateDockerfile } from '../dockerfile'
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('$lib/server/db', () => {
@@ -143,6 +144,21 @@ describe('runPipeline', () => {
 			detected: true,
 			framework: { id: 'fresh', name: 'Fresh', tier: 'deno', confidence: 'high' }
 		});
+	});
+
+	it('passes the project runtime to Dockerfile generation after framework detection', async () => {
+		vi.mocked(detectFramework).mockResolvedValue({
+			detected: true,
+			framework: { id: 'sveltekit', name: 'SvelteKit', tier: 'node', confidence: 'high' }
+		})
+		const result = await runPipeline(makeConfig({ runtime: 'bun' }), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: makeHealthyFetch()
+		})
+		expect(result.success).toBe(true)
+		expect(generateDockerfile).toHaveBeenCalledWith(
+			expect.objectContaining({ runtime: 'bun', frameworkId: 'sveltekit', tier: 'node' })
+		)
 	});
 
 	it('runs all phases successfully', async () => {

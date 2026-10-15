@@ -120,6 +120,31 @@ describe('new project action', () => {
 		]);
 	});
 
+	it('saves an explicit Bun choice', async () => {
+		await expect(
+			actions.default(
+				makeActionEvent({
+					repoUrl: 'https://github.com/user/app.git',
+					runtime: 'bun',
+					frameworkId: 'sveltekit'
+				})
+			)
+		).rejects.toMatchObject({ status: 303 })
+		expect(dbAny.__valuesMock).toHaveBeenCalledWith(expect.objectContaining({ runtime: 'bun' }))
+	})
+
+	it('rejects an unsupported runtime before creating a project', async () => {
+		const result = await actions.default(
+			makeActionEvent({
+				repoUrl: 'https://github.com/user/app.git',
+				runtime: 'bun',
+				frameworkId: 'nextjs'
+			})
+		)
+		expect(result).toMatchObject({ status: 400 })
+		expect(dbAny.__valuesMock).not.toHaveBeenCalled()
+	})
+
 	it('fails if repo URL is missing', async () => {
 		const result = await actions.default(makeActionEvent({ repoUrl: '' }));
 		expect(result).toMatchObject({ status: 400 });

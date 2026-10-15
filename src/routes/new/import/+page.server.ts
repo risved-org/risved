@@ -1,3 +1,4 @@
+import { runtimeError, type ProjectRuntime } from '$lib/project-runtime'
 import { fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { gitConnections, projects, envVars } from '$lib/server/db/schema';
@@ -43,6 +44,9 @@ export const actions: Actions = {
 		const branch = (formData.get('branch') as string)?.trim() || 'main';
 		const projectName = (formData.get('projectName') as string)?.trim();
 		const frameworkId = (formData.get('frameworkId') as string)?.trim() || '';
+		const runtime = formData.get('runtime') ?? 'node'
+		const validationError = runtimeError(runtime, frameworkId)
+		if (validationError) return fail(400, { error: validationError })
 		const releaseCommand = (formData.get('releaseCommand') as string | null)?.trim() || '';
 
 		if (!cloneUrl) {
@@ -72,12 +76,12 @@ export const actions: Actions = {
 			try {
 				const { baseDomain } = JSON.parse(domainConfig)
 				if (baseDomain) projectDomain = `${slug}.${baseDomain}`
-			} catch { /* ignore corrupt data */ }
+			} catch {
+				/* ignore corrupt data */
+			}
 		}
 
-		const matchedFramework = frameworkId
-			? FRAMEWORK_OPTIONS.find((f) => f.id === frameworkId)
-			: null;
+		const matchedFramework = frameworkId ? FRAMEWORK_OPTIONS.find(f => f.id === frameworkId) : null
 
 		const [project] = await db
 			.insert(projects)
@@ -89,6 +93,7 @@ export const actions: Actions = {
 				gitConnectionId: connectionId,
 				domain: projectDomain,
 				frameworkId: frameworkId || undefined,
+				runtime: runtime as ProjectRuntime,
 				tier: matchedFramework?.tier ?? undefined,
 				port,
 				webhookSecret,
@@ -141,6 +146,7 @@ export const actions: Actions = {
 				frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 				tier: (project.tier as Tier) ?? undefined,
 				buildCommand: project.buildCommand,
+				runtime: project.runtime,
 				startCommand: project.startCommand,
 				releaseCommand: project.releaseCommand
 			},

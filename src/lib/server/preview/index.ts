@@ -140,6 +140,7 @@ export async function createPreview(
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 			tier: (project.tier as Tier) ?? undefined,
 			buildCommand: project.buildCommand,
+			runtime: project.runtime,
 			startCommand: project.startCommand,
 			releaseCommand: project.releaseCommand,
 			volumeName: previewVolumeName(project.id, prNumber)

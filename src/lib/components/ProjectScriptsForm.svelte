@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ProjectRuntime } from '$lib/project-runtime'
 	import type { DetectScriptsResult, ScriptSuggestion } from '$lib/scripts-detect';
 
 	interface LastRelease {
@@ -10,6 +11,7 @@
 	}
 
 	interface Props {
+		runtime?: ProjectRuntime
 		/** Current build command value. */
 		buildCommand: string;
 		/** Current start command value. */
@@ -32,6 +34,7 @@
 	}
 
 	let {
+		runtime = 'node',
 		buildCommand = $bindable(''),
 		startCommand = $bindable(''),
 		releaseCommand = $bindable(''),
@@ -111,7 +114,7 @@
 			type="text"
 			name="startCommand"
 			bind:value={startCommand}
-			placeholder="e.g. node build/index.js"
+			placeholder={`e.g. ${runtime} build/index.js`}
 			data-testid="start-command-input"
 		/>
 		<span class="field-hint">Runs in the runtime container. Leave blank to use the framework default.</span>
