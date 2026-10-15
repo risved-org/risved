@@ -7,13 +7,10 @@ import type { LayoutServerLoad } from './$types'
 
 const FRAMEWORK_NAMES: Record<string, string> = {
 	sveltekit: 'SvelteKit',
-	fresh: 'Fresh',
 	astro: 'Astro',
-	hono: 'Hono',
 	nextjs: 'Next.js',
 	nuxt2: 'Nuxt 2',
 	nuxt: 'Nuxt',
-	lume: 'Lume',
 	solidstart: 'SolidStart',
 	'tanstack-start': 'TanStack Start',
 	generic: 'Generic'

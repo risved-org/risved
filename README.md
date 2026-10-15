@@ -10,7 +10,7 @@ Run the install script on an Ubuntu/Debian server (requires root):
 curl -fsSL https://risved.org/install | bash
 ```
 
-This installs Docker, Deno, and Risved, then starts the control plane. Once complete, open the printed URL in your browser to create your admin account, configure your domain, and deploy your first app.
+This installs Docker and Risved, then starts the control plane. Once complete, open the printed URL in your browser to create your admin account, configure your domain, and deploy your first app.
 
 You can customise the install with environment variables:
 
@@ -54,16 +54,13 @@ Risved auto-detects the framework used in your project and generates the appropr
 
 | Framework | Strategy |
 | --- | --- |
-| SvelteKit | Hybrid |
-| Astro | Hybrid |
-| Fresh | Deno |
-| Hono | Deno |
-| Lume | Deno |
+| SvelteKit | Node / Bun |
+| Astro (`@astrojs/node`, standalone) | Node |
 | Next.js | Node |
 | Nuxt | Node |
 | SolidStart | Node |
 | TanStack Start | Node |
-| Generic (Node/Deno) | Auto |
+| Generic JavaScript/TypeScript (including Hono) | Node / Bun |
 
 ## Project files
 

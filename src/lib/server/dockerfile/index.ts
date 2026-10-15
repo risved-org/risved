@@ -1,20 +1,16 @@
 import { runtimeError } from '$lib/project-runtime'
-import { getFrameworkConfig } from './configs';
-import { denoTemplate, hybridTemplate, nodeTemplate } from './templates';
-import type { DockerfileOptions, DockerfileResult } from './types';
+import { getFrameworkConfig } from './configs'
+import { nodeTemplate } from './templates'
+import type { DockerfileOptions, DockerfileResult } from './types'
 
-export type { DockerfileOptions, DockerfileResult } from './types';
-export type { FrameworkBuildConfig, FrameworkConfigs } from './types';
-export { frameworkConfigs, getFrameworkConfig } from './configs';
+export type { DockerfileOptions, DockerfileResult } from './types'
+export type { FrameworkBuildConfig, FrameworkConfigs } from './types'
+export { frameworkConfigs, getFrameworkConfig } from './configs'
 
-const DEFAULT_PORT = 8000;
+const DEFAULT_PORT = 8000
 
 /**
  * Generate a Dockerfile for a detected framework.
- * Uses the framework's tier to select the appropriate template strategy:
- * - deno: Pure Deno container (Fresh, Hono, Lume)
- * - hybrid: Node build + Deno serve (Astro)
- * - node: Node build + Node serve (SvelteKit, Next.js, Nuxt, SolidStart)
  */
 export function generateDockerfile(options: DockerfileOptions): DockerfileResult {
 	const {
@@ -28,24 +24,13 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 		yarnVersion,
 		meta,
 		stripBuildEnv
-	} = options;
+	} = options
 	const runtime = options.runtime ?? 'node'
 	const validationError = runtimeError(runtime, frameworkId, tier)
 	if (validationError) throw new Error(validationError)
-	let config = getFrameworkConfig(frameworkId);
+	let config = getFrameworkConfig(frameworkId)
 	if (runtime === 'bun') {
 		config = { ...config, serveCommand: config.serveCommand.replace(/^node /, 'bun ') }
-	}
-
-	/* Generic framework: adjust commands based on actual tier */
-	if (frameworkId === 'generic' && tier === 'deno') {
-		config = {
-			...config,
-			installCommand: 'deno cache main.ts',
-			buildCommand: '',
-			serveCommand: 'deno run --allow-all main.ts',
-			denoPermissions: '--allow-all'
-		};
 	}
 
 	/* Nuxt 2: replace 'static' in copyPaths with the actual srcDir-relative path */
@@ -64,23 +49,9 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 		config = { ...config, serveCommand: startCommand }
 	}
 
-	let content: string;
+	let content: string
 
 	switch (tier) {
-		case 'deno':
-			content = denoTemplate(config, port, stripBuildEnv);
-			break;
-		case 'hybrid':
-			content = hybridTemplate(
-				config,
-				port,
-				installCommand,
-				buildCommand,
-				lockfile,
-				yarnVersion,
-				stripBuildEnv
-			)
-			break;
 		case 'node':
 			content = nodeTemplate(
 				config,
@@ -92,10 +63,10 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 				stripBuildEnv,
 				runtime
 			)
-			break;
+			break
 		default:
-			throw new Error(`Unknown tier: ${tier}`);
+			throw new Error(`Unknown tier: ${tier}`)
 	}
 
-	return { content, frameworkId, tier };
+	return { content, frameworkId, tier }
 }

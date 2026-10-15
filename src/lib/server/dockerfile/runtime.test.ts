@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { DockerfileOptions } from './types'
 import { generateDockerfile } from './index'
 import { BUN_VERSION } from '$lib/project-runtime'
 
@@ -52,10 +53,13 @@ describe('project runtime', () => {
 			)
 		}
 	)
+})
 
-	it('rejects Bun for a generic Deno project after detection', () => {
-		expect(() =>
-			generateDockerfile({ frameworkId: 'generic', tier: 'deno', runtime: 'bun' })
-		).toThrow('Bun is currently supported')
-	})
+it.each(['deno', 'hybrid'])('rejects a saved unsupported %s tier', tier => {
+	expect(() =>
+		generateDockerfile({
+			frameworkId: 'generic',
+			tier: tier as DockerfileOptions['tier']
+		})
+	).toThrow(`Unknown tier: ${tier}`)
 })

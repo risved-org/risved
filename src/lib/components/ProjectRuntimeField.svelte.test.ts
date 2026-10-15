@@ -33,9 +33,3 @@ it('disables Bun for unsupported frameworks', async () => {
 	render('nextjs')
 	await expect.element(page.getByRole('option', { name: /Bun/ })).toBeDisabled()
 })
-
-it('preserves the framework default for Deno', async () => {
-	render('fresh', 'deno')
-	await expect.element(page.getByRole('combobox', { name: /server runtime/i })).toHaveTextContent('Framework default')
-	expect(new FormData(target).get('runtime')).toBe('node')
-})

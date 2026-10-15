@@ -29,7 +29,6 @@ test.db
 build.db
 
 # Lock files
-deno.lock
 package-lock.json
 
 # Vite
