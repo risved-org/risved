@@ -239,6 +239,7 @@ async function _runPipeline(
 			lockfile: pmResult.lockfile,
 			yarnVersion: pmResult.yarnVersion,
 			buildCommand: config.buildCommand || undefined,
+			runtime: config.runtime,
 			startCommand: config.startCommand || undefined,
 			meta: frameworkMeta,
 			stripBuildEnv: Object.keys(envMap).length > 0

@@ -144,6 +144,7 @@ export const POST: RequestHandler = async (event) => {
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 			tier: (project.tier as Tier) ?? undefined,
 			buildCommand: project.buildCommand,
+			runtime: project.runtime,
 			startCommand: project.startCommand,
 			releaseCommand: project.releaseCommand,
 			postgresEnabled: project.postgresEnabled,
@@ -194,6 +195,7 @@ async function handlePrPreview(
 			previewsEnabled: project.previewsEnabled,
 			previewAutoDelete: project.previewAutoDelete,
 			buildCommand: project.buildCommand,
+			runtime: project.runtime,
 			startCommand: project.startCommand,
 			releaseCommand: project.releaseCommand
 		},

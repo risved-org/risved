@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ProjectRuntimeField from '$lib/components/ProjectRuntimeField.svelte'
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import type { PageData, ActionData } from './$types';
@@ -248,6 +249,8 @@
 								{/each}
 							</select>
 						</div>
+
+						<ProjectRuntimeField {frameworkId} tier={data.frameworks.find(f => f.id === frameworkId)?.tier} />
 
 						<label class="checkbox-row" data-testid="auto-deploy-checkbox">
 							<input type="checkbox" bind:checked={autoDeploy} />

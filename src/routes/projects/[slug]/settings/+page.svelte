@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ProjectRuntimeField from '$lib/components/ProjectRuntimeField.svelte'
 	import { enhance } from '$app/forms'
 	import { goto } from '$app/navigation'
 	import { resolve } from '$app/paths'
@@ -13,6 +14,8 @@
 	let startCommand = $state(data.settings.startCommand)
 	// svelte-ignore state_referenced_locally
 	let releaseCommand = $state(data.settings.releaseCommand)
+	// svelte-ignore state_referenced_locally
+	let runtime = $state(data.settings.runtime)
 	let savingScripts = $state(false)
 
 	/* --- Environment Variables --- */
@@ -605,6 +608,7 @@
 		}}
 	>
 		<fieldset class="scripts-fieldset">
+				<ProjectRuntimeField bind:runtime frameworkId={data.settings.frameworkId} tier={data.settings.tier} settings />
 			<label>Build command
 				<input
 					type="text"
@@ -620,7 +624,7 @@
 					type="text"
 					name="startCommand"
 					bind:value={startCommand}
-					placeholder="e.g. node build/index.js"
+					placeholder={`e.g. ${runtime} build/index.js`}
 					data-testid="start-command-input"
 				/>
 				<span class="field-hint">Runs in the runtime container. Leave blank to use the framework default.</span>
@@ -642,6 +646,9 @@
 				<button type="submit" class="btn-primary btn-lg" disabled={savingScripts} data-testid="save-scripts-btn">
 					{savingScripts ? 'Saving…' : 'Save'}
 				</button>
+				{#if form?.runtimeError}
+						<span class="save-error" role="alert">{form.runtimeError}</span>
+					{/if}
 				{#if form?.scriptsSaved}
 					<span class="save-success">Saved</span>
 				{/if}

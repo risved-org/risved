@@ -24,6 +24,7 @@ export const projects = sqliteTable('projects', {
 	gitConnectionId: text('git_connection_id'),
 	frameworkId: text('framework_id'),
 	tier: text('tier'),
+	runtime: text('runtime', { enum: ['node', 'bun'] }).notNull().default('node'),
 	port: integer('port'),
 	domain: text('domain'),
 	webhookSecret: text('webhook_secret'),

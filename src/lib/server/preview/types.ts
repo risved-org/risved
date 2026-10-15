@@ -1,3 +1,4 @@
+import type { ProjectRuntime } from '$lib/project-runtime'
 /** Minimal project data needed for preview operations. */
 export interface PreviewProject {
 	id: string;
@@ -11,6 +12,7 @@ export interface PreviewProject {
 	previewsEnabled: boolean;
 	previewAutoDelete: boolean;
 	buildCommand: string | null;
+	runtime?: ProjectRuntime
 	startCommand: string | null;
 	releaseCommand: string | null;
 }

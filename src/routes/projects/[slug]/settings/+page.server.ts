@@ -1,3 +1,4 @@
+import { runtimeError, type ProjectRuntime } from '$lib/project-runtime'
 import { error, fail, redirect } from '@sveltejs/kit'
 import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker'
 import {
@@ -80,6 +81,9 @@ export const load = (async ({ params }) => {
 
 	return {
 		settings: {
+			runtime: project.runtime ?? 'node',
+			frameworkId: project.frameworkId,
+			tier: project.tier,
 			buildCommand: project.buildCommand ?? '',
 			startCommand: project.startCommand ?? '',
 			releaseCommand: project.releaseCommand ?? ''
@@ -119,10 +123,13 @@ export const actions: Actions = {
 
 		const proj = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
 		if (proj.length === 0) return fail(404, { error: 'Project not found' })
+		const runtime = formData.get('runtime') ?? proj[0].runtime ?? 'node'
+		const validationError = runtimeError(runtime, proj[0].frameworkId, proj[0].tier)
+		if (validationError) return fail(400, { runtimeError: validationError })
 
 		await db
 			.update(projects)
-			.set({ buildCommand, startCommand, releaseCommand, updatedAt: new Date().toISOString() })
+			.set({ runtime: runtime as ProjectRuntime, buildCommand, startCommand, releaseCommand, updatedAt: new Date().toISOString() })
 			.where(eq(projects.id, proj[0].id))
 
 		return { scriptsSaved: true }

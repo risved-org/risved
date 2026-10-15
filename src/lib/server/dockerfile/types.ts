@@ -1,7 +1,14 @@
+import type { ProjectRuntime } from '$lib/project-runtime'
 import type { FrameworkId, Tier } from '../detection/types';
 
 /** Supported lockfile types for auto-detecting package manager */
-export type Lockfile = 'package-lock.json' | 'bun.lockb' | 'bun.lock' | 'pnpm-lock.yaml' | 'yarn.lock' | null
+export type Lockfile =
+	| 'package-lock.json'
+	| 'bun.lockb'
+	| 'bun.lock'
+	| 'pnpm-lock.yaml'
+	| 'yarn.lock'
+	| null
 
 /** Options for generating a Dockerfile */
 export interface DockerfileOptions {
@@ -15,6 +22,8 @@ export interface DockerfileOptions {
 	installCommand?: string;
 	/** Custom build command override (default: npm run build) */
 	buildCommand?: string;
+	/** Server runtime; omitted values preserve the framework default. */
+	runtime?: ProjectRuntime
 	/** Custom start/serve command override (default: framework-specific) */
 	startCommand?: string;
 	/** Detected lockfile in the project root */

@@ -1,3 +1,4 @@
+import type { ProjectRuntime } from '$lib/project-runtime'
 import type { FrameworkId, Tier } from '../detection/types';
 
 /** Pipeline execution phases in order */
@@ -42,6 +43,7 @@ export interface PipelineConfig {
 	/** Override the detected build command. Null/empty uses framework default. */
 	buildCommand?: string | null;
 	/** Override the detected start command. Null/empty uses framework default. */
+	runtime?: ProjectRuntime
 	startCommand?: string | null;
 	/** Shell command to run once per deploy before traffic switches. Null/empty skips the phase. */
 	releaseCommand?: string | null;
@@ -99,7 +101,11 @@ export interface DockerRunOptions {
 
 /** Interface for shell command execution (allows mocking in tests) */
 export interface CommandRunner {
-	exec(cmd: string, args: string[], options?: { cwd?: string; env?: Record<string, string>; onLine?: (line: string) => void }): Promise<CommandResult>;
+	exec(
+		cmd: string,
+		args: string[],
+		options?: { cwd?: string; env?: Record<string, string>; onLine?: (line: string) => void }
+	): Promise<CommandResult>
 }
 
 export interface CommandResult {

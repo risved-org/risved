@@ -131,6 +131,7 @@ export const actions: Actions = {
 					frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 					tier: (project.tier as Tier) ?? undefined,
 					buildCommand: project.buildCommand,
+					runtime: project.runtime,
 					startCommand: project.startCommand,
 					releaseCommand: project.releaseCommand,
 					postgresEnabled: project.postgresEnabled,
