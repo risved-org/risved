@@ -43,7 +43,7 @@ export async function allocatePreviewPort(): Promise<number> {
 		.from(previewDeployments)
 		.where(eq(previewDeployments.status, 'active'))
 
-	const usedSet = new Set(used.map(r => r.port).filter((p): p is number => p !== null))
+	const usedSet = new Set(used.map((r) => r.port).filter((p): p is number => p !== null))
 
 	for (let port = PREVIEW_PORT_MIN; port <= PREVIEW_PORT_MAX; port++) {
 		if (!usedSet.has(port)) {
@@ -139,6 +139,7 @@ export async function createPreview(
 			isPreview: true,
 			frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 			tier: (project.tier as Tier) ?? undefined,
+			rootDirectory: project.rootDirectory,
 			buildCommand: project.buildCommand,
 			runtime: project.runtime,
 			startCommand: project.startCommand,
@@ -147,7 +148,7 @@ export async function createPreview(
 		},
 		createCommandRunner()
 	)
-		.then(async result => {
+		.then(async (result) => {
 			await db
 				.update(previewDeployments)
 				.set({
@@ -262,30 +263,6 @@ export async function cleanupPrPreviews(
 }
 
 /**
- * Clean up every preview of a project and drop its rows.
- *
- * Used when the project itself is deleted: without this its preview
- * containers, data volumes, Caddy routes and rows outlive it, and nothing
- * else ever looks at them again.
- */
-export async function cleanupProjectPreviews(
-	projectId: string,
-	caddy?: CaddyClient
-): Promise<number> {
-	const rows = await db
-		.select()
-		.from(previewDeployments)
-		.where(eq(previewDeployments.projectId, projectId))
-
-	for (const preview of rows) {
-		await cleanupPreview(preview.id, caddy).catch(() => {})
-	}
-
-	await db.delete(previewDeployments).where(eq(previewDeployments.projectId, projectId))
-	return rows.length
-}
-
-/**
  * Clean up every preview of a project (when the project is deleted).
  * Tears down each PR's containers, volumes and routes via cleanupPrPreviews.
  */
@@ -296,17 +273,17 @@ export async function cleanupProjectPreviews(
 	const rows = await db
 		.select({ prNumber: previewDeployments.prNumber, status: previewDeployments.status })
 		.from(previewDeployments)
-		.where(eq(previewDeployments.projectId, projectId));
+		.where(eq(previewDeployments.projectId, projectId))
 
 	const prNumbers = new Set(
 		rows.filter((r) => r.status === 'active' || r.status === 'building').map((r) => r.prNumber)
-	);
+	)
 
-	let cleaned = 0;
+	let cleaned = 0
 	for (const prNumber of prNumbers) {
-		cleaned += await cleanupPrPreviews(projectId, prNumber, caddy);
+		cleaned += await cleanupPrPreviews(projectId, prNumber, caddy)
 	}
-	return cleaned;
+	return cleaned
 }
 
 /**

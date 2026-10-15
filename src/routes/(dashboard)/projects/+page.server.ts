@@ -74,6 +74,7 @@ export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
 		return {
 			id: p.id,
 			name: p.name,
+			rootDirectory: p.rootDirectory,
 			slug: p.slug,
 			framework: p.frameworkId ? (_FRAMEWORK_NAMES[p.frameworkId] ?? p.frameworkId) : null,
 			frameworkId: p.frameworkId,

@@ -1,4 +1,6 @@
 import { withProjectLock } from './project-lock'
+import { resolveAppDirectory } from '../app-directory'
+import { resolveWorkspace } from '../workspace'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { writeFile, mkdir, rm } from 'node:fs/promises'
@@ -143,6 +145,13 @@ async function _runPipeline(
 			await db.update(deployments).set({ commitSha }).where(eq(deployments.id, deploymentId))
 		}
 
+		const appDir = config.rootDirectory
+			? await resolveAppDirectory(cloneDir, config.rootDirectory)
+			: cloneDir
+		const workspace = config.rootDirectory
+			? await resolveWorkspace(cloneDir, config.rootDirectory)
+			: null
+
 		/* Resolve env vars (started in parallel with clone) */
 		const envMap = await envVarsPromise
 		const projectEnvCount = Object.keys(envMap).length
@@ -154,7 +163,7 @@ async function _runPipeline(
 
 		{
 			emit('detect', 'Detecting framework…')
-			const ctx = createFsContext(cloneDir)
+			const ctx = createFsContext(appDir)
 			const detection = await detectFramework(ctx)
 			if (!detection.detected || !detection.framework) {
 				if (frameworkId && tier) {
@@ -205,7 +214,9 @@ async function _runPipeline(
 		   cached from onboarding, because the user may have changed
 		   lockfiles since then. Warnings surface in the build log so the
 		   user can see them in the deploy UI. */
-		const pmResult = await detectPackageManager(cloneDir)
+		const pmResult = await detectPackageManager(
+			workspace ? join(cloneDir, workspace.root) : cloneDir
+		)
 		const pmLabel =
 			pmResult.packageManager + (pmResult.yarnVersion ? ` (${pmResult.yarnVersion})` : '')
 		const pmSource = pmResult.lockfile ? `from ${pmResult.lockfile}` : 'no lockfile — using default'
@@ -216,6 +227,8 @@ async function _runPipeline(
 
 		emit('build', 'Generating Dockerfile…')
 		const dockerfile = generateDockerfile({
+			workspace: workspace ?? undefined,
+			packageManagerDetection: pmResult,
 			frameworkId,
 			tier,
 			lockfile: pmResult.lockfile,
@@ -226,6 +239,12 @@ async function _runPipeline(
 			meta: frameworkMeta,
 			stripBuildEnv: Object.keys(envMap).length > 0
 		})
+		if (workspace && workspace.root !== workspace.app && !pmResult.lockfile) {
+			throw new PipelineError(
+				'build',
+				'No lockfile found at the workspace root. Commit a lockfile generated from the workspace root before deploying.'
+			)
+		}
 		const dockerfileContent = dockerfile.content
 
 		/* Write all env vars into a build-time .env file so that:
@@ -242,7 +261,7 @@ async function _runPipeline(
 			const dotenv = buildEnv
 				.map(([k, v]) => `${k}="${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
 				.join('\n')
-			await writeFile(join(cloneDir, '.env'), dotenv)
+			await writeFile(join(appDir, '.env'), dotenv)
 			emit('build', `Injecting ${buildEnv.length} env var(s) into build`)
 		}
 
@@ -252,6 +271,9 @@ async function _runPipeline(
 			[
 				'.git',
 				'node_modules',
+				...(workspace
+					? ['**/node_modules', '**/.svelte-kit', '**/.next', '**/.nuxt', '**/.output', '**/dist']
+					: []),
 				'.svelte-kit',
 				'.next',
 				'.nuxt',

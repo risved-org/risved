@@ -71,6 +71,13 @@
       "when": 1792756800000,
       "tag": "0009_domain_paths",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793869488187,
+      "tag": "0010_app_directory",
+      "breakpoints": true
     }
   ]
 }

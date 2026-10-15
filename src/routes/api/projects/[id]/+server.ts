@@ -1,4 +1,5 @@
 import { hasRootConflict, hasExplicitRootConflict } from '$lib/server/domain-conflicts'
+import { parseAppDirectory } from '$lib/server/app-directory'
 import { json } from '@sveltejs/kit'
 import { db } from '$lib/server/db'
 import { projects, deployments, envVars, domains, previewDeployments } from '$lib/server/db/schema'
@@ -17,8 +18,6 @@ import {
 import { removeProjectImages } from '$lib/server/cleanup/docker-prune'
 import { cleanupProjectPreviews } from '$lib/server/preview'
 import { createCaddyClient } from '$lib/server/caddy'
-import { removeProjectImages } from '$lib/server/cleanup/docker-prune'
-import { cleanupProjectPreviews } from '$lib/server/preview'
 import { getSetting } from '$lib/server/settings'
 import type { RequestHandler } from './$types'
 
@@ -71,6 +70,14 @@ export const PUT: RequestHandler = async event => {
 
 	const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
 	const { name, branch, framework_id, domain } = body as Record<string, unknown>
+
+	if ('root_directory' in body) {
+		try {
+			updates.rootDirectory = parseAppDirectory(body.root_directory)
+		} catch (error) {
+			return jsonError(400, (error as Error).message)
+		}
+	}
 
 	if (name !== undefined) {
 		if (typeof name !== 'string' || name.trim().length === 0) {
@@ -133,9 +140,6 @@ export const DELETE: RequestHandler = async event => {
 		await dockerVolumeRemove(runner, projectVolumeName(id))
 		await dockerStop(runner, managedPostgresContainerName(id), 10)
 		await dockerVolumeRemove(runner, managedPostgresVolumeName(id))
-		/* Images are tagged, so neither the routine prune nor `docker image
-		   prune` reclaims them once the project row is gone */
-		await removeProjectImages(runner, project.slug)
 	} catch {
 		/* Container may not be running — ignore */
 	}

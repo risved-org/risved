@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ProjectRuntime } from '$lib/project-runtime'
 	import ProjectRuntimeField from '$lib/components/ProjectRuntimeField.svelte'
+	import AppDirectoryField from '$lib/components/AppDirectoryField.svelte'
 	import { untrack } from 'svelte'
 	import { enhance } from '$app/forms'
 	import { resolve } from '$app/paths'
@@ -15,7 +16,7 @@
 	// svelte-ignore state_referenced_locally
 	let branch = $state(form?.branch ?? 'main')
 	// svelte-ignore state_referenced_locally
-	let rootDir = $state(form?.rootDir ?? '/')
+	let rootDir = $state(form?.rootDir ?? '')
 	// svelte-ignore state_referenced_locally
 	let projectName = $state(form?.projectName ?? '')
 	// svelte-ignore state_referenced_locally
@@ -382,16 +383,6 @@
 								data-testid="branch-input"
 							/>
 						</label>
-						<label
-							>Root directory
-							<input
-								name="rootDir"
-								type="text"
-								bind:value={rootDir}
-								placeholder="/"
-								data-testid="root-dir-input"
-							/>
-						</label>
 					</div>
 				</fieldset>
 			{/if}
@@ -400,10 +391,11 @@
 			{#if activeTab === 'provider'}
 				<input type="hidden" name="repoUrl" value={repoUrl} />
 				<input type="hidden" name="branch" value={branch} />
-				<input type="hidden" name="rootDir" value={rootDir} />
 				<input type="hidden" name="connectionId" value={selectedConnectionId} />
 			{/if}
 		</section>
+
+		<AppDirectoryField bind:value={rootDir} />
 
 		<!-- Framework -->
 		<section class="section" data-testid="detection-section">
@@ -434,7 +426,7 @@
 				bind:buildCommand
 				bind:startCommand
 				bind:releaseCommand
-				{detection}
+				detection={rootDir ? null : detection}
 			/>
 		</section>
 

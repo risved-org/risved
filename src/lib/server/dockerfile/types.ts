@@ -1,4 +1,6 @@
 import type { ProjectRuntime } from '$lib/project-runtime'
+import type { AppWorkspace } from '../workspace'
+import type { DetectionResult } from '../detect-package-manager'
 import type { FrameworkId, Tier } from '../detection/types'
 
 /** Supported lockfile types for auto-detecting package manager */
@@ -12,6 +14,8 @@ export type Lockfile =
 
 /** Options for generating a Dockerfile */
 export interface DockerfileOptions {
+	workspace?: AppWorkspace
+	packageManagerDetection?: DetectionResult
 	/** Detected or overridden framework */
 	frameworkId: FrameworkId
 	/** Runtime tier from detection */

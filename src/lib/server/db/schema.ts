@@ -21,6 +21,7 @@ export const projects = sqliteTable('projects', {
 	slug: text('slug').notNull().unique(),
 	repoUrl: text('repo_url').notNull(),
 	branch: text('branch').notNull().default('main'),
+	rootDirectory: text('root_directory'),
 	gitConnectionId: text('git_connection_id'),
 	frameworkId: text('framework_id'),
 	tier: text('tier'),

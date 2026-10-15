@@ -16,7 +16,9 @@ const { limitMock, whereMock, orderByMock, updateSetMock, insertValuesMock, ensu
 
 vi.mock('$lib/server/db', () => {
 	const db = {
-		select: vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ where: whereMock, orderBy: orderByMock }) }),
+		select: vi.fn().mockReturnValue({
+			from: vi.fn().mockReturnValue({ where: whereMock, orderBy: orderByMock })
+		}),
 		insert: vi.fn().mockReturnValue({ values: insertValuesMock }),
 		update: vi.fn().mockReturnValue({ set: updateSetMock }),
 		delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
@@ -257,6 +259,31 @@ describe('settings saveScripts action', () => {
 		limitMock.mockResolvedValue([])
 		whereMock.mockReturnValue({ limit: limitMock, orderBy: orderByMock })
 		dbAny.select.mockReturnValue({ from: vi.fn().mockReturnValue({ where: whereMock }) })
+	})
+
+	it('saves and clears the app directory without changing build commands', async () => {
+		for (const [rootDir, expected] of [
+			['apps/web', 'apps/web'],
+			['', null]
+		]) {
+			limitMock.mockResolvedValueOnce([sampleProject])
+			const result = await actions.saveSource(
+				makeFormEvent({ slug: 'test-app' }, { rootDir: rootDir! })
+			)
+			expect(result).toMatchObject({ sourceSaved: true })
+			expect(updateSetMock).toHaveBeenLastCalledWith({
+				rootDirectory: expected,
+				updatedAt: expect.any(String)
+			})
+		}
+	})
+
+	it('rejects traversal without saving source settings', async () => {
+		const result = await actions.saveSource(
+			makeFormEvent({ slug: 'test-app' }, { rootDir: '../outside' })
+		)
+		expect(result).toMatchObject({ status: 400 })
+		expect(updateSetMock).not.toHaveBeenCalled()
 	})
 
 	it('returns 404 when project not found', async () => {

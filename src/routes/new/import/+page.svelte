@@ -1,91 +1,92 @@
 <script lang="ts">
 	import ProjectRuntimeField from '$lib/components/ProjectRuntimeField.svelte'
-	import { enhance } from '$app/forms';
-	import { resolve } from '$app/paths';
-	import type { PageData, ActionData } from './$types';
+	import AppDirectoryField from '$lib/components/AppDirectoryField.svelte'
+	import { enhance } from '$app/forms'
+	import { resolve } from '$app/paths'
+	import type { PageData, ActionData } from './$types'
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props()
 
 	// svelte-ignore state_referenced_locally
-	let selectedConnectionId = $state(data.connections[0]?.id ?? '');
-	let searchQuery = $state('');
-	let searching = $state(false);
-	let repos = $state<Repo[]>([]);
-	let selectedRepo = $state<Repo | null>(null);
-	let projectName = $state('');
-	let branch = $state('');
-	let frameworkId = $state('');
-	let autoDeploy = $state(true);
-	let deploying = $state(false);
+	let selectedConnectionId = $state(data.connections[0]?.id ?? '')
+	let searchQuery = $state('')
+	let searching = $state(false)
+	let repos = $state<Repo[]>([])
+	let selectedRepo = $state<Repo | null>(null)
+	let projectName = $state('')
+	let branch = $state('')
+	let frameworkId = $state('')
+	let autoDeploy = $state(true)
+	let deploying = $state(false)
 
 	interface Repo {
-		id: number;
-		fullName: string;
-		name: string;
-		owner: string;
-		private: boolean;
-		defaultBranch: string;
-		htmlUrl: string;
-		cloneUrl: string;
-		description: string | null;
-		language: string | null;
-		updatedAt: string;
+		id: number
+		fullName: string
+		name: string
+		owner: string
+		private: boolean
+		defaultBranch: string
+		htmlUrl: string
+		cloneUrl: string
+		description: string | null
+		language: string | null
+		updatedAt: string
 	}
 
-	const selectedConnection = $derived(data.connections.find((c) => c.id === selectedConnectionId));
+	const selectedConnection = $derived(data.connections.find((c) => c.id === selectedConnectionId))
 
 	const providerLabel: Record<string, string> = {
 		github: 'GitHub',
 		gitlab: 'GitLab',
 		forgejo: 'Forgejo'
-	};
+	}
 
 	async function loadRepos() {
-		if (!selectedConnectionId) return;
-		searching = true;
+		if (!selectedConnectionId) return
+		searching = true
 		try {
-			const provider = selectedConnection?.provider ?? 'github';
-			const params = new URLSearchParams({ connectionId: selectedConnectionId });
-			if (searchQuery.trim()) params.set('search', searchQuery.trim());
+			const provider = selectedConnection?.provider ?? 'github'
+			const params = new URLSearchParams({ connectionId: selectedConnectionId })
+			if (searchQuery.trim()) params.set('search', searchQuery.trim())
 
-			const res = await fetch(`/api/git/${provider}/repos?${params}`);
+			const res = await fetch(`/api/git/${provider}/repos?${params}`)
 			if (res.ok) {
-				repos = await res.json();
+				repos = await res.json()
 			}
 		} finally {
-			searching = false;
+			searching = false
 		}
 	}
 
 	function selectRepo(repo: Repo) {
-		selectedRepo = repo;
-		projectName = repo.name;
-		branch = repo.defaultBranch;
+		selectedRepo = repo
+		projectName = repo.name
+		branch = repo.defaultBranch
 	}
 
 	function clearSelection() {
-		selectedRepo = null;
-		projectName = '';
-		branch = '';
-		frameworkId = '';
+		selectedRepo = null
+		projectName = ''
+		branch = ''
+		frameworkId = ''
 	}
 
 	function formatDate(iso: string): string {
-		const d = new Date(iso);
-		const now = new Date();
-		const diff = now.getTime() - d.getTime();
-		const days = Math.floor(diff / 86400000);
-		if (days === 0) return 'today';
-		if (days === 1) return 'yesterday';
-		if (days < 30) return `${days}d ago`;
-		return d.toLocaleDateString();
+		const d = new Date(iso)
+		const now = new Date()
+		const diff = now.getTime() - d.getTime()
+		const days = Math.floor(diff / 86400000)
+		if (days === 0) return 'today'
+		if (days === 1) return 'yesterday'
+		if (days < 30) return `${days}d ago`
+		return d.toLocaleDateString()
 	}
 
 	$effect(() => {
 		if (selectedConnectionId) {
-			loadRepos();
+			loadRepos()
 		}
-	});
+	})
 </script>
 
 <svelte:head>
@@ -198,11 +199,11 @@
 				<form
 					method="post"
 					use:enhance={() => {
-						deploying = true;
+						deploying = true
 						return async ({ update }) => {
-							deploying = false;
-							await update();
-						};
+							deploying = false
+							await update()
+						}
 					}}
 				>
 					<input type="hidden" name="repoUrl" value={selectedRepo.htmlUrl} />
@@ -250,7 +251,11 @@
 							</select>
 						</div>
 
-						<ProjectRuntimeField {frameworkId} tier={data.frameworks.find(f => f.id === frameworkId)?.tier} />
+						<ProjectRuntimeField
+							{frameworkId}
+							tier={data.frameworks.find((f) => f.id === frameworkId)?.tier}
+						/>
+						<AppDirectoryField />
 
 						<label class="checkbox-row" data-testid="auto-deploy-checkbox">
 							<input type="checkbox" bind:checked={autoDeploy} />
@@ -288,7 +293,7 @@
 	}
 
 	.back-link {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 		display: inline-block;
 		margin-bottom: var(--space-2);
@@ -349,7 +354,7 @@
 		text-align: left;
 		color: var(--color-text-0);
 		width: 100%;
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 	.repo-row:last-child {
 		border-bottom: none;
@@ -369,7 +374,7 @@
 		color: var(--color-text-0);
 	}
 	.repo-desc {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 		white-space: nowrap;
 		overflow: hidden;
@@ -382,15 +387,15 @@
 		flex-shrink: 0;
 	}
 	.repo-lang {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 	.repo-date {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 	.repo-badge {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
 		background: color-mix(in srgb, var(--color-text-0) 6%, transparent);
@@ -405,7 +410,7 @@
 
 	.loading-hint {
 		font-weight: 400;
-		font-size: .875rem;
+		font-size: 0.875rem;
 		text-transform: none;
 		letter-spacing: 0;
 		margin-left: var(--space-2);
@@ -425,20 +430,20 @@
 	.form-input {
 		background: var(--color-bg-0);
 		border-width: 1px;
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 
 	.checkbox-row {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-1);
 		cursor: pointer;
 	}
 
 	.form-error {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-failed);
 	}
 

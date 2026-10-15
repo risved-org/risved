@@ -1,11 +1,15 @@
 <script lang="ts">
 	import ProjectRuntimeField from '$lib/components/ProjectRuntimeField.svelte'
+	import AppDirectoryField from '$lib/components/AppDirectoryField.svelte'
 	import { enhance } from '$app/forms'
 	import { goto } from '$app/navigation'
 	import { resolve } from '$app/paths'
 	import type { ActionData, PageData } from './$types'
 
 	let { data, form }: { data: PageData; form: ActionData } = $props()
+
+	// svelte-ignore state_referenced_locally
+	let rootDirectory = $state(data.settings.rootDirectory)
 
 	/* --- Build & Runtime --- */
 	// svelte-ignore state_referenced_locally
@@ -612,6 +616,27 @@
 	</section>
 
 	<!-- Build & Runtime -->
+	<section data-testid="source-section">
+		<h2 class="section-title">Source</h2>
+		<form
+			method="POST"
+			action="?/saveSource"
+			use:enhance={() =>
+				async ({ update }) => {
+					await update({ reset: false })
+				}}
+		>
+			<fieldset class="scripts-fieldset">
+				<AppDirectoryField bind:value={rootDirectory} />
+				{#if form?.sourceError}<p role="alert">{form.sourceError}</p>{/if}
+				{#if form?.sourceSaved}<p role="status">Source saved. Changes apply on next deploy.</p>{/if}
+				<footer class="scripts-actions">
+					<button type="submit" class="btn-primary btn-lg">Save source</button>
+				</footer>
+			</fieldset>
+		</form>
+	</section>
+
 	<section data-testid="scripts-section">
 		<h2 class="section-title">Build & Runtime</h2>
 		<form

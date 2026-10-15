@@ -4,6 +4,7 @@ export interface PreviewProject {
 	id: string;
 	slug: string;
 	repoUrl: string;
+	rootDirectory?: string | null
 	branch: string;
 	gitConnectionId?: string | null;
 	frameworkId: string | null;

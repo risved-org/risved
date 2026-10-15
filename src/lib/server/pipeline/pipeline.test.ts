@@ -57,6 +57,17 @@ vi.mock('$lib/server/crypto', () => ({
 	safeDecrypt: vi.fn((v: string) => v)
 }))
 
+vi.mock('../app-directory', () => ({
+	resolveAppDirectory: vi.fn(async (repo: string, app: string) => `${repo}/${app}`)
+}))
+vi.mock('../workspace', () => ({
+	resolveWorkspace: vi.fn(async (_repo: string, app: string) => ({
+		root: app,
+		app,
+		buildPackages: []
+	}))
+}))
+
 vi.mock('../detection', () => ({
 	detectFramework: vi.fn(),
 	createFsContext: vi.fn().mockReturnValue({})
@@ -84,7 +95,8 @@ vi.mock('node:fs/promises', () => ({
 
 import { runPipeline } from './index'
 import { supersedeLiveDeployments } from './supersede'
-import { detectFramework } from '../detection'
+import { detectFramework, createFsContext } from '../detection'
+import { resolveAppDirectory } from '../app-directory'
 import { resolveCloneToken } from '../git-token'
 import { getSetting } from '$lib/server/settings'
 import { db } from '$lib/server/db'
@@ -157,6 +169,36 @@ describe('runPipeline', () => {
 		expect(generateDockerfile).toHaveBeenCalledWith(
 			expect.objectContaining({ runtime: 'bun', frameworkId: 'sveltekit', tier: 'node' })
 		)
+	})
+
+	it('detects the selected app and forwards its workspace to the build', async () => {
+		const result = await runPipeline(
+			makeConfig({ rootDirectory: 'apps/web' }),
+			makeSuccessRunner(),
+			{
+				caddy: makeCaddy() as never,
+				fetchFn: makeHealthyFetch()
+			}
+		)
+		expect(result.success).toBe(true)
+		expect(createFsContext).toHaveBeenCalledWith(expect.stringMatching(/repo\/apps\/web$/))
+		expect(generateDockerfile).toHaveBeenCalledWith(
+			expect.objectContaining({ workspace: expect.objectContaining({ app: 'apps/web' }) })
+		)
+	})
+
+	it('rejects a missing app before building', async () => {
+		vi.mocked(resolveAppDirectory).mockRejectedValueOnce(
+			new Error('App directory does not exist on this branch')
+		)
+		const result = await runPipeline(
+			makeConfig({ rootDirectory: 'apps/missing' }),
+			makeSuccessRunner(),
+			{ caddy: makeCaddy() as never }
+		)
+		expect(result.success).toBe(false)
+		expect(result.error).toContain('does not exist on this branch')
+		expect(generateDockerfile).not.toHaveBeenCalled()
 	})
 
 	it('runs all phases successfully', async () => {

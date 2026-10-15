@@ -49,8 +49,8 @@ it('upgrades a migrated v0.23.0 database exactly once while preserving MCP crede
 		const journal = JSON.parse(readFileSync('drizzle/meta/_journal.json', 'utf8')) as {
 			entries: Array<{ idx: number; tag: string; when: number }>
 		}
-		const routing = journal.entries.at(-1)!
-		const mcp = journal.entries.at(-2)!
+		const routing = journal.entries.find(entry => entry.idx === 9)!
+		const mcp = journal.entries.find(entry => entry.idx === 8)!
 		expect([mcp.idx, mcp.tag, routing.idx, routing.tag]).toEqual([
 			8,
 			'0008_mcp_oauth_and_api_keys',
@@ -65,9 +65,9 @@ it('upgrades a migrated v0.23.0 database exactly once while preserving MCP crede
 		await mkdir(join(directory, 'meta'))
 		await writeFile(
 			join(directory, 'meta/_journal.json'),
-			JSON.stringify({ ...journal, entries: journal.entries.slice(0, -1) })
+			JSON.stringify({ ...journal, entries: journal.entries.filter(entry => entry.idx <= 8) })
 		)
-		for (const entry of journal.entries.slice(0, -1)) {
+		for (const entry of journal.entries.filter(entry => entry.idx <= 8)) {
 			await copyFile(`drizzle/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`))
 		}
 		const database = drizzle(client)

@@ -29,7 +29,6 @@ import {
 	isDiskLow,
 	pruneProjectImages,
 	pruneControlPlaneImages,
-	removeProjectImages,
 	pruneDockerResources,
 	removeProjectImages,
 	LOW_DISK_FREE_BYTES,

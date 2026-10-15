@@ -1,5 +1,6 @@
 import { createCaddyClient } from '$lib/server/caddy'
 import { runtimeError, type ProjectRuntime } from '$lib/project-runtime'
+import { parseAppDirectory } from '$lib/server/app-directory'
 import { error, fail, redirect } from '@sveltejs/kit'
 import {
 	createCommandRunner,
@@ -90,6 +91,7 @@ export const load = (async ({ params }) => {
 			runtime: project.runtime ?? 'node',
 			frameworkId: project.frameworkId,
 			tier: project.tier,
+			rootDirectory: project.rootDirectory ?? '',
 			buildCommand: project.buildCommand ?? '',
 			startCommand: project.startCommand ?? '',
 			releaseCommand: project.releaseCommand ?? ''
@@ -122,6 +124,26 @@ export const load = (async ({ params }) => {
 }) satisfies PageServerLoad
 
 export const actions: Actions = {
+	saveSource: async ({ params, request }) => {
+		const form = await request.formData()
+		let rootDirectory: string | null
+		try {
+			rootDirectory = parseAppDirectory(form.get('rootDir'))
+		} catch (error) {
+			return fail(400, { sourceError: (error as Error).message })
+		}
+		const [project] = await db
+			.select()
+			.from(projects)
+			.where(eq(projects.slug, params.slug))
+			.limit(1)
+		if (!project) return fail(404, { sourceError: 'Project not found' })
+		await db
+			.update(projects)
+			.set({ rootDirectory, updatedAt: new Date().toISOString() })
+			.where(eq(projects.id, project.id))
+		return { sourceSaved: true }
+	},
 	saveScripts: async ({ params, request }) => {
 		const { slug } = params
 		const formData = await request.formData()
