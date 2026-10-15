@@ -63,3 +63,18 @@ it.each(['deno', 'hybrid'])('rejects a saved unsupported %s tier', tier => {
 		})
 	).toThrow(`Unknown tier: ${tier}`)
 })
+
+it('uses node_modules for Astro with Yarn Berry before installation and pruning', () => {
+	const { content } = generateDockerfile({
+		frameworkId: 'astro',
+		tier: 'node',
+		lockfile: 'yarn.lock',
+		yarnVersion: 'berry'
+	})
+	expect(content.indexOf('ENV YARN_NODE_LINKER=node-modules')).toBeLessThan(
+		content.indexOf('RUN yarn install --immutable')
+	)
+	expect(content).toContain('FROM build AS deps')
+	expect(content).toContain('RUN yarn workspaces focus --production --all')
+	expect(content).toContain('COPY --from=deps /app/node_modules ./node_modules')
+})

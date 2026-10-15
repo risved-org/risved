@@ -77,6 +77,9 @@ export function nodeTemplate(
 		'WORKDIR /app',
 		'',
 		copyLine,
+		...(needsNodeModules && lockfile === 'yarn.lock' && yarnVersion === 'berry'
+			? ['ENV YARN_NODE_LINKER=node-modules']
+			: []),
 		`RUN ${install}`,
 		'',
 		'COPY . .',
