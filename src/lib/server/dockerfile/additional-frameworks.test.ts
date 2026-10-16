@@ -70,3 +70,11 @@ it.each([0, 8])('refreshes only outdated Node 24 builders (age %i days)', async 
 	if (days > 7)
 		expect(calls[1]).toEqual(expect.arrayContaining(['--pull', '--no-cache', 'NODE_VERSION=24']))
 })
+
+it('rejects missing React Router SSR output unless a custom server is configured', () => {
+	const options = { frameworkId: 'react-router' as const, tier: 'node' as const }
+	expect(generateDockerfile(options).content).toContain('RUN test -f build/server/index.js')
+	expect(
+		generateDockerfile({ ...options, startCommand: 'node build/custom.js' }).content
+	).not.toContain('RUN test -f')
+})

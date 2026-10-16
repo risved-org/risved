@@ -81,6 +81,12 @@ export function nodeTemplate(
 		`RUN ${build}${ensureCmd}`
 	]
 
+	if (config.requiredServerFile) {
+		lines.push(
+			`RUN test -f ${config.requiredServerFile} || (echo "Missing ${config.requiredServerFile}: enable SSR or configure a custom start command for your output." >&2; exit 1)`
+		)
+	}
+
 	/* Prune in a separate stage so --target build still has dev deps */
 	let copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {

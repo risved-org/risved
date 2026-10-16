@@ -76,6 +76,7 @@ export const frameworkConfigs: FrameworkConfigs = {
 		buildCommand: 'npm run build',
 		installCommand: 'npm ci',
 		serveCommand: 'node node_modules/@react-router/serve/bin.cjs build/server/index.js',
+		requiredServerFile: 'build/server/index.js',
 		runtimeEnv: { NODE_ENV: 'production', HOST: '0.0.0.0', PORT: '3000' },
 		copyPaths: ['build', 'package.json', 'node_modules']
 	},
