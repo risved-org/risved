@@ -49,3 +49,24 @@ it('runs Elysia build and server under Bun when selected', () => {
 	expect(content).toContain('CMD ["bun", "dist/index.js"]')
 	expect(content).toContain('ENV PORT=3000')
 })
+
+it.each([0, 8])('refreshes only outdated Node 24 builders (age %i days)', async (days) => {
+	const calls: string[][] = []
+	const result = await ensureWarmImage(
+		{
+			async exec(_command, args) {
+				calls.push(args)
+				return {
+					exitCode: 0,
+					stdout: new Date(Date.now() - days * 86400000).toISOString(),
+					stderr: ''
+				}
+			}
+		},
+		{ nodeVersion: 24 }
+	)
+	expect(result.built).toBe(days > 7)
+	expect(calls).toHaveLength(days > 7 ? 2 : 1)
+	if (days > 7)
+		expect(calls[1]).toEqual(expect.arrayContaining(['--pull', '--no-cache', 'NODE_VERSION=24']))
+})
