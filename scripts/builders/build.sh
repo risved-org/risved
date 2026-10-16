@@ -8,6 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "Building risved-node-build (unified Node + Corepack pnpm/yarn + Bun)..."
 docker build -t risved-node-build:22 -f "$SCRIPT_DIR/node-build.Dockerfile" "$SCRIPT_DIR"
 
+# Refresh the Adonis builder once it has been created on demand.
+if docker image inspect risved-node-build:24 >/dev/null 2>&1; then
+  docker build --build-arg NODE_VERSION=24 -t risved-node-build:24 -f "$SCRIPT_DIR/node-build.Dockerfile" "$SCRIPT_DIR"
+fi
+
 # The legacy per-manager images below are retained during the migration to the
 # unified builder. Once the unified image has shipped through one full Sunday
 # rebuild cycle, drop them from this script and delete the registry images

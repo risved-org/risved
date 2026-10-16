@@ -62,6 +62,35 @@ export const frameworkConfigs: FrameworkConfigs = {
 		copyPaths: ['.output']
 	},
 
+	elysia: {
+		outputDir: 'dist',
+		buildCommand: 'npm run build',
+		installCommand: 'npm ci',
+		serveCommand: 'node dist/index.js',
+		runtimeEnv: { NODE_ENV: 'production', HOST: '0.0.0.0', PORT: '3000' },
+		copyPaths: ['dist', 'package.json', 'node_modules']
+	},
+
+	'react-router': {
+		outputDir: 'build',
+		buildCommand: 'npm run build',
+		installCommand: 'npm ci',
+		serveCommand: 'node node_modules/@react-router/serve/bin.cjs build/server/index.js',
+		runtimeEnv: { NODE_ENV: 'production', HOST: '0.0.0.0', PORT: '3000' },
+		copyPaths: ['build', 'package.json', 'node_modules']
+	},
+
+	adonisjs: {
+		outputDir: 'build',
+		buildCommand: 'npm run build',
+		installCommand: 'npm ci',
+		serveCommand: 'node bin/server.js',
+		nodeVersion: 24,
+		runtimeWorkdir: '/app/build',
+		runtimeEnv: { NODE_ENV: 'production', HOST: '0.0.0.0', PORT: '3000' },
+		copyPaths: ['build', 'node_modules']
+	},
+
 	generic: {
 		outputDir: '.',
 		buildCommand: 'npm run build',

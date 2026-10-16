@@ -58,6 +58,10 @@ export interface FrameworkBuildConfig {
 	serveCommand: string
 	/** Files/dirs to copy to the runtime stage */
 	copyPaths: string[]
+	/** Node major used by both builder and runtime. */
+	nodeVersion?: 22 | 24
+	/** Working directory for the production entrypoint. */
+	runtimeWorkdir?: string
 	/** Default server environment, overridable by project settings. */
 	runtimeEnv?: Record<string, string>
 }

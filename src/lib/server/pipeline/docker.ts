@@ -5,8 +5,6 @@ import type { CommandRunner, DockerBuildOptions, DockerRunOptions } from './type
 
 const DOCKER_NETWORK = 'risved';
 
-const NODE_BUILD_IMAGE = 'risved-node-build:22';
-
 // eslint-disable-next-line no-control-regex -- matching terminal escape sequences is the point
 const ANSI_ESCAPE_PATTERN = /(?:\u001b\[|\u009b)[0-?]*[ -/]*[@-~]/g
 
@@ -33,8 +31,10 @@ function buildersDir(): string {
  */
 export async function ensureWarmImage(
 	runner: CommandRunner,
-	options: { onLine?: (line: string) => void } = {}
+	options: { onLine?: (line: string) => void; nodeVersion?: 22 | 24 } = {}
 ): Promise<{ success: boolean; built: boolean; error?: string }> {
+	const nodeVersion = options.nodeVersion ?? 22
+	const NODE_BUILD_IMAGE = `risved-node-build:${nodeVersion}`
 	const inspect = await runner.exec(
 		'docker',
 		['image', 'inspect', '--format', '{{.Id}}', NODE_BUILD_IMAGE]
@@ -48,6 +48,8 @@ export async function ensureWarmImage(
 		[
 			'build',
 			'--progress=plain',
+			'--build-arg',
+			`NODE_VERSION=${nodeVersion}`,
 			'-t',
 			NODE_BUILD_IMAGE,
 			'-f',

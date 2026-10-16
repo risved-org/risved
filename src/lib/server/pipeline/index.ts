@@ -17,6 +17,7 @@ import {
 import { resolveCloneToken } from '../git-token';
 import { detectFramework, createFsContext } from '../detection';
 import { generateDockerfile } from '../dockerfile';
+import { getFrameworkConfig } from '../dockerfile/configs'
 import { detectPackageManager } from '../detect-package-manager';
 import { CaddyClient, createCaddyClient } from '../caddy';
 import {
@@ -316,6 +317,7 @@ async function _runPipeline(
 		   Docker Hub and fails with "pull access denied". */
 		if (tier === 'node') {
 			const warm = await ensureWarmImage(runner, {
+				nodeVersion: getFrameworkConfig(frameworkId).nodeVersion,
 				onLine: (line) => emit('build', line)
 			});
 			if (!warm.success) {

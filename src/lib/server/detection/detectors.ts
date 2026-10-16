@@ -1,22 +1,7 @@
 import type { FrameworkDetector, DetectionContext, Confidence, DetectorMatch } from './types'
 
-/**
- * Check if a package.json contains a dependency (in deps or devDeps).
- * Returns null if package.json doesn't exist or can't be parsed.
- */
-async function hasDependency(ctx: DetectionContext, pkg: string): Promise<boolean> {
-	const content = await ctx.readFile('package.json')
-	if (!content) return false
-
-	try {
-		const json = JSON.parse(content)
-		const deps = json.dependencies ?? {}
-		const devDeps = json.devDependencies ?? {}
-		return pkg in deps || pkg in devDeps
-	} catch {
-		return false
-	}
-}
+import { hasDependency } from './dependencies'
+import { tanstackStart, elysia, reactRouter, adonis } from './additional-frameworks'
 
 /**
  * SvelteKit: svelte.config.js + @sveltejs/kit in deps
@@ -190,25 +175,6 @@ const solidstart: FrameworkDetector = {
 }
 
 /**
- * TanStack Start: app.config.ts + @tanstack/start in deps
- * Tier 3 — Node build (Vinxi/Nitro), Node serve
- */
-const tanstackStart: FrameworkDetector = {
-	id: 'tanstack-start',
-	name: 'TanStack Start',
-	tier: 'node',
-	async detect(ctx: DetectionContext): Promise<Confidence | null> {
-		const hasDep = await hasDependency(ctx, '@tanstack/start')
-		const hasConfig =
-			(await ctx.fileExists('app.config.ts')) || (await ctx.fileExists('app.config.js'))
-
-		if (hasConfig && hasDep) return 'high'
-		if (hasDep) return 'medium'
-		return null
-	}
-}
-
-/**
  * Detection order: most specific first.
  * TanStack Start before SolidStart because both use app.config.ts
  * but TanStack Start has a more specific dependency.
@@ -220,5 +186,8 @@ export const detectors: FrameworkDetector[] = [
 	nuxt2,
 	nuxt,
 	tanstackStart,
-	solidstart
+	solidstart,
+	reactRouter,
+	adonis,
+	elysia
 ]
