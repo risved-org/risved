@@ -94,6 +94,46 @@ describe('gitClone', () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('repository not found');
 	});
+
+	it('returns error when checkout of the rebuild ref fails', async () => {
+		const runner = mockRunner({
+			'git checkout': { exitCode: 1, stdout: '', stderr: 'fatal: reference is not a tree' }
+		});
+
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			undefined,
+			'deadbeef'
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.error).toContain('reference is not a tree');
+	});
+
+	it('writes and cleans up a temp SSH key when a private key is provided', async () => {
+		const calls: string[][] = [];
+		const runner: CommandRunner = {
+			async exec(cmd, args) {
+				calls.push([cmd, ...args]);
+				return { exitCode: 0, stdout: '', stderr: '' };
+			}
+		};
+
+		const keyB64 = Buffer.from('fake-private-key').toString('base64');
+		const result = await gitClone(
+			runner,
+			'https://github.com/user/repo.git',
+			'main',
+			'/tmp/dest',
+			keyB64
+		);
+
+		expect(result.success).toBe(true);
+		expect(calls[0]).toContain('git@github.com:user/repo.git');
+	});
 });
 
 describe('getCommitSha', () => {
@@ -527,5 +567,49 @@ describe('dockerStop error paths', () => {
 		const result = await dockerStop(runner, 'my-app');
 		expect(result.success).toBe(false);
 		expect(result.error).toContain('volume in use');
+	});
+});
+
+describe('createCommandRunner', () => {
+	it('runs a real command and captures stdout', async () => {
+		const { createCommandRunner } = await import('./docker');
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', ['-e', 'console.log("hello")']);
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout.trim()).toBe('hello');
+	});
+
+	it('returns a non-zero exit code and stderr on failure', async () => {
+		const { createCommandRunner } = await import('./docker');
+		const runner = createCommandRunner();
+		const result = await runner.exec('node', [
+			'-e',
+			'console.error("boom"); process.exit(3)'
+		]);
+		expect(result.exitCode).toBe(3);
+		expect(result.stderr).toContain('boom');
+	});
+
+	it('streams lines via onLine when provided', async () => {
+		const { createCommandRunner } = await import('./docker');
+		const runner = createCommandRunner();
+		const lines: string[] = [];
+		const result = await runner.exec(
+			'node',
+			['-e', 'console.log("line1"); console.log("line2")'],
+			{ onLine: (line) => lines.push(line) }
+		);
+		expect(result.exitCode).toBe(0);
+		expect(lines).toContain('line1');
+		expect(lines).toContain('line2');
+	});
+
+	it('resolves with an error result when the command cannot be spawned', async () => {
+		const { createCommandRunner } = await import('./docker');
+		const runner = createCommandRunner();
+		const result = await runner.exec('risved-command-that-does-not-exist', [], {
+			onLine: () => {}
+		});
+		expect(result.exitCode).not.toBe(0);
 	});
 });
