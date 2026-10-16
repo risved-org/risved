@@ -13,6 +13,9 @@ const FRAMEWORK_NAMES: Record<string, string> = {
 	nuxt: 'Nuxt',
 	solidstart: 'SolidStart',
 	'tanstack-start': 'TanStack Start',
+	elysia: 'Elysia',
+	'react-router': 'React Router',
+	adonisjs: 'AdonisJS',
 	generic: 'Generic'
 }
 

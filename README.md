@@ -59,7 +59,10 @@ Risved auto-detects the framework used in your project and generates the appropr
 | Next.js | Node |
 | Nuxt | Node |
 | SolidStart | Node |
-| TanStack Start | Node |
+| TanStack Start (React / Solid) | Node |
+| Elysia | Node / Bun |
+| React Router (framework mode) | Node |
+| AdonisJS | Node 24 |
 | Generic JavaScript/TypeScript (including Hono) | Node / Bun |
 
 ## Project files

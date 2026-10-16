@@ -39,14 +39,14 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 		if (srcDir) {
 			config = {
 				...config,
-				copyPaths: config.copyPaths.map(p => (p === 'static' ? `${srcDir}static` : p))
+				copyPaths: config.copyPaths.map((p) => (p === 'static' ? `${srcDir}static` : p))
 			}
 		}
 	}
 
 	/* Apply startCommand override to the framework config's serveCommand */
 	if (startCommand) {
-		config = { ...config, serveCommand: startCommand }
+		config = { ...config, serveCommand: startCommand, requiredServerFile: undefined }
 	}
 
 	let content: string

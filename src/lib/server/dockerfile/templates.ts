@@ -2,13 +2,7 @@ import { pmFromLockfile } from './package-manager'
 import { BUN_VERSION, type ProjectRuntime } from '$lib/project-runtime'
 import type { FrameworkBuildConfig, Lockfile } from './types'
 
-const NODE_IMAGE = 'node:22-slim'
 const BUN_IMAGE = `oven/bun:${BUN_VERSION}-debian`
-
-/* Unified warm base image for Node-tier builds. Contains Node 22, Corepack-
-   managed pnpm and Yarn (Classic + Berry), and Bun installed globally.
-   Rebuilt on the Sunday cron schedule. */
-const NODE_BUILD_IMAGE = 'risved-node-build:22'
 
 /** Wildcard copy line that captures every lockfile we support at once. */
 const ALL_LOCKFILES_COPY =
@@ -49,6 +43,7 @@ export function nodeTemplate(
 	stripBuildEnv = false,
 	runtime: ProjectRuntime = 'node'
 ): string {
+	const nodeVersion = config.nodeVersion ?? 22
 	const pm = pmFromLockfile(lockfile, yarnVersion)
 	const install = installCommand ?? pm.install
 	const build =
@@ -63,13 +58,13 @@ export function nodeTemplate(
 	/* Directories in copyPaths that may not exist in every project
 	   (e.g. static/ in Nuxt 2). Ensure they exist so COPY never fails. */
 	const ensureDirs = config.copyPaths.filter(
-		p => !p.includes('*') && !p.includes('.') && p !== 'node_modules'
+		(p) => !p.includes('*') && !p.includes('.') && p !== 'node_modules'
 	)
 	const ensureCmd = ensureDirs.length > 0 ? ` && mkdir -p ${ensureDirs.join(' ')}` : ''
 
 	const lines: string[] = [
 		`# Build stage (retains dev deps for release commands)`,
-		`FROM ${NODE_BUILD_IMAGE} AS build`,
+		`FROM risved-node-build:${nodeVersion} AS build`,
 		...(runtime === 'bun'
 			? [`COPY --from=${BUN_IMAGE} /usr/local/bin/bun /usr/local/bin/bun`]
 			: []),
@@ -86,6 +81,12 @@ export function nodeTemplate(
 		`RUN ${build}${ensureCmd}`
 	]
 
+	if (config.requiredServerFile) {
+		lines.push(
+			`RUN test -f ${config.requiredServerFile} || (echo "Missing ${config.requiredServerFile}: enable SSR or configure a custom start command for your output." >&2; exit 1)`
+		)
+	}
+
 	/* Prune in a separate stage so --target build still has dev deps */
 	let copyFrom = needsNodeModules ? 'deps' : 'build'
 	if (needsNodeModules) {
@@ -100,7 +101,7 @@ export function nodeTemplate(
 	lines.push(
 		'',
 		`# Runtime stage`,
-		`FROM ${runtime === 'bun' ? BUN_IMAGE : NODE_IMAGE} AS runtime`,
+		`FROM ${runtime === 'bun' ? BUN_IMAGE : `node:${nodeVersion}-slim`} AS runtime`,
 		'',
 		'WORKDIR /app',
 		''
@@ -120,6 +121,7 @@ export function nodeTemplate(
 	}
 
 	lines.push('', 'RUN mkdir -p /app/data && chmod 777 /app/data')
+	if (config.runtimeWorkdir) lines.push('', `WORKDIR ${config.runtimeWorkdir}`)
 	lines.push('', `EXPOSE ${port}`, '', `CMD [${shellToCmdArray(config.serveCommand)}]`, '')
 
 	return lines.join('\n')
@@ -132,6 +134,6 @@ export function nodeTemplate(
 function shellToCmdArray(command: string): string {
 	return command
 		.split(/\s+/)
-		.map(part => `"${part}"`)
+		.map((part) => `"${part}"`)
 		.join(', ')
 }

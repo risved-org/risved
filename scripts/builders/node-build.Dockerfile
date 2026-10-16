@@ -1,4 +1,5 @@
-FROM node:22
+ARG NODE_VERSION=22
+FROM node:${NODE_VERSION}
 
 # Native compilation toolchain (matches the old node-builder so projects with
 # node-gyp dependencies keep working).

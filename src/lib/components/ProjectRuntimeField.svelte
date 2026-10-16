@@ -31,7 +31,7 @@
 			Bun runs the deployed server. Package-manager detection stays independent. SvelteKit uses its
 			adapter-node build. Custom start commands must use Bun.
 		{:else}
-			Bun is available for SvelteKit and generic JavaScript/TypeScript servers.
+			Bun is available for SvelteKit, Elysia, and generic JavaScript/TypeScript servers.
 		{/if}
 		{#if settings}Changes apply on the next deployment.{/if}
 	</span>

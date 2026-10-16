@@ -7,6 +7,9 @@ export type FrameworkId =
 	| 'nuxt2'
 	| 'solidstart'
 	| 'tanstack-start'
+	| 'elysia'
+	| 'react-router'
+	| 'adonisjs'
 	| 'generic'
 
 /** Runtime tier determines Docker strategy */
