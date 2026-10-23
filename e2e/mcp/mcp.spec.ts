@@ -3,6 +3,7 @@ import { createClient } from '@libsql/client'
 import { createServer } from 'node:http'
 import { createHash, randomBytes } from 'node:crypto'
 import { McpPage } from './mcp-page'
+import packageJson from '../../package.json' with { type: 'json' }
 
 const headers = { Accept: 'application/json, text/event-stream' }
 let callback = ''
@@ -17,7 +18,7 @@ function rpc(request: APIRequestContext, key: string, method: string, params = {
 }
 
 test.beforeAll(async ({ request }) => {
-	await new Promise<void>((resolve) => callbackServer.listen(0, '127.0.0.1', resolve))
+	await new Promise<void>(resolve => callbackServer.listen(0, '127.0.0.1', resolve))
 	const address = callbackServer.address() as { port: number }
 	callback = `http://127.0.0.1:${address.port}/callback`
 	const response = await request.post('/api/auth/sign-up/email', {
@@ -32,7 +33,7 @@ test.beforeAll(async ({ request }) => {
 })
 
 test.afterAll(async () => {
-	await new Promise<void>((resolve) => callbackServer.close(() => resolve()))
+	await new Promise<void>(resolve => callbackServer.close(() => resolve()))
 })
 
 test('creates a key, completes a handshake, hides the key after reload and revokes access', async ({
@@ -41,7 +42,7 @@ test('creates a key, completes a handshake, hides the key after reload and revok
 }, testInfo) => {
 	const ui = new McpPage(page)
 	const errors: string[] = []
-	page.on('pageerror', (error) => errors.push(error.message))
+	page.on('pageerror', error => errors.push(error.message))
 	await ui.signIn()
 	const key = await ui.createKey()
 	const init = await rpc(request, key, 'initialize', {
@@ -50,7 +51,10 @@ test('creates a key, completes a handshake, hides the key after reload and revok
 		clientInfo: { name: 'release-test', version: '1' }
 	})
 	expect(init.status()).toBe(200)
-	expect((await init.json()).result.serverInfo).toMatchObject({ name: 'risved', version: '0.23.0' })
+	expect((await init.json()).result.serverInfo).toMatchObject({
+		name: 'risved',
+		version: packageJson.version
+	})
 	const tools = await rpc(request, key, 'tools/list')
 	expect((await tools.json()).result.tools).toHaveLength(7)
 	const projects = await rpc(request, key, 'tools/call', { name: 'list_projects', arguments: {} })

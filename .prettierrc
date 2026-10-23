@@ -47,7 +47,9 @@
 				"src/routes/projects/\\[slug\\]/domains/AddDomainForm.svelte",
 				"src/routes/projects/\\[slug\\]/domains/DomainList.svelte",
 				"src/routes/projects/\\[slug\\]/domains/DomainRoutingHelp.svelte",
-				"src/routes/projects/\\[slug\\]/project-detail.test.ts"
+				"src/routes/projects/\\[slug\\]/project-detail.test.ts",
+				"src/lib/server/db/mcp-migration.test.ts",
+				"e2e/mcp/mcp.spec.ts"
 			],
 			"options": {
 				"semi": false,
