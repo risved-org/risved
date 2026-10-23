@@ -1,3 +1,4 @@
+import { withProjectLock } from './project-lock'
 import { db } from '$lib/server/db';
 import { deployments } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -30,6 +31,20 @@ export interface RollbackConfig {
  * Skips clone/detect/build phases — goes straight to start → health → route → cutover → live.
  */
 export async function runRollback(
+	config: RollbackConfig,
+	runner: CommandRunner,
+	options?: {
+		onLog?: LogEmitter;
+		caddy?: CaddyClient;
+		fetchFn?: typeof fetch;
+		healthTimeoutMs?: number;
+		healthIntervalMs?: number;
+	}
+): Promise<PipelineResult> {
+ return withProjectLock(config.projectId, () => runRollbackLocked(config, runner, options))
+}
+
+async function runRollbackLocked(
 	config: RollbackConfig,
 	runner: CommandRunner,
 	options?: {

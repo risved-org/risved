@@ -145,3 +145,7 @@ bun run test:e2e
 # all tests
 bun run test
 ```
+
+## MCP access
+
+Connect coding agents to `https://<instance>/mcp` using browser OAuth or a revocable access key from Settings → MCP access keys. Agents can manage projects, environment variables, deployments and rollbacks. See [MCP setup and tools](docs/mcp.md).

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import McpAccessKeys from '$lib/components/McpAccessKeys.svelte'
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
@@ -751,6 +752,8 @@
 			</div>
 		</div>
 	</section>
+
+	<McpAccessKeys keys={data.apiKeys} error={form?.mcpKeyError} createdKey={form?.newMcpKey} />
 
 	<!-- Build Log Retention -->
 	<section class="section" data-testid="retention-section">

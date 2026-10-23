@@ -1,34 +1,39 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { authClient } from '$lib/auth-client';
-	import type { ActionData, PageData } from './$types';
+	import { enhance } from '$app/forms'
+	import { goto } from '$app/navigation'
+	import { resolve } from '$app/paths'
+	import { authClient } from '$lib/auth-client'
+	import type { ActionData, PageData } from './$types'
 
-	let { form, data }: { form: ActionData; data: PageData } = $props();
+	let { form, data }: { form: ActionData; data: PageData } = $props()
 
-	let submitting = $state(false);
-	let passkeyLoading = $state(false);
-	let passkeyError = $state<string | null>(null);
+	let submitting = $state(false)
+	let passkeyLoading = $state(false)
+	let passkeyError = $state<string | null>(null)
 
 	async function signInWithPasskey() {
-		passkeyLoading = true;
-		passkeyError = null;
+		passkeyLoading = true
+		passkeyError = null
 		try {
 			await authClient.signIn.passkey({
 				fetchOptions: {
 					onSuccess() {
-						goto(resolve('/'));
+						/* A full load, not goto: the OAuth continuation is a server route. */
+						if (data.postLogin !== '/') {
+							window.location.href = data.postLogin
+							return
+						}
+						goto(resolve('/'))
 					},
 					onError(ctx) {
-						passkeyError = ctx.error?.message || 'Passkey authentication failed';
-						passkeyLoading = false;
+						passkeyError = ctx.error?.message || 'Passkey authentication failed'
+						passkeyLoading = false
 					}
 				}
-			});
+			})
 		} catch {
-			passkeyError = 'Browser does not support passkeys or authentication was cancelled';
-			passkeyLoading = false;
+			passkeyError = 'Browser does not support passkeys or authentication was cancelled'
+			passkeyLoading = false
 		}
 	}
 </script>
@@ -43,11 +48,11 @@
 		<form
 			method="post"
 			use:enhance={() => {
-				submitting = true;
+				submitting = true
 				return async ({ update }) => {
-					submitting = false;
-					await update();
-				};
+					submitting = false
+					await update()
+				}
 			}}
 		>
 			<div class="field">
@@ -161,7 +166,7 @@
 	}
 
 	label {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--color-text-1);
 	}
@@ -194,7 +199,7 @@
 		border: 1px solid color-mix(in srgb, var(--color-failed) 25%, transparent);
 		border-radius: var(--radius-md);
 		color: var(--color-failed);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 
 	button {
@@ -226,7 +231,7 @@
 		align-items: center;
 		gap: var(--space-3);
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 	.divider::before,
 	.divider::after {
@@ -250,13 +255,13 @@
 
 	.forgot {
 		text-align: center;
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 
 	.forgot code {
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-1);
 		background: var(--color-bg-2);
 		padding: 0.1em 0.4em;
@@ -270,7 +275,7 @@
 		align-items: center;
 		gap: var(--space-2);
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 

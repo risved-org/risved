@@ -1,3 +1,4 @@
+import { handleFormOrigin } from '$lib/server/mcp/form-origin'
 import { sequence } from '@sveltejs/kit/hooks';
 import { building } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
@@ -51,7 +52,7 @@ if (!building) {
 	process.on('SIGTERM', shutdown)
 }
 
-const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks', '/api/git'];
+const PUBLIC_PATHS = ['/onboarding', '/login', '/api/auth', '/api/webhooks', '/api/git', '/mcp', '/.well-known'];
 
 function isPublicPath(pathname: string): boolean {
 	return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
@@ -115,4 +116,4 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleParaglide, handleBetterAuth, handleAuth);
+export const handle: Handle = sequence(handleFormOrigin, handleParaglide, handleBetterAuth, handleAuth);
