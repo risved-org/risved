@@ -39,9 +39,8 @@ export async function ensureControlPlaneRoutes(caddy?: CaddyClient): Promise<voi
 		return
 	}
 
-	const dashboardHostname = config.mode === 'subdomain'
-		? `${config.prefix}.${config.baseDomain}`
-		: config.baseDomain
+	const dashboardHostname =
+		config.mode === 'subdomain' ? `${config.prefix}.${config.baseDomain}` : config.baseDomain
 
 	const dashResult = await client.addRoute({
 		hostname: dashboardHostname,
@@ -71,18 +70,25 @@ export async function restoreAllRoutes(caddy?: CaddyClient): Promise<void> {
 
 	/* Snapshot existing routes so we only push what's missing */
 	const existingRoutes = await client.listRoutes()
-	const existingIds = new Set(
-		existingRoutes.map(r => r['@id']).filter(Boolean)
-	)
+	const existingIds = new Set(existingRoutes.map(r => r['@id']).filter(Boolean))
 
 	/**
 	 * Add a route only if its @id is not already present in Caddy.
 	 * Returns true if the route was added, false if skipped or failed.
 	 */
-	async function addIfMissing(hostname: string, port: number): Promise<boolean> {
-		const id = routeId(hostname)
+	async function addIfMissing(
+		hostname: string,
+		port: number,
+		pathPrefix?: string,
+		forwardingMode?: 'preserve' | 'strip'
+	): Promise<boolean> {
+		const id = routeId(hostname, pathPrefix)
 		if (existingIds.has(id)) return false
-		const result = await client.addRoute({ hostname, port })
+		const result = await client.addRoute({
+			hostname,
+			port,
+			...(pathPrefix ? { pathPrefix, forwardingMode } : {})
+		})
 		if (!result.success) {
 			console.error(`[caddy] Failed to restore route ${hostname}:`, result.error)
 			return false
@@ -98,12 +104,13 @@ export async function restoreAllRoutes(caddy?: CaddyClient): Promise<void> {
 		try {
 			const config: DomainConfig = JSON.parse(raw)
 			if (config.mode !== 'ip' && config.baseDomain) {
-				const dashboardHostname = config.mode === 'subdomain'
-					? `${config.prefix}.${config.baseDomain}`
-					: config.baseDomain
+				const dashboardHostname =
+					config.mode === 'subdomain' ? `${config.prefix}.${config.baseDomain}` : config.baseDomain
 				if (await addIfMissing(dashboardHostname, CONTROL_PLANE_PORT)) restored++
 			}
-		} catch { /* invalid config, skip */ }
+		} catch {
+			/* invalid config, skip */
+		}
 	}
 
 	/* Find all projects that have a port and a primary domain */
@@ -114,7 +121,7 @@ export async function restoreAllRoutes(caddy?: CaddyClient): Promise<void> {
 			port: projects.port
 		})
 		.from(projects)
-		.where(and(isNotNull(projects.port), isNotNull(projects.domain)))
+		.where(isNotNull(projects.port))
 
 	/* Filter to only projects with a live deployment */
 	const liveProjectIds = new Set<string>()
@@ -132,15 +139,17 @@ export async function restoreAllRoutes(caddy?: CaddyClient): Promise<void> {
 	/* Re-add primary domain routes */
 	const portByProjectId = new Map<string, number>()
 	for (const p of liveProjects) {
-		if (!liveProjectIds.has(p.id) || !p.port || !p.domain) continue
+		if (!liveProjectIds.has(p.id) || !p.port) continue
 		portByProjectId.set(p.id, p.port)
-		if (await addIfMissing(p.domain, p.port)) restored++
+		if (p.domain && (await addIfMissing(p.domain, p.port))) restored++
 	}
 
 	/* Re-add custom domain routes */
 	const customDomains = await db
 		.select({
 			hostname: domains.hostname,
+			pathPrefix: domains.pathPrefix,
+			forwardingMode: domains.forwardingMode,
 			projectId: domains.projectId
 		})
 		.from(domains)
@@ -148,7 +157,7 @@ export async function restoreAllRoutes(caddy?: CaddyClient): Promise<void> {
 	for (const d of customDomains) {
 		const port = portByProjectId.get(d.projectId)
 		if (!port) continue
-		if (await addIfMissing(d.hostname, port)) restored++
+		if (await addIfMissing(d.hostname, port, d.pathPrefix, d.forwardingMode)) restored++
 	}
 
 	if (restored > 0) {

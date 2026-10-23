@@ -119,7 +119,15 @@ describe('project overview load', () => {
 
 	it('deduplicates deployments by id', async () => {
 		const project = { id: 'proj-1', slug: 'test-app' }
-		const dep = { id: 'dep-1', commitSha: 'abc', status: 'live', triggerType: 'push', imageTag: 'img:1', createdAt: new Date(), finishedAt: null }
+		const dep = {
+			id: 'dep-1',
+			commitSha: 'abc',
+			status: 'live',
+			triggerType: 'push',
+			imageTag: 'img:1',
+			createdAt: new Date(),
+			finishedAt: null
+		}
 
 		dbAny.__limitMock.mockResolvedValueOnce([project])
 		dbAny.__orderByMock.mockReturnValueOnce({
@@ -231,7 +239,7 @@ describe('settings page source', () => {
 		expect(mod.default).toContain('No Postgres database')
 		expect(mod.default).toContain('Add Postgres')
 		expect(mod.default).toContain('confirm-remove-postgres-btn')
-		expect(mod.default).toContain('Database data will be lost')
+		expect(mod.default).toMatch(/Database data will be\s+lost/)
 	})
 
 	it('uses Edit as the universal verb for sub-page links', async () => {
@@ -286,7 +294,8 @@ describe('settings delete action image and preview cleanup', () => {
 				if (joined.startsWith('docker images')) {
 					return {
 						exitCode: 0,
-						stdout: 'test-app:abc1234\ntest-app:abc1234-release\ntest-app-pr-2:def5678\nother:abc1234\n',
+						stdout:
+							'test-app:abc1234\ntest-app:abc1234-release\ntest-app-pr-2:def5678\nother:abc1234\n',
 						stderr: ''
 					}
 				}
@@ -301,7 +310,7 @@ describe('settings delete action image and preview cleanup', () => {
 		).rejects.toMatchObject({ status: 303, location: '/' })
 
 		expect(cleanupProjectPreviews).toHaveBeenCalledWith('proj-1')
-		expect(calls.filter((c) => c.startsWith('docker rmi')).sort()).toEqual([
+		expect(calls.filter(c => c.startsWith('docker rmi')).sort()).toEqual([
 			'docker rmi test-app-pr-2:def5678',
 			'docker rmi test-app:abc1234',
 			'docker rmi test-app:abc1234-release'

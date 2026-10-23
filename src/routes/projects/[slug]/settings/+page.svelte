@@ -32,7 +32,7 @@
 	}
 
 	function rowsFromData(): EnvRow[] {
-		return data.envVars.map((e) => ({
+		return data.envVars.map(e => ({
 			id: e.id,
 			key: e.key,
 			value: e.value,
@@ -54,11 +54,11 @@
 	let confirmRemovePostgres = $state(false)
 	let removingPostgres = $state(false)
 
-	const envIdsValue = $derived(envRows.map((r) => r.id).join('\x1F'))
-	const envKeysValue = $derived(envRows.map((r) => r.key).join('\x1F'))
-	const envValuesValue = $derived(envRows.map((r) => (r.locked ? '' : r.value)).join('\x1F'))
-	const envSecretsValue = $derived(envRows.map((r) => (r.isSecret ? '1' : '0')).join('\x1F'))
-	const envKeepValue = $derived(envRows.map((r) => (r.locked ? '1' : '0')).join('\x1F'))
+	const envIdsValue = $derived(envRows.map(r => r.id).join('\x1F'))
+	const envKeysValue = $derived(envRows.map(r => r.key).join('\x1F'))
+	const envValuesValue = $derived(envRows.map(r => (r.locked ? '' : r.value)).join('\x1F'))
+	const envSecretsValue = $derived(envRows.map(r => (r.isSecret ? '1' : '0')).join('\x1F'))
+	const envKeepValue = $derived(envRows.map(r => (r.locked ? '1' : '0')).join('\x1F'))
 
 	function addEnvRow() {
 		envRows = [...envRows, newEnvRow()]
@@ -94,8 +94,8 @@
 		if (!text.includes('=')) return
 
 		event.preventDefault()
-		const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'))
-		const parsed = lines.map((line) => {
+		const lines = text.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#'))
+		const parsed = lines.map(line => {
 			const eqIndex = line.indexOf('=')
 			if (eqIndex === -1) return { key: line.trim(), value: '' }
 			return {
@@ -206,309 +206,325 @@
 	<h1 class="page-title">Settings</h1>
 
 	<!-- Domains -->
-<section data-testid="domains-section">
-	<header class="section-header">
-		<h2 class="section-title">Domains</h2>
-		<a
-			href={resolve(`/projects/${data.project.slug}/domains`)}
-			class="btn-secondary btn-md"
-			data-testid="edit-domains-btn">Edit</a
-		>
-	</header>
-	{#if data.domains.length === 0}
-		<p class="empty-text">No custom domains configured.</p>
-	{:else}
-		<ul class="domain-list">
-			{#each data.domains as dom (dom.id)}
-				<li class="domain-row" data-testid="domain-row">
-					<span class="domain-name mono">{dom.hostname}</span>
-					{#if dom.isPrimary}
-						<span class="badge-md badge-accent">Primary</span>
-					{/if}
-					<span class="badge-md {dom.sslStatus === 'active' ? 'badge-live' : 'badge-muted'}">
-						SSL: {dom.sslStatus}
-					</span>
-				</li>
-			{/each}
-		</ul>
-	{/if}
-</section>
+	<section data-testid="domains-section">
+		<header class="section-header">
+			<h2 class="section-title">Domains</h2>
+			<a
+				href={resolve(`/projects/${data.project.slug}/domains`)}
+				class="btn-secondary btn-md"
+				data-testid="edit-domains-btn">Edit</a
+			>
+		</header>
+		{#if data.domains.length === 0}
+			<p class="empty-text">No custom domains configured.</p>
+		{:else}
+			<ul class="domain-list">
+				{#each data.domains as dom (dom.id)}
+					<li class="domain-row" data-testid="domain-row">
+						<span class="domain-name mono"
+							>{dom.hostname}{dom.pathPrefix ?? '/'} ({dom.forwardingMode ?? 'preserve'})</span
+						>
+						{#if dom.isPrimary}
+							<span class="badge-md badge-accent">Primary</span>
+						{/if}
+						<span class="badge-md {dom.sslStatus === 'active' ? 'badge-live' : 'badge-muted'}">
+							SSL: {dom.sslStatus}
+						</span>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
 
-<!-- Environment Variables -->
-<section data-testid="env-section">
-	<h2 class="section-title">Environment Variables</h2>
-	<form
-		method="post"
-		action="?/saveEnv"
-		use:enhance={() => {
-			savingEnv = true
-			return async ({ result, update }) => {
-				await update({ reset: false })
-				/* Re-sync so saved secrets lock and new rows pick up their ids */
-				if (result.type === 'success') envRows = rowsFromData()
-				savingEnv = false
-			}
-		}}
-	>
-		<div class="env-editor">
-			{#each envRows as row, i (i)}
-				<div class="env-row" data-testid="env-row">
-					<input
-						class="env-key"
-						type="text"
-						bind:value={row.key}
-						placeholder="KEY"
-						onpaste={(e) => handleEnvPaste(e, i)}
-						data-testid="env-key-input"
-					/>
-					<span class="env-eq">=</span>
-					{#if row.locked}
+	<!-- Environment Variables -->
+	<section data-testid="env-section">
+		<h2 class="section-title">Environment Variables</h2>
+		<form
+			method="post"
+			action="?/saveEnv"
+			use:enhance={() => {
+				savingEnv = true
+				return async ({ result, update }) => {
+					await update({ reset: false })
+					/* Re-sync so saved secrets lock and new rows pick up their ids */
+					if (result.type === 'success') envRows = rowsFromData()
+					savingEnv = false
+				}
+			}}
+		>
+			<div class="env-editor">
+				{#each envRows as row, i (i)}
+					<div class="env-row" data-testid="env-row">
 						<input
-							class="env-value secret"
+							class="env-key"
 							type="text"
-							value="••••••••"
-							disabled
-							aria-label="Stored secret value"
-							data-testid="env-value-locked"
+							bind:value={row.key}
+							placeholder="KEY"
+							onpaste={e => handleEnvPaste(e, i)}
+							data-testid="env-key-input"
 						/>
-					{:else if row.isSecret && !row.revealed}
-						<input
-							class="env-value secret"
-							type="password"
-							bind:value={row.value}
-							placeholder={row.stored ? 'new value' : 'value'}
-							autocomplete="off"
-							data-testid="env-value-input"
-						/>
-					{:else}
-						<input
-							class="env-value"
-							type="text"
-							bind:value={row.value}
-							placeholder={row.stored ? 'new value' : 'value'}
-							data-testid="env-value-input"
-						/>
-					{/if}
-					{#if row.locked}
+						<span class="env-eq">=</span>
+						{#if row.locked}
+							<input
+								class="env-value secret"
+								type="text"
+								value="••••••••"
+								disabled
+								aria-label="Stored secret value"
+								data-testid="env-value-locked"
+							/>
+						{:else if row.isSecret && !row.revealed}
+							<input
+								class="env-value secret"
+								type="password"
+								bind:value={row.value}
+								placeholder={row.stored ? 'new value' : 'value'}
+								autocomplete="off"
+								data-testid="env-value-input"
+							/>
+						{:else}
+							<input
+								class="env-value"
+								type="text"
+								bind:value={row.value}
+								placeholder={row.stored ? 'new value' : 'value'}
+								data-testid="env-value-input"
+							/>
+						{/if}
+						{#if row.locked}
+							<button
+								type="button"
+								class="env-secret-toggle"
+								title="Enter a new value for this secret"
+								onclick={() => replaceSecret(row)}
+								data-testid="env-replace-btn"
+							>
+								Replace
+							</button>
+						{:else}
+							{#if row.isSecret}
+								<button
+									type="button"
+									class="env-secret-toggle"
+									title={row.revealed ? 'Hide value' : 'View value'}
+									onclick={() => (row.revealed = !row.revealed)}
+									data-testid="env-secret-toggle"
+								>
+									{row.revealed ? 'Hide' : 'View'}
+								</button>
+							{/if}
+							{#if row.stored}
+								<button
+									type="button"
+									class="env-secret-toggle"
+									title="Keep the stored secret value"
+									onclick={() => keepSecret(row)}
+									data-testid="env-keep-btn"
+								>
+									Keep current
+								</button>
+							{/if}
+						{/if}
+						<label
+							class="env-secret"
+							title="Secrets are write-only: once saved, the value can be replaced but never viewed"
+						>
+							<input
+								type="checkbox"
+								checked={row.isSecret}
+								onchange={() => toggleSecret(row)}
+								data-testid="env-secret-checkbox"
+							/>
+							Secret
+						</label>
 						<button
 							type="button"
-							class="env-secret-toggle"
-							title="Enter a new value for this secret"
-							onclick={() => replaceSecret(row)}
-							data-testid="env-replace-btn"
+							class="env-remove"
+							title="Remove variable"
+							onclick={() => removeEnvRow(i)}
+							data-testid="env-remove-btn"
 						>
-							Replace
+							×
 						</button>
-					{:else}
-						{#if row.isSecret}
-							<button
-								type="button"
-								class="env-secret-toggle"
-								title={row.revealed ? 'Hide value' : 'View value'}
-								onclick={() => (row.revealed = !row.revealed)}
-								data-testid="env-secret-toggle"
-							>
-								{row.revealed ? 'Hide' : 'View'}
-							</button>
-						{/if}
-						{#if row.stored}
-							<button
-								type="button"
-								class="env-secret-toggle"
-								title="Keep the stored secret value"
-								onclick={() => keepSecret(row)}
-								data-testid="env-keep-btn"
-							>
-								Keep current
-							</button>
-						{/if}
-					{/if}
-					<label class="env-secret" title="Secrets are write-only: once saved, the value can be replaced but never viewed">
-						<input
-							type="checkbox"
-							checked={row.isSecret}
-							onchange={() => toggleSecret(row)}
-							data-testid="env-secret-checkbox"
-						/>
-						Secret
-					</label>
+					</div>
+				{/each}
+				{#if envRows.length === 0}
+					<div class="env-empty">No environment variables configured.</div>
+				{/if}
+				<div class="env-actions">
 					<button
 						type="button"
-						class="env-remove"
-						title="Remove variable"
-						onclick={() => removeEnvRow(i)}
-						data-testid="env-remove-btn"
+						class="btn-secondary btn-md"
+						onclick={addEnvRow}
+						data-testid="env-add-btn"
 					>
-						×
+						Add variable
 					</button>
+					<button
+						type="submit"
+						class="btn-primary btn-md"
+						disabled={savingEnv}
+						data-testid="save-env-btn"
+					>
+						{savingEnv ? 'Saving…' : 'Save'}
+					</button>
+					{#if form?.error}
+						<span class="save-error" data-testid="save-error">{form.error}</span>
+					{/if}
 				</div>
-			{/each}
-			{#if envRows.length === 0}
-				<div class="env-empty">No environment variables configured.</div>
-			{/if}
-			<div class="env-actions">
-				<button type="button" class="btn-secondary btn-md" onclick={addEnvRow} data-testid="env-add-btn">
-					Add variable
-				</button>
-				<button type="submit" class="btn-primary btn-md" disabled={savingEnv} data-testid="save-env-btn">
-					{savingEnv ? 'Saving…' : 'Save'}
-				</button>
-				{#if form?.error}
-					<span class="save-error" data-testid="save-error">{form.error}</span>
-				{/if}
 			</div>
-		</div>
-		<p class="field-hint env-hint" data-testid="env-hint">
-			All values are encrypted at rest. A secret is write-only: once saved it can be replaced, but never viewed
-			again. Untick Secret for plain variables you want to keep readable.
-		</p>
+			<p class="field-hint env-hint" data-testid="env-hint">
+				All values are encrypted at rest. A secret is write-only: once saved it can be replaced, but
+				never viewed again. Untick Secret for plain variables you want to keep readable.
+			</p>
 
-		<input type="hidden" name="envIds" value={envIdsValue} />
-		<input type="hidden" name="envKeys" value={envKeysValue} />
-		<input type="hidden" name="envValues" value={envValuesValue} />
-		<input type="hidden" name="envSecrets" value={envSecretsValue} />
-		<input type="hidden" name="envKeep" value={envKeepValue} />
-	</form>
+			<input type="hidden" name="envIds" value={envIdsValue} />
+			<input type="hidden" name="envKeys" value={envKeysValue} />
+			<input type="hidden" name="envValues" value={envValuesValue} />
+			<input type="hidden" name="envSecrets" value={envSecretsValue} />
+			<input type="hidden" name="envKeep" value={envKeepValue} />
+		</form>
 
-	{#if form?.envSaved}
-		<div class="redeploy-banner" data-testid="redeploy-banner">
-			<span>Saved. Redeploy to apply the new values.</span>
-			<button
-				class="btn-redeploy"
-				disabled={deploying}
-				onclick={triggerDeploy}
-				data-testid="redeploy-btn"
-			>
-				{deploying ? 'Deploying…' : 'Redeploy now'}
-			</button>
-		</div>
-	{/if}
-</section>
-
-<!-- Postgres -->
-<section data-testid="postgres-section">
-	<h2 class="section-title">Postgres</h2>
-	<article class="postgres-card">
-		{#if !data.postgres}
-			<header class="postgres-empty">
-				<h3>No Postgres database</h3>
-				<p class="muted">This project is not attached to a managed Postgres database.</p>
-			</header>
-			{#if form?.postgresError}
-				<p class="postgres-warning" data-testid="postgres-error">{form.postgresError}</p>
-			{/if}
-			<form
-				method="post"
-				action="?/addPostgres"
-				use:enhance={() => {
-					addingPostgres = true
-					return async ({ update }) => {
-						await update()
-						addingPostgres = false
-					}
-				}}
-			>
+		{#if form?.envSaved}
+			<div class="redeploy-banner" data-testid="redeploy-banner">
+				<span>Saved. Redeploy to apply the new values.</span>
 				<button
-					type="submit"
-					class="btn-secondary btn-lg"
-					disabled={addingPostgres}
-					data-testid="add-postgres-btn"
+					class="btn-redeploy"
+					disabled={deploying}
+					onclick={triggerDeploy}
+					data-testid="redeploy-btn"
 				>
-					{addingPostgres ? 'Adding…' : 'Add Postgres'}
+					{deploying ? 'Deploying…' : 'Redeploy now'}
 				</button>
-			</form>
-		{:else}
-			<header class="postgres-header">
-				<h3>Postgres</h3>
-				<p class="muted">{formatDate(data.postgres.createdAt)}</p>
-			</header>
-			<dl class="postgres-meta">
-				<div>
-					<dt>Database</dt>
-					<dd class="mono">{data.postgres.database}</dd>
-				</div>
-				<div>
-					<dt>User</dt>
-					<dd class="mono">{data.postgres.username}</dd>
-				</div>
-				<div>
-					<dt>Host</dt>
-					<dd class="mono">{data.postgres.host}</dd>
-				</div>
-				<div>
-					<dt>Volume</dt>
-					<dd class="mono">{data.postgres.volumeName}</dd>
-				</div>
-			</dl>
-			<p class="postgres-url mono">{data.postgres.urlPreview}</p>
-			{#if form?.postgresError}
-				<p class="postgres-warning" data-testid="postgres-error">{form.postgresError}</p>
-			{/if}
-			{#if !confirmRemovePostgres}
-				<button
-					type="button"
-					class="btn-danger"
-					onclick={() => (confirmRemovePostgres = true)}
-					data-testid="remove-postgres-btn"
-				>
-					Remove
-				</button>
-			{:else}
+			</div>
+		{/if}
+	</section>
+
+	<!-- Postgres -->
+	<section data-testid="postgres-section">
+		<h2 class="section-title">Postgres</h2>
+		<article class="postgres-card">
+			{#if !data.postgres}
+				<header class="postgres-empty">
+					<h3>No Postgres database</h3>
+					<p class="muted">This project is not attached to a managed Postgres database.</p>
+				</header>
+				{#if form?.postgresError}
+					<p class="postgres-warning" data-testid="postgres-error">{form.postgresError}</p>
+				{/if}
 				<form
 					method="post"
-					action="?/removePostgres"
+					action="?/addPostgres"
 					use:enhance={() => {
-						removingPostgres = true
+						addingPostgres = true
 						return async ({ update }) => {
 							await update()
-							removingPostgres = false
-							confirmRemovePostgres = false
+							addingPostgres = false
 						}
 					}}
 				>
-					<p class="postgres-warning">
-						This will permanently delete the Postgres container and volume. Database data will be lost.
-					</p>
-					<div class="confirm-row">
-						<button
-							type="submit"
-							class="btn-danger-confirm"
-							disabled={removingPostgres}
-							data-testid="confirm-remove-postgres-btn"
-						>
-							{removingPostgres ? 'Removing…' : 'Confirm remove'}
-						</button>
-						<button
-							type="button"
-							class="btn-cancel"
-							onclick={() => (confirmRemovePostgres = false)}
-						>
-							Cancel
-						</button>
-					</div>
+					<button
+						type="submit"
+						class="btn-secondary btn-lg"
+						disabled={addingPostgres}
+						data-testid="add-postgres-btn"
+					>
+						{addingPostgres ? 'Adding…' : 'Add Postgres'}
+					</button>
 				</form>
+			{:else}
+				<header class="postgres-header">
+					<h3>Postgres</h3>
+					<p class="muted">{formatDate(data.postgres.createdAt)}</p>
+				</header>
+				<dl class="postgres-meta">
+					<div>
+						<dt>Database</dt>
+						<dd class="mono">{data.postgres.database}</dd>
+					</div>
+					<div>
+						<dt>User</dt>
+						<dd class="mono">{data.postgres.username}</dd>
+					</div>
+					<div>
+						<dt>Host</dt>
+						<dd class="mono">{data.postgres.host}</dd>
+					</div>
+					<div>
+						<dt>Volume</dt>
+						<dd class="mono">{data.postgres.volumeName}</dd>
+					</div>
+				</dl>
+				<p class="postgres-url mono">{data.postgres.urlPreview}</p>
+				{#if form?.postgresError}
+					<p class="postgres-warning" data-testid="postgres-error">{form.postgresError}</p>
+				{/if}
+				{#if !confirmRemovePostgres}
+					<button
+						type="button"
+						class="btn-danger"
+						onclick={() => (confirmRemovePostgres = true)}
+						data-testid="remove-postgres-btn"
+					>
+						Remove
+					</button>
+				{:else}
+					<form
+						method="post"
+						action="?/removePostgres"
+						use:enhance={() => {
+							removingPostgres = true
+							return async ({ update }) => {
+								await update()
+								removingPostgres = false
+								confirmRemovePostgres = false
+							}
+						}}
+					>
+						<p class="postgres-warning">
+							This will permanently delete the Postgres container and volume. Database data will be
+							lost.
+						</p>
+						<div class="confirm-row">
+							<button
+								type="submit"
+								class="btn-danger-confirm"
+								disabled={removingPostgres}
+								data-testid="confirm-remove-postgres-btn"
+							>
+								{removingPostgres ? 'Removing…' : 'Confirm remove'}
+							</button>
+							<button
+								type="button"
+								class="btn-cancel"
+								onclick={() => (confirmRemovePostgres = false)}
+							>
+								Cancel
+							</button>
+						</div>
+					</form>
+				{/if}
 			{/if}
-		{/if}
-	</article>
-</section>
+		</article>
+	</section>
 
-<!-- Scheduled Tasks -->
-<section data-testid="crons-section">
-	<header class="section-header">
-		<h2 class="section-title">Scheduled Tasks</h2>
-		<a
-			href={resolve(`/projects/${data.project.slug}/crons`)}
-			class="btn-secondary btn-md"
-			data-testid="edit-crons-btn">Edit</a
-		>
-	</header>
-	{#if data.cronJobs.length === 0}
-		<div class="cron-empty">No scheduled tasks configured.</div>
-	{:else}
-		<ul class="cron-list">
-			{#each data.cronJobs as job (job.id)}
-				<li class="cron-row" data-testid="cron-row">
-					<label class="cron-toggle">
+	<!-- Scheduled Tasks -->
+	<section data-testid="crons-section">
+		<header class="section-header">
+			<h2 class="section-title">Scheduled Tasks</h2>
+			<a
+				href={resolve(`/projects/${data.project.slug}/crons`)}
+				class="btn-secondary btn-md"
+				data-testid="edit-crons-btn">Edit</a
+			>
+		</header>
+		{#if data.cronJobs.length === 0}
+			<div class="cron-empty">No scheduled tasks configured.</div>
+		{:else}
+			<ul class="cron-list">
+				{#each data.cronJobs as job (job.id)}
+					<li class="cron-row" data-testid="cron-row">
+						<label class="cron-toggle">
 							<input
 								type="checkbox"
 								checked={job.enabled}
@@ -519,7 +535,9 @@
 							<span class="cron-name" class:cron-disabled={!job.enabled}>{job.name}</span>
 							<span class="cron-route mono">{job.method} {job.route}</span>
 						</div>
-						<span class="cron-schedule mono" title={job.schedule}>{describeSchedule(job.schedule)}</span>
+						<span class="cron-schedule mono" title={job.schedule}
+							>{describeSchedule(job.schedule)}</span
+						>
 						{#if job.lastRun}
 							<span class="cron-last-run {cronStatusClass(job.lastRun.status)}">
 								{#if job.lastRun.statusCode}
@@ -557,148 +575,169 @@
 	</section>
 
 	<!-- Integrations -->
-<section data-testid="integrations-section">
-	<h2 class="section-title">Integrations</h2>
-	<ul class="integration-list">
-		<li class="integration-row">
-			<div class="integration-info">
-				<span class="integration-name">Webhook</span>
-				{#if data.webhookActive}
-					<span class="status-dot dot-live"></span>
-					<span class="integration-detail">Active</span>
-				{:else}
-					<span class="status-dot dot-stopped"></span>
-					<span class="integration-detail muted">Not configured</span>
-				{/if}
-			</div>
-			{#if data.webhookActive && data.lastWebhookAt}
-				<span class="integration-meta muted">Last received {timeAgo(data.lastWebhookAt)}</span>
-			{/if}
-			<a
-				href={resolve(`/projects/${data.project.slug}/webhooks`)}
-				class="btn-secondary btn-md"
-				data-testid="edit-webhook-btn">Edit</a
-			>
-		</li>
-		<li class="integration-row">
-			<div class="integration-info">
-				<span class="integration-name">PR status checks</span>
-			</div>
-			<a
-				href={resolve(`/projects/${data.project.slug}/checks`)}
-				class="btn-secondary btn-md"
-				data-testid="edit-checks-btn">Edit</a
-			>
-		</li>
-	</ul>
-</section>
-
-<!-- Build & Runtime -->
-<section data-testid="scripts-section">
-	<h2 class="section-title">Build & Runtime</h2>
-	<form
-		method="post"
-		action="?/saveScripts"
-		use:enhance={() => {
-			savingScripts = true
-			return async ({ update }) => {
-				await update({ reset: false })
-				savingScripts = false
-			}
-		}}
-	>
-		<fieldset class="scripts-fieldset">
-				<ProjectRuntimeField bind:runtime frameworkId={data.settings.frameworkId} tier={data.settings.tier} settings />
-			<label>Build command
-				<input
-					type="text"
-					name="buildCommand"
-					bind:value={buildCommand}
-					placeholder="e.g. bun run build"
-					data-testid="build-command-input"
-				/>
-				<span class="field-hint">Runs during image build. Leave blank to use the framework default.</span>
-			</label>
-			<label>Start command
-				<input
-					type="text"
-					name="startCommand"
-					bind:value={startCommand}
-					placeholder={`e.g. ${runtime} build/index.js`}
-					data-testid="start-command-input"
-				/>
-				<span class="field-hint">Runs in the runtime container. Leave blank to use the framework default.</span>
-			</label>
-			<label>Release command
-				<input
-					type="text"
-					name="releaseCommand"
-					bind:value={releaseCommand}
-					placeholder="e.g. bun run migrate"
-					data-testid="release-command-input"
-				/>
-				<span class="field-hint">
-					Runs once per deploy, before traffic switches. Usually migrations.
-					<a href="https://risved.org/docs/release-commands" target="_blank" rel="noopener">Learn more</a>
-				</span>
-			</label>
-			<div class="scripts-actions">
-				<button type="submit" class="btn-primary btn-lg" disabled={savingScripts} data-testid="save-scripts-btn">
-					{savingScripts ? 'Saving…' : 'Save'}
-				</button>
-				{#if form?.runtimeError}
-						<span class="save-error" role="alert">{form.runtimeError}</span>
+	<section data-testid="integrations-section">
+		<h2 class="section-title">Integrations</h2>
+		<ul class="integration-list">
+			<li class="integration-row">
+				<div class="integration-info">
+					<span class="integration-name">Webhook</span>
+					{#if data.webhookActive}
+						<span class="status-dot dot-live"></span>
+						<span class="integration-detail">Active</span>
+					{:else}
+						<span class="status-dot dot-stopped"></span>
+						<span class="integration-detail muted">Not configured</span>
 					{/if}
-				{#if form?.scriptsSaved}
-					<span class="save-success">Saved</span>
+				</div>
+				{#if data.webhookActive && data.lastWebhookAt}
+					<span class="integration-meta muted">Last received {timeAgo(data.lastWebhookAt)}</span>
 				{/if}
-			</div>
-		</fieldset>
-	</form>
-</section>
+				<a
+					href={resolve(`/projects/${data.project.slug}/webhooks`)}
+					class="btn-secondary btn-md"
+					data-testid="edit-webhook-btn">Edit</a
+				>
+			</li>
+			<li class="integration-row">
+				<div class="integration-info">
+					<span class="integration-name">PR status checks</span>
+				</div>
+				<a
+					href={resolve(`/projects/${data.project.slug}/checks`)}
+					class="btn-secondary btn-md"
+					data-testid="edit-checks-btn">Edit</a
+				>
+			</li>
+		</ul>
+	</section>
 
-<!-- Danger Zone -->
-<section class="section danger-zone" data-testid="danger-zone">
-	<h2 class="section-title danger-title">Danger Zone</h2>
-	<article class="danger-card">
-		<header class="danger-info">
-			<strong>Delete this project</strong>
-			<p class="muted">
-				This will permanently delete the project, all deployments, environment variables, domains,
-				and webhook data. This action cannot be undone.
-			</p>
-		</header>
-		{#if !confirmDelete}
-			<button class="btn-danger" onclick={() => (confirmDelete = true)} data-testid="delete-btn">
-				Delete project
-			</button>
-		{:else}
-			<form
-				method="post"
-				action="?/delete"
-				use:enhance={() => {
-					deleting = true
-					return async ({ update }) => {
-						deleting = false
-						await update()
-					}
-				}}
-			>
-				<div class="confirm-row">
+	<!-- Build & Runtime -->
+	<section data-testid="scripts-section">
+		<h2 class="section-title">Build & Runtime</h2>
+		<form
+			method="post"
+			action="?/saveScripts"
+			use:enhance={() => {
+				savingScripts = true
+				return async ({ update }) => {
+					await update({ reset: false })
+					savingScripts = false
+				}
+			}}
+		>
+			<fieldset class="scripts-fieldset">
+				<ProjectRuntimeField
+					bind:runtime
+					frameworkId={data.settings.frameworkId}
+					tier={data.settings.tier}
+					settings
+				/>
+				<label
+					>Build command
+					<input
+						type="text"
+						name="buildCommand"
+						bind:value={buildCommand}
+						placeholder="e.g. bun run build"
+						data-testid="build-command-input"
+					/>
+					<span class="field-hint"
+						>Runs during image build. Leave blank to use the framework default.</span
+					>
+				</label>
+				<label
+					>Start command
+					<input
+						type="text"
+						name="startCommand"
+						bind:value={startCommand}
+						placeholder={`e.g. ${runtime} build/index.js`}
+						data-testid="start-command-input"
+					/>
+					<span class="field-hint"
+						>Runs in the runtime container. Leave blank to use the framework default.</span
+					>
+				</label>
+				<label
+					>Release command
+					<input
+						type="text"
+						name="releaseCommand"
+						bind:value={releaseCommand}
+						placeholder="e.g. bun run migrate"
+						data-testid="release-command-input"
+					/>
+					<span class="field-hint">
+						Runs once per deploy, before traffic switches. Usually migrations.
+						<a href="https://risved.org/docs/release-commands" target="_blank" rel="noopener"
+							>Learn more</a
+						>
+					</span>
+				</label>
+				<div class="scripts-actions">
 					<button
 						type="submit"
-						class="btn-danger-confirm"
-						disabled={deleting}
-						data-testid="confirm-delete-btn"
+						class="btn-primary btn-lg"
+						disabled={savingScripts}
+						data-testid="save-scripts-btn"
 					>
-						{deleting ? 'Deleting…' : 'Confirm delete'}
+						{savingScripts ? 'Saving…' : 'Save'}
 					</button>
-					<button type="button" class="btn-cancel" onclick={() => (confirmDelete = false)}>Cancel</button>
+					{#if form?.runtimeError}
+						<span class="save-error" role="alert">{form.runtimeError}</span>
+					{/if}
+					{#if form?.scriptsSaved}
+						<span class="save-success">Saved</span>
+					{/if}
 				</div>
-			</form>
-		{/if}
-	</article>
-</section>
+			</fieldset>
+		</form>
+	</section>
+
+	<!-- Danger Zone -->
+	<section class="section danger-zone" data-testid="danger-zone">
+		<h2 class="section-title danger-title">Danger Zone</h2>
+		<article class="danger-card">
+			<header class="danger-info">
+				<strong>Delete this project</strong>
+				<p class="muted">
+					This will permanently delete the project, all deployments, environment variables, domains,
+					and webhook data. This action cannot be undone.
+				</p>
+			</header>
+			{#if !confirmDelete}
+				<button class="btn-danger" onclick={() => (confirmDelete = true)} data-testid="delete-btn">
+					Delete project
+				</button>
+			{:else}
+				<form
+					method="post"
+					action="?/delete"
+					use:enhance={() => {
+						deleting = true
+						return async ({ update }) => {
+							deleting = false
+							await update()
+						}
+					}}
+				>
+					<div class="confirm-row">
+						<button
+							type="submit"
+							class="btn-danger-confirm"
+							disabled={deleting}
+							data-testid="confirm-delete-btn"
+						>
+							{deleting ? 'Deleting…' : 'Confirm delete'}
+						</button>
+						<button type="button" class="btn-cancel" onclick={() => (confirmDelete = false)}
+							>Cancel</button
+						>
+					</div>
+				</form>
+			{/if}
+		</article>
+	</section>
 </div>
 
 <style>
@@ -717,9 +756,8 @@
 	}
 	.muted {
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
-
 
 	/* Scripts */
 	.scripts-fieldset {
@@ -736,7 +774,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--color-text-1);
 	}
@@ -749,7 +787,9 @@
 		font-size: 1rem;
 		font-weight: 400;
 		outline: none;
-		transition: border-color 0.15s, box-shadow 0.15s;
+		transition:
+			border-color 0.15s,
+			box-shadow 0.15s;
 	}
 	.scripts-fieldset input[type='text']:focus {
 		border-color: var(--color-accent);
@@ -759,7 +799,7 @@
 		color: var(--color-text-2);
 	}
 	.field-hint {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 400;
 		color: var(--color-text-2);
 	}
@@ -776,7 +816,7 @@
 		gap: var(--space-3);
 	}
 	.save-success {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--color-live);
 	}
@@ -796,7 +836,7 @@
 		gap: 0;
 		border-bottom: 1px solid var(--color-border);
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 	.env-key {
 		flex: 0 0 35%;
@@ -806,7 +846,7 @@
 		border-right: 1px solid var(--color-border);
 		color: var(--color-text-0);
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		outline: none;
 	}
 	.env-key::placeholder {
@@ -825,7 +865,7 @@
 		border: none;
 		color: var(--color-text-1);
 		font-family: var(--font-mono);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		outline: none;
 	}
 	.env-value.secret {
@@ -846,7 +886,7 @@
 		border-left: 1px solid var(--color-border);
 		color: var(--color-text-2);
 		cursor: pointer;
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		transition: color 0.1s;
 	}
@@ -859,7 +899,7 @@
 		padding: 0 var(--space-2);
 		border-left: 1px solid var(--color-border);
 		color: var(--color-text-2);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		cursor: pointer;
 	}
 	.env-secret:has(input:checked) {
@@ -876,7 +916,7 @@
 		border: none;
 		color: var(--color-text-2);
 		cursor: pointer;
-		font-size: .875rem;
+		font-size: 0.875rem;
 		transition: color 0.1s;
 	}
 	.env-secret-toggle:hover,
@@ -903,7 +943,7 @@
 	.env-empty {
 		padding: var(--space-3);
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		text-align: center;
 	}
 	.env-actions {
@@ -914,7 +954,7 @@
 		border-top: 1px solid var(--color-border);
 	}
 	.save-error {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-failed);
 		margin-left: var(--space-2);
 	}
@@ -960,14 +1000,14 @@
 	}
 	.postgres-meta dt {
 		color: var(--color-text-2);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		text-transform: uppercase;
 		letter-spacing: 0;
 	}
 	.postgres-meta dd {
 		margin: var(--space-1) 0 0;
 		color: var(--color-text-0);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		overflow-wrap: anywhere;
 	}
 	.postgres-url {
@@ -977,13 +1017,13 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		overflow-wrap: anywhere;
 	}
 	.postgres-warning {
 		margin: 0 0 var(--space-3);
 		color: var(--color-failed);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		line-height: 1.5;
 	}
 
@@ -997,7 +1037,7 @@
 		background: color-mix(in srgb, var(--color-building) 8%, transparent);
 		border: 1px solid color-mix(in srgb, var(--color-building) 25%, transparent);
 		border-radius: var(--radius-md);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-0);
 	}
 	.btn-redeploy {
@@ -1006,7 +1046,7 @@
 		border: 1px solid var(--color-building);
 		border-radius: var(--radius-md);
 		color: var(--color-building);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
 		white-space: nowrap;
@@ -1059,7 +1099,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 	.cron-row {
 		display: grid;
@@ -1068,7 +1108,7 @@
 		gap: var(--space-2);
 		border-bottom: 1px solid var(--color-border);
 		padding: var(--space-2) var(--space-3);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 	.cron-row:last-child {
 		border-bottom: none;
@@ -1097,7 +1137,7 @@
 	}
 	.cron-route {
 		color: var(--color-text-2);
-		font-size: .875rem;
+		font-size: 0.875rem;
 	}
 	.cron-schedule {
 		color: var(--color-text-1);
@@ -1106,7 +1146,7 @@
 	.cron-last-run {
 		padding: 1px 6px;
 		border-radius: var(--radius-sm);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 500;
 		white-space: nowrap;
 	}
@@ -1136,7 +1176,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-1);
-		font-size: .75rem;
+		font-size: 0.75rem;
 		line-height: 1.34;
 		cursor: pointer;
 		white-space: nowrap;
@@ -1190,7 +1230,7 @@
 		color: var(--color-text-1);
 	}
 	.integration-meta {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		margin-left: auto;
 		text-align: right;
 	}
@@ -1233,7 +1273,7 @@
 	}
 	.danger-info p {
 		margin-top: var(--space-1);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		line-height: 1.5;
 		text-wrap: balance;
 	}
@@ -1244,7 +1284,7 @@
 		border: 1.5px solid var(--color-failed);
 		border-radius: var(--radius-md);
 		color: var(--color-failed);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		font-weight: 600;
 		cursor: pointer;
 		white-space: nowrap;
@@ -1274,7 +1314,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		color: var(--color-text-1);
-		font-size: .875rem;
+		font-size: 0.875rem;
 		cursor: pointer;
 	}
 	.btn-cancel:hover {

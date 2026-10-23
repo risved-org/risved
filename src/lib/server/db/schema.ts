@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const task = sqliteTable('task', {
 	id: text('id')
@@ -6,12 +6,12 @@ export const task = sqliteTable('task', {
 		.$defaultFn(() => crypto.randomUUID()),
 	title: text('title').notNull(),
 	priority: integer('priority').notNull().default(1)
-});
+})
 
 export const settings = sqliteTable('settings', {
 	key: text('key').primaryKey(),
 	value: text('value').notNull()
-});
+})
 
 export const projects = sqliteTable('projects', {
 	id: text('id')
@@ -24,7 +24,9 @@ export const projects = sqliteTable('projects', {
 	gitConnectionId: text('git_connection_id'),
 	frameworkId: text('framework_id'),
 	tier: text('tier'),
-	runtime: text('runtime', { enum: ['node', 'bun'] }).notNull().default('node'),
+	runtime: text('runtime', { enum: ['node', 'bun'] })
+		.notNull()
+		.default('node'),
 	port: integer('port'),
 	domain: text('domain'),
 	webhookSecret: text('webhook_secret'),
@@ -51,7 +53,7 @@ export const projects = sqliteTable('projects', {
 	updatedAt: text('updated_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const deployments = sqliteTable('deployments', {
 	id: text('id')
@@ -72,7 +74,7 @@ export const deployments = sqliteTable('deployments', {
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const buildLogs = sqliteTable('build_logs', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -81,7 +83,7 @@ export const buildLogs = sqliteTable('build_logs', {
 	phase: text('phase').notNull(),
 	level: text('level').notNull().default('info'),
 	message: text('message').notNull()
-});
+})
 
 export const envVars = sqliteTable(
 	'env_vars',
@@ -100,22 +102,30 @@ export const envVars = sqliteTable(
 			.notNull()
 			.$defaultFn(() => new Date().toISOString())
 	},
-	(table) => [uniqueIndex('env_vars_project_key_idx').on(table.projectId, table.key)]
-);
+	table => [uniqueIndex('env_vars_project_key_idx').on(table.projectId, table.key)]
+)
 
-export const domains = sqliteTable('domains', {
-	id: text('id')
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	projectId: text('project_id').notNull(),
-	hostname: text('hostname').notNull().unique(),
-	isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
-	sslStatus: text('ssl_status').notNull().default('pending'),
-	verifiedAt: text('verified_at'),
-	createdAt: text('created_at')
-		.notNull()
-		.$defaultFn(() => new Date().toISOString())
-});
+export const domains = sqliteTable(
+	'domains',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		projectId: text('project_id').notNull(),
+		hostname: text('hostname').notNull(),
+		pathPrefix: text('path_prefix').notNull().default('/'),
+		forwardingMode: text('forwarding_mode', { enum: ['preserve', 'strip'] })
+			.notNull()
+			.default('preserve'),
+		isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
+		sslStatus: text('ssl_status').notNull().default('pending'),
+		verifiedAt: text('verified_at'),
+		createdAt: text('created_at')
+			.notNull()
+			.$defaultFn(() => new Date().toISOString())
+	},
+	table => [uniqueIndex('domains_hostname_prefix_idx').on(table.hostname, table.pathPrefix)]
+)
 
 export const webhookDeliveries = sqliteTable('webhook_deliveries', {
 	id: text('id')
@@ -130,7 +140,7 @@ export const webhookDeliveries = sqliteTable('webhook_deliveries', {
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const gitConnections = sqliteTable('git_connections', {
 	id: text('id')
@@ -149,7 +159,7 @@ export const gitConnections = sqliteTable('git_connections', {
 	updatedAt: text('updated_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const previewDeployments = sqliteTable('preview_deployments', {
 	id: text('id')
@@ -171,7 +181,7 @@ export const previewDeployments = sqliteTable('preview_deployments', {
 	updatedAt: text('updated_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const resourceMetrics = sqliteTable('resource_metrics', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
@@ -184,7 +194,7 @@ export const resourceMetrics = sqliteTable('resource_metrics', {
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const bandwidthDaily = sqliteTable(
 	'bandwidth_daily',
@@ -198,8 +208,8 @@ export const bandwidthDaily = sqliteTable(
 			.notNull()
 			.$defaultFn(() => new Date().toISOString())
 	},
-	(table) => [uniqueIndex('bandwidth_daily_project_day_idx').on(table.projectId, table.day)]
-);
+	table => [uniqueIndex('bandwidth_daily_project_day_idx').on(table.projectId, table.day)]
+)
 
 export const healthEvents = sqliteTable('health_events', {
 	id: text('id')
@@ -211,7 +221,7 @@ export const healthEvents = sqliteTable('health_events', {
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const cronJobs = sqliteTable('cron_jobs', {
 	id: text('id')
@@ -230,7 +240,7 @@ export const cronJobs = sqliteTable('cron_jobs', {
 	updatedAt: text('updated_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
 export const cronRuns = sqliteTable('cron_runs', {
 	id: text('id')
@@ -243,7 +253,7 @@ export const cronRuns = sqliteTable('cron_runs', {
 	durationMs: integer('duration_ms'),
 	startedAt: text('started_at').notNull(),
 	completedAt: text('completed_at')
-});
+})
 
 /**
  * Bearer keys for headless clients (CI, agents over the MCP server).
@@ -267,6 +277,6 @@ export const apiKeys = sqliteTable('api_keys', {
 	createdAt: text('created_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
-});
+})
 
-export * from './auth.schema';
+export * from './auth.schema'

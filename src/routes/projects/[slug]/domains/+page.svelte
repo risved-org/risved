@@ -1,37 +1,18 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { resolve } from '$app/paths';
-	import type { PageData, ActionData } from './$types';
-
-	let { data, form }: { data: PageData; form: ActionData } = $props();
-
-	let showAddForm = $state(false);
-	let hostname = $state('');
-	let adding = $state(false);
-	let verifyingId = $state<string | null>(null);
-	let removingId = $state<string | null>(null);
-	let copiedKey = $state<string | null>(null);
-
-	function sslStatusLabel(status: string): string {
-		if (status === 'active') return 'Active';
-		if (status === 'provisioning') return 'Provisioning';
-		if (status === 'error') return 'Error';
-		return 'Pending';
-	}
-
-	function sslStatusClass(status: string): string {
-		if (status === 'active') return 'badge-live';
-		if (status === 'provisioning') return 'badge-building';
-		if (status === 'error') return 'badge-failed';
-		return 'badge-muted';
-	}
-
+	import { resolve } from '$app/paths'
+	import DomainList from './DomainList.svelte'
+	import AddDomainForm from './AddDomainForm.svelte'
+	import type { PageData, ActionData } from './$types'
+	let { data, form }: { data: PageData; form: ActionData } = $props()
+	let showAddForm = $state(false)
+	let copiedKey = $state<string | null>(null)
+	/** Copy a DNS address and briefly identify the copied record. */
 	function copyIp(ip: string, key: string) {
-		navigator.clipboard.writeText(ip);
-		copiedKey = key;
+		navigator.clipboard.writeText(ip)
+		copiedKey = key
 		setTimeout(() => {
-			if (copiedKey === key) copiedKey = null;
-		}, 2000);
+			if (copiedKey === key) copiedKey = null
+		}, 2000)
 	}
 </script>
 
@@ -41,7 +22,9 @@
 
 <div class="domains-page">
 	<nav class="sub-breadcrumb">
-		<a href={resolve(`/projects/${data.project.slug}/settings`)} class="breadcrumb-link">← Settings</a>
+		<a href={resolve(`/projects/${data.project.slug}/settings`)} class="breadcrumb-link"
+			>← Settings</a
+		>
 	</nav>
 
 	<h1 class="page-title">Domains</h1>
@@ -63,278 +46,16 @@
 		</section>
 	{/if}
 
-	<!-- Domain list -->
-	<section data-testid="domains-list">
-		<div class="section-header">
-			<h2 class="section-title">Domains</h2>
-			{#if !showAddForm}
-				<button class="btn-secondary btn-md" onclick={() => (showAddForm = true)} data-testid="add-domain-btn">
-					Add domain
-				</button>
-			{/if}
-		</div>
-
-		{#if data.domains.length === 0 && !showAddForm}
-			<p class="empty-text" data-testid="no-domains">No custom domains configured.</p>
-		{/if}
-
-		{#if data.domains.length > 0}
-			<div class="domain-list" data-testid="domain-table">
-				{#each data.domains as dom (dom.id)}
-					<article class="domain-card" data-testid="domain-row">
-						<header class="domain-card-header">
-							<div class="domain-info">
-								<span class="domain-hostname mono" data-testid="domain-hostname">{dom.hostname}</span>
-								{#if dom.isPrimary}
-									<span class="badge-md badge-accent">Primary</span>
-								{/if}
-								<span class="badge-md {sslStatusClass(dom.sslStatus)}" data-testid="ssl-status">
-									SSL: {sslStatusLabel(dom.sslStatus)}
-								</span>
-							</div>
-							<div class="domain-actions">
-								{#if !dom.isPrimary}
-									<form
-										method="post"
-										action="?/primary"
-										use:enhance={() => {
-											return async ({ update }) => {
-												await update();
-											};
-										}}
-									>
-										<input type="hidden" name="domainId" value={dom.id} />
-										<button type="submit" class="btn-action" data-testid="set-primary-btn"
-											>Set primary</button
-										>
-									</form>
-								{/if}
-								<form
-									method="post"
-									action="?/verify"
-									use:enhance={() => {
-										verifyingId = dom.id;
-										return async ({ update }) => {
-											verifyingId = null;
-											await update();
-										};
-									}}
-								>
-									<input type="hidden" name="domainId" value={dom.id} />
-									<button
-										type="submit"
-										class="btn-action"
-										disabled={verifyingId === dom.id}
-										data-testid="check-dns-btn"
-									>
-										{verifyingId === dom.id ? 'Checking…' : 'Check DNS'}
-									</button>
-								</form>
-								<form
-									method="post"
-									action="?/remove"
-									use:enhance={() => {
-										removingId = dom.id;
-										return async ({ update }) => {
-											removingId = null;
-											await update();
-										};
-									}}
-								>
-									<input type="hidden" name="domainId" value={dom.id} />
-									<button
-										type="submit"
-										class="btn-action btn-action-danger"
-										disabled={removingId === dom.id}
-										data-testid="remove-domain-btn"
-									>
-										{removingId === dom.id ? 'Removing…' : 'Remove'}
-									</button>
-								</form>
-							</div>
-						</header>
-
-						{#if data.serverIps.ipv4 || data.serverIps.ipv6}
-							<div class="dns-records" role="table" aria-label="DNS records for {dom.hostname}">
-								<div class="dns-table-header" role="row">
-									<span role="columnheader">Type</span>
-									<span role="columnheader">Name</span>
-									<span role="columnheader">Value</span>
-								</div>
-								{#if data.serverIps.ipv4}
-									<div class="dns-table-row" role="row">
-										<span role="cell"><code>A</code></span>
-										<span role="cell"><code>{dom.hostname}</code></span>
-										<span role="cell" class="dns-value-cell">
-											<code>{data.serverIps.ipv4}</code>
-											<button
-												type="button"
-												class="btn-copy"
-												onclick={() => copyIp(data.serverIps.ipv4!, `${dom.id}:v4`)}
-												aria-label="Copy IPv4"
-											>
-												{copiedKey === `${dom.id}:v4` ? 'Copied' : 'Copy'}
-											</button>
-										</span>
-									</div>
-								{/if}
-								{#if data.serverIps.ipv6}
-									<div class="dns-table-row" role="row">
-										<span role="cell"><code>AAAA</code></span>
-										<span role="cell"><code>{dom.hostname}</code></span>
-										<span role="cell" class="dns-value-cell">
-											<code>{data.serverIps.ipv6}</code>
-											<button
-												type="button"
-												class="btn-copy"
-												onclick={() => copyIp(data.serverIps.ipv6!, `${dom.id}:v6`)}
-												aria-label="Copy IPv6"
-											>
-												{copiedKey === `${dom.id}:v6` ? 'Copied' : 'Copy'}
-											</button>
-										</span>
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</article>
-				{/each}
-			</div>
-		{/if}
-	</section>
-
-	<!-- Add domain form -->
+	<DomainList {data} {showAddForm} {copiedKey} {copyIp} onadd={() => (showAddForm = true)} />
 	{#if showAddForm}
-		<section data-testid="add-domain-section">
-			<h2 class="section-title">Add Domain</h2>
-
-			<form
-				method="post"
-				action="?/add"
-				use:enhance={() => {
-					adding = true;
-					return async ({ update, result }) => {
-						adding = false;
-						if (result.type === 'success') {
-							showAddForm = false;
-							hostname = '';
-						}
-						await update();
-					};
-				}}
-			>
-				<div class="add-form">
-					<div class="input-row">
-						<input
-							type="text"
-							name="hostname"
-							bind:value={hostname}
-							placeholder="app.example.com"
-							class="hostname-input mono"
-							data-testid="hostname-input"
-						/>
-						<button
-							type="submit"
-							class="btn-primary btn-md"
-							disabled={adding || !hostname.trim()}
-							data-testid="confirm-add-btn"
-						>
-							{adding ? 'Adding…' : 'Add'}
-						</button>
-						<button
-							type="button"
-							class="btn-cancel"
-							onclick={() => {
-								showAddForm = false;
-								hostname = '';
-							}}
-						>
-							Cancel
-						</button>
-					</div>
-					{#if form?.error}
-						<p class="form-error" data-testid="add-error">{form.error}</p>
-					{/if}
-				</div>
-			</form>
-
-			<!-- DNS record instructions -->
-			<div class="dns-instructions" data-testid="dns-instructions">
-				<h3 class="subsection-title">DNS Configuration</h3>
-				<p class="dns-desc">
-					Point your domain to this server by creating DNS records:
-				</p>
-				{#if data.serverIps.ipv4}
-					<div class="dns-record-card" data-testid="dns-record">
-						<div class="dns-row">
-							<span class="dns-label">Type</span>
-							<span class="dns-value mono">A</span>
-						</div>
-						<div class="dns-row">
-							<span class="dns-label">Name</span>
-							<span class="dns-value mono">{hostname || 'your-domain.com'}</span>
-						</div>
-						<div class="dns-row">
-							<span class="dns-label">Value</span>
-							<span class="dns-value mono" data-testid="server-ip">{data.serverIps.ipv4}</span>
-							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv4!, 'add:v4')} data-testid="copy-ip-btn">
-								{copiedKey === 'add:v4' ? 'Copied!' : 'Copy'}
-							</button>
-						</div>
-					</div>
-				{/if}
-				{#if data.serverIps.ipv6}
-					<div class="dns-record-card" data-testid="dns-record-ipv6">
-						<div class="dns-row">
-							<span class="dns-label">Type</span>
-							<span class="dns-value mono">AAAA</span>
-						</div>
-						<div class="dns-row">
-							<span class="dns-label">Name</span>
-							<span class="dns-value mono">{hostname || 'your-domain.com'}</span>
-						</div>
-						<div class="dns-row">
-							<span class="dns-label">Value</span>
-							<span class="dns-value mono" data-testid="server-ipv6">{data.serverIps.ipv6}</span>
-							<button class="btn-copy" onclick={() => copyIp(data.serverIps.ipv6!, 'add:v6')} data-testid="copy-ipv6-btn">
-								{copiedKey === 'add:v6' ? 'Copied!' : 'Copy'}
-							</button>
-						</div>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Routing diagram -->
-			<div class="routing-diagram" data-testid="routing-diagram">
-				<h3 class="subsection-title">How it works</h3>
-				<div class="diagram">
-					<div class="diagram-node">
-						<span class="diagram-icon">🌐</span>
-						<span class="diagram-label">Browser</span>
-					</div>
-					<span class="diagram-arrow">→</span>
-					<div class="diagram-node">
-						<span class="diagram-icon">DNS</span>
-						<span class="diagram-label">A / AAAA</span>
-					</div>
-					<span class="diagram-arrow">→</span>
-					<div class="diagram-node">
-						<span class="diagram-icon">🔒</span>
-						<span class="diagram-label">Caddy</span>
-						<span class="diagram-sub">TLS + Proxy</span>
-					</div>
-					<span class="diagram-arrow">→</span>
-					<div class="diagram-node">
-						<span class="diagram-icon">⚡</span>
-						<span class="diagram-label">App</span>
-						<span class="diagram-sub">:{data.project.port ?? '3001'}</span>
-					</div>
-				</div>
-				<p class="diagram-note">
-					SSL is automatically provisioned by Caddy once DNS verification passes.
-				</p>
-			</div>
-		</section>
+		<AddDomainForm
+			{data}
+			{form}
+			{copiedKey}
+			{copyIp}
+			onadded={() => (showAddForm = false)}
+			oncancel={() => (showAddForm = false)}
+		/>
 	{/if}
 </div>
 
@@ -352,102 +73,12 @@
 		margin-bottom: calc(-1 * var(--space-3));
 	}
 	.breadcrumb-link {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-text-2);
 	}
 	.breadcrumb-link:hover {
 		color: var(--color-text-0);
 		text-decoration: none;
-	}
-
-	.subsection-title {
-		font-family: var(--font-sans);
-		font-size: .875rem;
-		font-weight: 500;
-		color: var(--color-text-1);
-		margin-bottom: var(--space-2);
-	}
-	/* Domain list */
-	.domain-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-	.domain-card {
-		display: flex;
-		flex-direction: column;
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-	}
-	.domain-card-header {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-3);
-		flex-wrap: wrap;
-	}
-	.domain-info {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		flex: 1;
-		min-width: 0;
-		flex-wrap: wrap;
-	}
-	.domain-hostname {
-		word-break: break-all;
-	}
-	.domain-actions {
-		display: flex;
-		gap: var(--space-1);
-		flex-shrink: 0;
-	}
-
-	.dns-records {
-		display: flex;
-		flex-direction: column;
-		border-top: 1px solid var(--color-border);
-		background: var(--color-bg-2);
-	}
-	.dns-table-header,
-	.dns-table-row {
-		display: grid;
-		grid-template-columns: 60px 1fr 1fr;
-		gap: var(--space-3);
-		padding: var(--space-2) var(--space-3);
-		align-items: center;
-	}
-	.dns-table-header {
-		font-size: .75rem;
-		line-height: 1.34;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		font-weight: 600;
-	}
-	.dns-table-row {
-		border-top: 1px solid var(--color-border);
-	}
-	.dns-table-row span {
-		min-width: 0;
-	}
-	.dns-table-row code {
-		font-family: var(--font-mono);
-		font-size: .875rem;
-		color: var(--color-text-0);
-		word-break: break-all;
-	}
-	.dns-value-cell {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		min-width: 0;
-	}
-	.dns-value-cell code {
-		flex: 1;
-		min-width: 0;
 	}
 
 	.default-subdomain {
@@ -462,172 +93,5 @@
 		text-decoration: underline;
 		text-decoration-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
 		text-underline-offset: 0.25em;
-	}
-
-	/* Action buttons */
-	.btn-action {
-		padding: 1px 4px;
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-2);
-		font-size: .75rem;
-		line-height: 1.34;
-		cursor: pointer;
-	}
-	.btn-action:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-	}
-	.btn-action:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	.btn-action-danger:hover {
-		border-color: var(--color-failed);
-		color: var(--color-failed);
-	}
-
-	/* Add domain form */
-	.add-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-	}
-	.input-row {
-		display: flex;
-		gap: var(--space-2);
-	}
-	.hostname-input {
-		flex: 1;
-		padding: var(--space-2) var(--space-3);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-0);
-		font-size: .875rem;
-	}
-	.hostname-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
-	}
-	.hostname-input::placeholder {
-		color: var(--color-text-2);
-	}
-	.btn-cancel {
-		padding: var(--space-2) var(--space-3);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-1);
-		font-size: .875rem;
-		cursor: pointer;
-	}
-	.btn-cancel:hover {
-		border-color: var(--color-text-2);
-	}
-	.form-error {
-		color: var(--color-failed);
-		font-size: .875rem;
-	}
-
-	/* DNS record card */
-	.dns-instructions {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-	}
-	.dns-desc {
-		font-size: .875rem;
-		color: var(--color-text-1);
-		line-height: 1.5;
-	}
-	.dns-record-card {
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-	}
-	.dns-row {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-2) var(--space-3);
-		border-bottom: 1px solid var(--color-border);
-	}
-	.dns-row:last-child {
-		border-bottom: none;
-	}
-	.dns-label {
-		width: 60px;
-		font-size: .875rem;
-		font-weight: 500;
-		color: var(--color-text-2);
-		text-transform: uppercase;
-		flex-shrink: 0;
-	}
-	.dns-value {
-		flex: 1;
-		color: var(--color-text-0);
-	}
-	.btn-copy {
-		padding: 2px var(--space-2);
-		background: transparent;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-2);
-		font-size: .875rem;
-		cursor: pointer;
-		flex-shrink: 0;
-	}
-	.btn-copy:hover {
-		border-color: var(--color-text-2);
-		color: var(--color-text-0);
-	}
-
-	/* Routing diagram */
-	.routing-diagram {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-	}
-	.diagram {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--space-3);
-		padding: var(--space-4);
-		background: var(--color-bg-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-	}
-	.diagram-node {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 2px;
-	}
-	.diagram-icon {
-		font-size: 1.25rem;
-		line-height: 1;
-	}
-	.diagram-label {
-		font-size: .875rem;
-		font-weight: 500;
-		color: var(--color-text-0);
-	}
-	.diagram-sub {
-		font-family: var(--font-mono);
-		font-size: .875rem;
-		color: var(--color-text-2);
-	}
-	.diagram-arrow {
-		color: var(--color-text-2);
-		font-size: 1.25rem;
-	}
-	.diagram-note {
-		font-size: .875rem;
-		color: var(--color-text-2);
-		text-align: center;
 	}
 </style>

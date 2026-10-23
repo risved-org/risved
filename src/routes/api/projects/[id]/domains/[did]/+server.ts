@@ -1,44 +1,44 @@
-import { json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { domains } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { requireAuth, jsonError } from '$lib/server/api-utils';
-import { createCaddyClient } from '$lib/server/caddy';
-import type { RequestHandler } from './$types';
+import { json } from '@sveltejs/kit'
+import { db } from '$lib/server/db'
+import { domains } from '$lib/server/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { requireAuth, jsonError } from '$lib/server/api-utils'
+import { createCaddyClient } from '$lib/server/caddy'
+import type { RequestHandler } from './$types'
 
 /**
  * DELETE /api/projects/:id/domains/:did — remove a domain.
  */
-export const DELETE: RequestHandler = async (event) => {
-	await requireAuth(event);
+export const DELETE: RequestHandler = async event => {
+	await requireAuth(event)
 
-	const { id, did } = event.params;
+	const { id, did } = event.params
 
 	const rows = await db
 		.select()
 		.from(domains)
 		.where(and(eq(domains.id, did), eq(domains.projectId, id)))
-		.limit(1);
+		.limit(1)
 
 	if (rows.length === 0) {
-		return jsonError(404, 'Domain not found');
+		return jsonError(404, 'Domain not found')
 	}
 
-	const domain = rows[0];
+	const domain = rows[0]
 
 	/* Remove Caddy route (best-effort) */
 	try {
-		const caddy = createCaddyClient();
-		await caddy.removeRoute(domain.hostname);
+		const caddy = createCaddyClient()
+		await caddy.removeRoute(domain.hostname, domain.pathPrefix)
 		/* Also remove www redirect route if this is a non-www domain */
 		if (!domain.hostname.startsWith('www.')) {
-			await caddy.removeRoute(`www.${domain.hostname}`)
+			await caddy.removeRedirectRoute(`www.${domain.hostname}`, domain.pathPrefix)
 		}
 	} catch {
 		/* Caddy may not be running — ignore */
 	}
 
-	await db.delete(domains).where(eq(domains.id, did));
+	await db.delete(domains).where(eq(domains.id, did))
 
-	return json({ success: true });
-};
+	return json({ success: true })
+}

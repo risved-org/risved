@@ -1,24 +1,24 @@
 import { withProjectLock } from './project-lock'
-import { db } from '$lib/server/db';
-import { deployments } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { CaddyClient, createCaddyClient } from '../caddy';
-import { dockerRun, dockerStop, waitForHealthy, freePort, projectVolumeName } from './docker';
-import { createLogCollector } from './log';
+import { db } from '$lib/server/db'
+import { deployments, domains } from '$lib/server/db/schema'
+import { eq } from 'drizzle-orm'
+import { CaddyClient, createCaddyClient } from '../caddy'
+import { dockerRun, dockerStop, waitForHealthy, freePort, projectVolumeName } from './docker'
+import { createLogCollector } from './log'
 import { supersedeLiveDeployments } from './supersede'
 import { getManagedAppDomain } from './domains'
 import { loadProjectEnv, resolveManagedPostgresEnv } from './env'
-import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types';
+import type { PipelinePhase, PipelineResult, LogEmitter, CommandRunner } from './types'
 
 export interface RollbackConfig {
-	projectId: string;
-	projectSlug: string;
+	projectId: string
+	projectSlug: string
 	/** The image tag from the previous successful deployment */
-	imageTag: string;
+	imageTag: string
 	/** The commit SHA from the previous deployment */
-	commitSha: string | null;
-	port: number;
-	domain?: string;
+	commitSha: string | null
+	port: number
+	domain?: string
 	/** Whether Risved should inject the project's managed Postgres env */
 	postgresEnabled?: boolean | null
 	/** Encrypted managed Postgres password */
@@ -34,30 +34,30 @@ export async function runRollback(
 	config: RollbackConfig,
 	runner: CommandRunner,
 	options?: {
-		onLog?: LogEmitter;
-		caddy?: CaddyClient;
-		fetchFn?: typeof fetch;
-		healthTimeoutMs?: number;
-		healthIntervalMs?: number;
+		onLog?: LogEmitter
+		caddy?: CaddyClient
+		fetchFn?: typeof fetch
+		healthTimeoutMs?: number
+		healthIntervalMs?: number
 	}
 ): Promise<PipelineResult> {
- return withProjectLock(config.projectId, () => runRollbackLocked(config, runner, options))
+	return withProjectLock(config.projectId, () => runRollbackLocked(config, runner, options))
 }
 
 async function runRollbackLocked(
 	config: RollbackConfig,
 	runner: CommandRunner,
 	options?: {
-		onLog?: LogEmitter;
-		caddy?: CaddyClient;
-		fetchFn?: typeof fetch;
-		healthTimeoutMs?: number;
-		healthIntervalMs?: number;
+		onLog?: LogEmitter
+		caddy?: CaddyClient
+		fetchFn?: typeof fetch
+		healthTimeoutMs?: number
+		healthIntervalMs?: number
 	}
 ): Promise<PipelineResult> {
-	const deploymentId = crypto.randomUUID();
-	const { emit, entries } = createLogCollector(deploymentId, options?.onLog);
-	const caddy = options?.caddy ?? createCaddyClient();
+	const deploymentId = crypto.randomUUID()
+	const { emit, entries } = createLogCollector(deploymentId, options?.onLog)
+	const caddy = options?.caddy ?? createCaddyClient()
 
 	/* Create deployment record with rollback trigger type */
 	await db.insert(deployments).values({
@@ -68,21 +68,21 @@ async function runRollbackLocked(
 		imageTag: config.imageTag,
 		commitSha: config.commitSha,
 		startedAt: new Date().toISOString()
-	});
+	})
 
 	try {
-		emit('start', `Rolling back to image ${config.imageTag}`);
+		emit('start', `Rolling back to image ${config.imageTag}`)
 
 		/* ── Start ──────────────────────────────── */
-		const containerName = config.projectSlug;
-		emit('start', `Starting container ${containerName} on port ${config.port}…`);
+		const containerName = config.projectSlug
+		emit('start', `Starting container ${containerName} on port ${config.port}…`)
 
 		/* Stop any container using the target port */
 		const freed = await freePort(runner, config.port)
 		if (freed.length > 0) {
 			emit('start', `Removed ${freed.length} container(s) occupying port ${config.port}`)
 		}
-		await runner.exec('docker', ['rm', '-f', containerName]);
+		await runner.exec('docker', ['rm', '-f', containerName])
 
 		/* Resolve the project's current env vars, same as a normal deploy */
 		const envMap = await loadProjectEnv(config.projectId)
@@ -103,40 +103,40 @@ async function runRollbackLocked(
 			port: config.port,
 			env: envMap,
 			volumes: [`${volumeName}:/app/data`]
-		});
+		})
 		if (!runResult.success) {
-			throw new RollbackError('start', `Docker run failed: ${runResult.error}`);
+			throw new RollbackError('start', `Docker run failed: ${runResult.error}`)
 		}
-		emit('start', `Container started (ID: ${runResult.containerId})`);
+		emit('start', `Container started (ID: ${runResult.containerId})`)
 
 		/* ── Health ─────────────────────────────── */
-		emit('health', 'Waiting for health check…');
+		emit('health', 'Waiting for health check…')
 		const healthy = await waitForHealthy(
 			containerName,
 			options?.healthTimeoutMs ?? 30000,
 			options?.healthIntervalMs ?? 2000,
 			options?.fetchFn ?? globalThis.fetch
-		);
+		)
 		if (!healthy) {
-			await dockerStop(runner, containerName, 5);
-			throw new RollbackError('health', 'Health check timed out after 30s');
+			await dockerStop(runner, containerName, 5)
+			throw new RollbackError('health', 'Health check timed out after 30s')
 		}
-		emit('health', 'Health check passed');
+		emit('health', 'Health check passed')
 
 		/* ── Route ──────────────────────────────── */
 		if (config.domain) {
-			emit('route', `Configuring route: ${config.domain} → port ${config.port}`);
+			emit('route', `Configuring route: ${config.domain} → port ${config.port}`)
 			const routeResult = await caddy.addRoute({
 				hostname: config.domain,
 				port: config.port
-			});
+			})
 			if (!routeResult.success) {
-				emit('route', `Warning: route update failed: ${routeResult.error}`, 'warn');
+				emit('route', `Warning: route update failed: ${routeResult.error}`, 'warn')
 			} else {
-				emit('route', 'Route configured');
+				emit('route', 'Route configured')
 			}
 		} else {
-			emit('route', 'No domain configured, skipping route setup');
+			emit('route', 'No domain configured, skipping route setup')
 		}
 
 		/* Also add a route via the configured app wildcard domain. */
@@ -152,8 +152,20 @@ async function runRollbackLocked(
 			}
 		}
 
+		const mappings = await db.select().from(domains).where(eq(domains.projectId, config.projectId))
+		for (const mapping of mappings) {
+			const result = await caddy.addRoute({
+				hostname: mapping.hostname,
+				port: config.port,
+				pathPrefix: mapping.pathPrefix,
+				forwardingMode: mapping.forwardingMode
+			})
+			if (!result.success)
+				emit('route', `Warning: custom domain route failed: ${result.error}`, 'warn')
+		}
+
 		/* ── Live ───────────────────────────────── */
-		emit('live', 'Rollback deployment is live');
+		emit('live', 'Rollback deployment is live')
 
 		await db
 			.update(deployments)
@@ -162,7 +174,7 @@ async function runRollbackLocked(
 				containerName,
 				finishedAt: new Date().toISOString()
 			})
-			.where(eq(deployments.id, deploymentId));
+			.where(eq(deployments.id, deploymentId))
 
 		/* The container this rollback replaced is gone, so its row is no longer live. */
 		await supersedeLiveDeployments(config.projectId, containerName, deploymentId)
@@ -174,11 +186,11 @@ async function runRollbackLocked(
 			imageTag: config.imageTag,
 			containerName,
 			logs: entries
-		};
+		}
 	} catch (err) {
-		const phase = err instanceof RollbackError ? err.phase : 'start';
-		const message = err instanceof Error ? err.message : 'Unknown error';
-		emit(phase, message, 'error');
+		const phase = err instanceof RollbackError ? err.phase : 'start'
+		const message = err instanceof Error ? err.message : 'Unknown error'
+		emit(phase, message, 'error')
 
 		await db
 			.update(deployments)
@@ -186,16 +198,14 @@ async function runRollbackLocked(
 				status: 'failed',
 				finishedAt: new Date().toISOString()
 			})
-			.where(eq(deployments.id, deploymentId));
-
-
+			.where(eq(deployments.id, deploymentId))
 
 		return {
 			success: false,
 			deploymentId,
 			error: message,
 			logs: entries
-		};
+		}
 	}
 }
 
@@ -204,7 +214,7 @@ class RollbackError extends Error {
 		public readonly phase: PipelinePhase,
 		message: string
 	) {
-		super(message);
-		this.name = 'RollbackError';
+		super(message)
+		this.name = 'RollbackError'
 	}
 }
