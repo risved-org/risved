@@ -1,3 +1,4 @@
+import { domainAddress } from '$lib/domain-address'
 import { error } from '@sveltejs/kit'
 import { db } from '$lib/server/db'
 import { projects, domains, deployments } from '$lib/server/db/schema'
@@ -30,11 +31,17 @@ export const load = (async ({ params }) => {
 	const project = proj[0]
 
 	const doms = await db.select().from(domains).where(eq(domains.projectId, project.id))
-	const primaryDomain = doms.find((d) => d.isPrimary)?.hostname ?? project.domain ?? null
+	const primaryMapping = doms.find(d => d.isPrimary)
+	const primaryDomain = primaryMapping ? domainAddress(primaryMapping) : (project.domain ?? null)
 	const allDomains = doms
 		.slice()
 		.sort((a, b) => (a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1))
-		.map((d) => ({ id: d.id, hostname: d.hostname, isPrimary: d.isPrimary }))
+		.map(d => ({
+			id: d.id,
+			hostname: d.hostname,
+			pathPrefix: d.pathPrefix ?? '/',
+			isPrimary: d.isPrimary
+		}))
 
 	const IN_PROGRESS = new Set(['running', 'cloning', 'detecting', 'building', 'starting'])
 
@@ -53,11 +60,11 @@ export const load = (async ({ params }) => {
 
 	/* If latest deployment is in-progress but a previous one is live,
 	   show as live — the old container is still serving traffic */
-	if (IN_PROGRESS.has(status) && recentDeps.some((d) => d.status === 'live')) {
+	if (IN_PROGRESS.has(status) && recentDeps.some(d => d.status === 'live')) {
 		status = 'live'
 	}
 
-	const liveDep = recentDeps.find((d) => d.status === 'live') ?? recentDeps[0]
+	const liveDep = recentDeps.find(d => d.status === 'live') ?? recentDeps[0]
 
 	const monitor = getHealthMonitor()
 	const containerHealth = monitor.get(project.id)
@@ -74,6 +81,7 @@ export const load = (async ({ params }) => {
 				: null,
 			frameworkId: project.frameworkId,
 			domain: primaryDomain,
+			pathPrefix: primaryMapping?.pathPrefix ?? '/',
 			domains: allDomains,
 			port: project.port,
 			status,
