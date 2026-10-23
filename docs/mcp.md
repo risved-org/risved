@@ -138,4 +138,8 @@ Project creation currently supports apps at the repository root. A non-root `roo
 
 OAuth connections require S256 PKCE and explicit approval on the Risved consent page. Approve only clients you trust.
 
-Release blocker: the current production form-origin guard rejects form-encoded OAuth token requests without an Origin header. JSON token requests and bearer keys are verified. Standard native-client OAuth compatibility awaits approval of the proposed form-origin policy.
+## Form-origin protection
+
+SvelteKit's global form-origin guard is disabled so native OAuth clients can POST form-encoded token exchanges without an Origin header. The first server hook, `handleFormOrigin`, replaces that guard and rejects cross-origin form mutations everywhere except exactly `POST /api/auth/mcp/token`. That endpoint requires an authorization code with S256 PKCE or a refresh token; it does not authorize with a session cookie.
+
+Do not remove or reorder this hook, or broaden the exemption. `AGENTS.md` records the maintenance requirements. `bun run test:mcp` builds the production app and checks both a standard form-encoded exchange and rejected cross-origin settings and consent submissions.

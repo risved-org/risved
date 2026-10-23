@@ -116,21 +116,27 @@ test('discovers OAuth, requires approval, exchanges an S256 code and rejects cod
 		code: authorized.searchParams.get('code')!,
 		code_verifier: verifier
 	}
-	// The form-token compatibility proposal is intentionally not applied yet.
-	expect((await request.post(metadata.token_endpoint, { form })).status()).toBe(403)
 	expect(
 		(
-			await request.post('/settings?/createMcpKey', {
+			await page.request.post('/settings?/createMcpKey', {
 				headers: { Origin: 'https://attacker.test' },
 				form: { label: 'forbidden' }
 			})
 		).status()
 	).toBe(403)
-	const token = await request.post(metadata.token_endpoint, { data: form })
+	expect(
+		(
+			await page.request.post('/oauth/consent', {
+				headers: { Origin: 'https://attacker.test' },
+				form: { code: 'invalid', decision: 'allow' }
+			})
+		).status()
+	).toBe(403)
+	const token = await request.post(metadata.token_endpoint, { form })
 	expect(token.ok(), await token.text()).toBeTruthy()
 	const access = await token.json()
 	expect((await rpc(request, access.access_token, 'tools/list')).status()).toBe(200)
-	expect((await request.post(metadata.token_endpoint, { data: form })).ok()).toBeFalsy()
+	expect((await request.post(metadata.token_endpoint, { form })).ok()).toBeFalsy()
 	params.set('state', 'denied-state')
 	await page.goto(metadata.authorization_endpoint + '?' + params)
 	await page.getByRole('button', { name: 'Deny', exact: true }).click()
