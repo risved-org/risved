@@ -57,7 +57,12 @@ export class GitHubClient {
 				'X-GitHub-Api-Version': '2022-11-28'
 			}
 		});
-		if (res.status === 404 || res.status === 403) return null;
+		if (res.status === 404) return null
+ if (res.status === 403) {
+  const details = await res.text()
+  if (res.headers.get('x-ratelimit-remaining') === '0' || res.headers.has('retry-after') || /rate limit/i.test(details)) throw new Error('GitHub rate limit exceeded')
+  return null
+ }
 		if (!res.ok) throw new Error(`GitHub API ${res.status}`);
 		return (await res.json()) as GitHubRepo;
 	}

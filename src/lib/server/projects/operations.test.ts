@@ -7,6 +7,20 @@ import { mocks, project, queueSelects } from './test-fixtures'
 import { ServiceError } from './types'
 
 describe('deployProject', () => {
+	it('rejects checkout options before creating a deployment', async () => {
+		await expect(deployProject('p-1', { ref: '--help' })).rejects.toMatchObject({
+			code: 'validation'
+		})
+		expect(mocks.db.insert).not.toHaveBeenCalled()
+	})
+	it('marks a deployment failed when the pipeline rejects outside its normal handler', async () => {
+		queueSelects([project], [])
+		mocks.runPipeline.mockRejectedValueOnce(new Error('early failure'))
+		await deployProject('p-1')
+		await Promise.resolve()
+		expect(mocks.db.update).toHaveBeenCalledTimes(2)
+	})
+
 	it('starts a deployment and returns immediately', async () => {
 		/* project lookup, then the running-deployment check */
 		queueSelects([project], [])

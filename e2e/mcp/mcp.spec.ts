@@ -38,7 +38,7 @@ test.afterAll(async () => {
 test('creates a key, completes a handshake, hides the key after reload and revokes access', async ({
 	page,
 	request
-}) => {
+}, testInfo) => {
 	const ui = new McpPage(page)
 	const errors: string[] = []
 	page.on('pageerror', (error) => errors.push(error.message))
@@ -58,7 +58,7 @@ test('creates a key, completes a handshake, hides the key after reload and revok
 	await page.reload()
 	await expect(page.getByTestId('mcp-key-value')).toHaveCount(0)
 	const section = page.getByTestId('mcp-keys-section')
-	await section.screenshot({ path: '/private/tmp/risved-mcp-settings-verified.png' })
+	await section.screenshot({ path: testInfo.outputPath('mcp-settings.png') })
 	await section.getByRole('button', { name: 'Revoke', exact: true }).click()
 	await expect(section.getByText('No access keys.', { exact: true })).toBeVisible()
 	expect((await rpc(request, key, 'tools/list')).status()).toBe(401)
@@ -68,7 +68,7 @@ test('creates a key, completes a handshake, hides the key after reload and revok
 test('discovers OAuth, requires approval, exchanges an S256 code and rejects code reuse', async ({
 	page,
 	request
-}) => {
+}, testInfo) => {
 	const anonymous = await request.post('/mcp', {
 		headers,
 		data: { jsonrpc: '2.0', id: 1, method: 'tools/list' }
@@ -104,7 +104,7 @@ test('discovers OAuth, requires approval, exchanges an S256 code and rejects cod
 	await page.getByLabel('Password', { exact: true }).fill('mcp-e2e-password-123')
 	await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 	await expect(page.getByRole('heading', { name: 'Connect Release verification?' })).toBeVisible()
-	await page.screenshot({ path: '/private/tmp/risved-mcp-consent.png' })
+	await page.screenshot({ path: testInfo.outputPath('mcp-consent.png') })
 	await page.getByRole('button', { name: 'Allow access', exact: true }).click()
 	await expect(page).toHaveURL(/\/callback\?code=/)
 	const authorized = new URL(page.url())

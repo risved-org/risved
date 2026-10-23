@@ -3,10 +3,13 @@ import { deployments } from '$lib/server/db/schema'
 import type { FrameworkId, Tier } from '$lib/server/detection/types'
 import { runPipeline } from '$lib/server/pipeline'
 import { createCommandRunner } from '$lib/server/pipeline/docker'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 
 import { requireProject, type DeploymentRow, type ProjectRow } from './read'
+import { productionDeploymentScope } from './production-scope'
 import { ServiceError } from './types'
+const PROCESS_STARTED_AT = new Date(Date.now() - process.uptime() * 1000).toISOString()
+
 export interface EnqueuedDeployment {
 	deploymentId: string
 	status: string
@@ -37,6 +40,9 @@ export async function deployProject(
 	projectId: string,
 	options: DeployOptions = {}
 ): Promise<EnqueuedDeployment> {
+	const ref = options.ref?.trim()
+	if (ref?.startsWith('-') || ref?.includes('\0'))
+		throw new ServiceError('validation', 'Invalid checkout ref')
 	const project = await requireProject(projectId)
 
 	if (!project.port) {
@@ -44,6 +50,17 @@ export async function deployProject(
 	}
 
 	if (!options.allowConcurrent) {
+		await db
+			.update(deployments)
+			.set({ status: 'failed', finishedAt: new Date().toISOString() })
+			.where(
+				and(
+					eq(deployments.projectId, project.id),
+					inArray(deployments.status, ['pending', 'running']),
+					productionDeploymentScope(),
+					sql`coalesce(${deployments.startedAt}, ${deployments.createdAt}) < ${PROCESS_STARTED_AT}`
+				)
+			)
 		const running = await findRunningDeployment(project.id)
 		if (running) {
 			throw new ServiceError(
@@ -63,11 +80,15 @@ export async function deployProject(
 	})
 
 	/* Background: the caller gets the id immediately and polls for the rest. */
-	runPipeline(pipelineConfig(project, options.ref), createCommandRunner(), { deploymentId }).catch(
-		(err) => {
+	runPipeline(pipelineConfig(project, options.ref), createCommandRunner(), { deploymentId })
+		.catch(async (err) => {
 			console.error(`[deploy] Pipeline error for ${project.slug}:`, err)
-		}
-	)
+			await db
+				.update(deployments)
+				.set({ status: 'failed', finishedAt: new Date().toISOString() })
+				.where(eq(deployments.id, deploymentId))
+		})
+		.catch((err) => console.error('[deploy] Could not finalize failed deployment:', err))
 
 	return { deploymentId, status: 'running', terminal: false }
 }
@@ -78,7 +99,11 @@ export async function findRunningDeployment(projectId: string): Promise<Deployme
 		.select()
 		.from(deployments)
 		.where(
-			and(eq(deployments.projectId, projectId), inArray(deployments.status, ['pending', 'running']))
+			and(
+				eq(deployments.projectId, projectId),
+				inArray(deployments.status, ['pending', 'running']),
+				productionDeploymentScope()
+			)
 		)
 		.orderBy(desc(deployments.createdAt))
 		.limit(1)

@@ -12,6 +12,7 @@ import {
 	resolveGitHubRepo
 } from '$lib/server/git-repo'
 import { inspectRepoConfig, type BuildHint } from '$lib/server/hints'
+import { getManagedAppDomain } from '$lib/server/pipeline/domains'
 import { allocatePort } from '$lib/server/pipeline/port'
 import { getSetting } from '$lib/server/settings'
 import { eq } from 'drizzle-orm'
@@ -85,7 +86,7 @@ export async function createProject(input: CreateProjectInput): Promise<CreatePr
 
 	const port = await allocatePort()
 	const webhookSecret = generateWebhookSecret()
-	const domain = await defaultProjectDomain(slug)
+	const domain = (await getManagedAppDomain(slug)) ?? undefined
 
 	const [created] = await db
 		.insert(projects)
@@ -117,18 +118,6 @@ export async function createProject(input: CreateProjectInput): Promise<CreatePr
 		project: await toSummary(created, null),
 		detectedFramework: detection.framework,
 		buildHints
-	}
-}
-
-/** The wildcard subdomain a new project gets, when one is configured. */
-async function defaultProjectDomain(slug: string): Promise<string | undefined> {
-	const raw = await getSetting('domain_config')
-	if (!raw) return undefined
-	try {
-		const { baseDomain } = JSON.parse(raw) as { baseDomain?: string }
-		return baseDomain ? `${slug}.${baseDomain}` : undefined
-	} catch {
-		return undefined
 	}
 }
 

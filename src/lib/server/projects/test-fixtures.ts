@@ -23,6 +23,10 @@ vi.mock('$lib/server/db/schema', () => ({
 	buildLogs: { id: 'id', deploymentId: 'deployment_id' }
 }))
 vi.mock('drizzle-orm', () => ({
+	sql: Object.assign(
+		vi.fn((strings, ...values) => ({ strings, values })),
+		{ raw: vi.fn((value) => ({ raw: value })) }
+	),
 	and: vi.fn((...a: unknown[]) => ({ and: a })),
 	asc: vi.fn((c: unknown) => ({ asc: c })),
 	desc: vi.fn((c: unknown) => ({ desc: c })),
@@ -114,6 +118,9 @@ beforeEach(() => {
 			onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
 			then: (r: (v: unknown) => unknown) => Promise.resolve(undefined).then(r)
 		})
+	})
+	mocks.db.update.mockReturnValue({
+		set: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) }))
 	})
 	mocks.db.delete.mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
 	mocks.getSetting.mockResolvedValue(null)

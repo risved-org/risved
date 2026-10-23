@@ -38,10 +38,10 @@ function connections(rows: Array<{ id: string; accessToken: string }>) {
 beforeEach(() => vi.clearAllMocks())
 
 describe('parseOwnerRepo', () => {
- it('rejects domains that only end with github.com', () => {
-  expect(parseOwnerRepo('https://notgithub.com/owner/repo')).toBeNull()
-  expect(parseOwnerRepo('git@notgithub.com:owner/repo')).toBeNull()
- })
+	it('rejects domains that only end with github.com', () => {
+		expect(parseOwnerRepo('https://notgithub.com/owner/repo')).toBeNull()
+		expect(parseOwnerRepo('git@notgithub.com:owner/repo')).toBeNull()
+	})
 
 	it.each([
 		['risved-org/risved', { owner: 'risved-org', repo: 'risved' }],
@@ -67,6 +67,12 @@ describe('parseOwnerRepo', () => {
 })
 
 describe('resolveGitHubRepo', () => {
+	it('reports transient failures instead of requesting a new GitHub connection', async () => {
+		connections([{ id: 'c-1', accessToken: 'token' }])
+		getRepo.mockRejectedValue(new Error('rate limit exceeded'))
+		await expect(resolveGitHubRepo({ owner: 'o', repo: 'r' })).rejects.toThrow('try again later')
+	})
+
 	it('returns the first connection that can see the repo', async () => {
 		connections([
 			{ id: 'c-1', accessToken: 'tok-1' },

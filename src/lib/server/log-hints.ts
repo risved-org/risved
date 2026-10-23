@@ -51,7 +51,7 @@ const LOG_PATTERNS: LogPattern[] = [
 		}
 	},
 	{
-		pattern: /JavaScript heap out of memory|Killed\s*$|exit code 137/i,
+		pattern: /JavaScript heap out of memory|Killed\s*$|exit code 137/im,
 		hint: {
 			code: 'build_out_of_memory',
 			message: 'The build process ran out of memory and was killed.',

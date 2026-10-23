@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db'
 import { deployments, envVars, projects } from '$lib/server/db/schema'
 import { getManagedAppDomain } from '$lib/server/pipeline/domains'
-import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 
 import {
 	isTerminalStatus,
@@ -10,6 +10,7 @@ import {
 	type ProjectDetail,
 	type ProjectSummary
 } from './types'
+import { productionDeploymentScope } from './production-scope'
 export type ProjectRow = typeof projects.$inferSelect
 export type DeploymentRow = typeof deployments.$inferSelect
 
@@ -58,9 +59,12 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 		.select()
 		.from(deployments)
 		.where(
-			inArray(
-				deployments.projectId,
-				rows.map((r) => r.id)
+			and(
+				productionDeploymentScope(),
+				inArray(
+					deployments.projectId,
+					rows.map((r) => r.id)
+				)
 			)
 		)
 		.orderBy(desc(deployments.createdAt))
@@ -95,7 +99,7 @@ export async function getProjectDetail(projectId: string): Promise<ProjectDetail
 	const recent = await db
 		.select()
 		.from(deployments)
-		.where(eq(deployments.projectId, project.id))
+		.where(and(eq(deployments.projectId, project.id), productionDeploymentScope()))
 		.orderBy(desc(deployments.createdAt))
 		.limit(5)
 
@@ -105,7 +109,18 @@ export async function getProjectDetail(projectId: string): Promise<ProjectDetail
 		.where(eq(envVars.projectId, project.id))
 		.orderBy(asc(envVars.key))
 
-	const current = recent.find((d) => d.status === 'live') ?? null
+	const [current] = await db
+		.select()
+		.from(deployments)
+		.where(
+			and(
+				eq(deployments.projectId, project.id),
+				eq(deployments.status, 'live'),
+				productionDeploymentScope()
+			)
+		)
+		.orderBy(desc(deployments.createdAt))
+		.limit(1)
 	const summary = await toSummary(project, recent[0] ?? null)
 
 	return {

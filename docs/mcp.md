@@ -64,7 +64,7 @@ in the dashboard.
 | ---------------- | -------------------------------------- | ----------------------------------------------------------------------------------- |
 | `list_projects`  | —                                      | Every project with repo, branch, framework, URL and latest deployment               |
 | `get_project`    | `projectId`                            | Project detail, env var **names** (never values), current and last five deployments |
-| `create_project` | `repo`, `branch?`, `name?`,  | The project, the detected framework and `buildHints`. Does not deploy               |
+| `create_project` | `repo`, `branch?`, `name?`, `rootDir?` | The project, the detected framework and `buildHints`. Does not deploy               |
 | `set_env`        | `projectId`, `vars`, `remove?`         | Variable names and `requiresRedeploy: true`. Does not deploy                        |
 | `deploy`         | `projectId`, `ref?`                    | `deploymentId` and status, immediately — the build runs in the background           |
 | `get_deployment` | `deploymentId`, `logLines?`            | Status, `terminal`, timings, URL, `buildHints` and the tail of the build log        |

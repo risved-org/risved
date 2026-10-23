@@ -5,6 +5,7 @@ import { runRollback } from '$lib/server/pipeline/rollback'
 import { and, eq } from 'drizzle-orm'
 
 import type { EnqueuedDeployment } from './deploy'
+import { productionDeploymentScope } from './production-scope'
 import { requireProject } from './read'
 import { ServiceError } from './types'
 /**
@@ -26,7 +27,13 @@ export async function rollbackProject(
 	const rows = await db
 		.select()
 		.from(deployments)
-		.where(and(eq(deployments.id, toDeploymentId), eq(deployments.projectId, project.id)))
+		.where(
+			and(
+				eq(deployments.id, toDeploymentId),
+				eq(deployments.projectId, project.id),
+				productionDeploymentScope()
+			)
+		)
 		.limit(1)
 
 	const target = rows[0]

@@ -74,18 +74,21 @@ export async function resolveGitHubRepo(target: OwnerRepo): Promise<ResolvedRepo
 		.from(gitConnections)
 		.where(eq(gitConnections.provider, 'github'))
 
+	let transientFailure = false
 	for (const connection of connections) {
 		const client = new GitHubClient(safeDecrypt(connection.accessToken))
 		let repo: GitHubRepo | null = null
 		try {
 			repo = await client.getRepo(target.owner, target.repo)
 		} catch {
+			transientFailure = true
 			/* Transient provider failure on one connection — try the next. */
 			continue
 		}
 		if (repo) return { connectionId: connection.id, client, repo }
 	}
 
+	if (transientFailure) throw new Error('GitHub repository lookup failed; try again later')
 	return null
 }
 

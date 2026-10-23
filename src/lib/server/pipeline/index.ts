@@ -1,3 +1,4 @@
+import { withProjectLock } from './project-lock'
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile, mkdir, rm } from 'node:fs/promises';
@@ -49,12 +50,6 @@ import type {
 export type { PipelineConfig, PipelineResult, LogEntry, LogEmitter, PipelinePhase } from './types';
 
 /**
- * Per-project build lock. Prevents concurrent pipelines for the same project
- * from racing on the container name / port.
- */
-const buildLocks = new Map<string, Promise<PipelineResult>>()
-
-/**
  * Run the full deployment pipeline for a project.
  *
  * Phases: clone → detect → build → start → health → route → cutover → live
@@ -75,19 +70,7 @@ export async function runPipeline(
 		deploymentId?: string;
 	}
 ): Promise<PipelineResult> {
-	/* Serialize builds per project to prevent container name conflicts */
-	const prev = buildLocks.get(config.projectId)
-	const result = (prev ?? Promise.resolve()).catch(() => {}).then(() =>
-		_runPipeline(config, runner, options)
-	)
-	buildLocks.set(config.projectId, result)
-	result.finally(() => {
-		/* Only clear if we're still the latest queued build */
-		if (buildLocks.get(config.projectId) === result) {
-			buildLocks.delete(config.projectId)
-		}
-	})
-	return result
+	return withProjectLock(config.projectId, () => _runPipeline(config, runner, options))
 }
 
 async function _runPipeline(
@@ -112,6 +95,7 @@ async function _runPipeline(
 			id: deploymentId,
 			projectId: config.projectId,
 			status: 'running',
+			triggerType: config.isPreview ? 'preview' : 'manual',
 			startedAt: new Date().toISOString()
 		})
 	}

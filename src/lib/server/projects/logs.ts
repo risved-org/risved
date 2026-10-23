@@ -1,8 +1,9 @@
 import { db } from '$lib/server/db'
 import { buildLogs, deployments, projects } from '$lib/server/db/schema'
 import { hintsFromLogs } from '$lib/server/hints'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 
+import { productionDeploymentScope } from './production-scope'
 import { projectUrl } from './read'
 import { ServiceError, isTerminalStatus, type DeploymentDetail } from './types'
 const DEFAULT_LOG_LINES = 80
@@ -18,7 +19,11 @@ export async function getDeploymentDetail(
 	deploymentId: string,
 	logLines = DEFAULT_LOG_LINES
 ): Promise<DeploymentDetail> {
-	const rows = await db.select().from(deployments).where(eq(deployments.id, deploymentId)).limit(1)
+	const rows = await db
+		.select()
+		.from(deployments)
+		.where(and(eq(deployments.id, deploymentId), productionDeploymentScope()))
+		.limit(1)
 
 	const deployment = rows[0]
 	if (!deployment) {
