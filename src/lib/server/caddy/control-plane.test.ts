@@ -42,9 +42,7 @@ function mockCaddy(existingRouteIds: string[] = []) {
 		ensureServer: vi.fn().mockResolvedValue({ success: true }),
 		addRoute: vi.fn().mockResolvedValue({ success: true }),
 		removeRoute: vi.fn().mockResolvedValue({ success: true }),
-		listRoutes: vi.fn().mockResolvedValue(
-			existingRouteIds.map(id => ({ '@id': id }))
-		)
+		listRoutes: vi.fn().mockResolvedValue(existingRouteIds.map(id => ({ '@id': id })))
 	} as unknown as CaddyClient
 }
 
@@ -70,11 +68,13 @@ describe('ensureControlPlaneRoutes', () => {
 	})
 
 	it('adds subdomain route for dashboard', async () => {
-		mockGetSetting.mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'risved.example.eu',
-			prefix: 'dash'
-		}))
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'risved.example.eu',
+				prefix: 'dash'
+			})
+		)
 		const caddy = mockCaddy()
 		await ensureControlPlaneRoutes(caddy)
 		expect(caddy.ensureServer).toHaveBeenCalled()
@@ -85,11 +85,13 @@ describe('ensureControlPlaneRoutes', () => {
 	})
 
 	it('adds dedicated domain route for dashboard', async () => {
-		mockGetSetting.mockResolvedValue(JSON.stringify({
-			mode: 'dedicated',
-			baseDomain: 'panel.example.com',
-			prefix: ''
-		}))
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				mode: 'dedicated',
+				baseDomain: 'panel.example.com',
+				prefix: ''
+			})
+		)
 		const caddy = mockCaddy()
 		await ensureControlPlaneRoutes(caddy)
 		expect(caddy.addRoute).toHaveBeenCalledWith({
@@ -106,11 +108,13 @@ describe('ensureControlPlaneRoutes', () => {
 	})
 
 	it('aborts and logs when ensureServer fails', async () => {
-		mockGetSetting.mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'risved.example.eu',
-			prefix: 'dash'
-		}))
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'risved.example.eu',
+				prefix: 'dash'
+			})
+		)
 		const caddy = mockCaddy()
 		;(caddy.ensureServer as ReturnType<typeof vi.fn>).mockResolvedValue({
 			success: false,
@@ -121,19 +125,18 @@ describe('ensureControlPlaneRoutes', () => {
 		await ensureControlPlaneRoutes(caddy)
 
 		expect(caddy.addRoute).not.toHaveBeenCalled()
-		expect(errorSpy).toHaveBeenCalledWith(
-			'[caddy] Failed to ensure server:',
-			'connection refused'
-		)
+		expect(errorSpy).toHaveBeenCalledWith('[caddy] Failed to ensure server:', 'connection refused')
 		errorSpy.mockRestore()
 	})
 
 	it('logs when the dashboard route fails to add', async () => {
-		mockGetSetting.mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'risved.example.eu',
-			prefix: 'dash'
-		}))
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'risved.example.eu',
+				prefix: 'dash'
+			})
+		)
 		const caddy = mockCaddy()
 		;(caddy.addRoute as ReturnType<typeof vi.fn>).mockResolvedValue({
 			success: false,
@@ -155,9 +158,14 @@ describe('ensureControlPlaneRoutes', () => {
 
 describe('restoreAllRoutes', () => {
 	function setupDbForRestore(
-		projectRows: { id: string, domain: string, port: number }[],
+		projectRows: { id: string; domain: string | null; port: number }[],
 		liveProjectIds: string[],
-		customDomainRows: { hostname: string, projectId: string }[] = []
+		customDomainRows: {
+			hostname: string
+			projectId: string
+			pathPrefix?: string
+			forwardingMode?: 'preserve' | 'strip'
+		}[] = []
 	) {
 		const liveSet = new Set(liveProjectIds)
 		const calls: ReturnType<typeof vi.fn>[] = []
@@ -176,9 +184,7 @@ describe('restoreAllRoutes', () => {
 			mockDb.select.mockReturnValueOnce({
 				from: vi.fn().mockReturnValue({
 					where: vi.fn().mockReturnValue({
-						limit: vi.fn().mockResolvedValue(
-							liveSet.has(p.id) ? [{ id: `dep-${p.id}` }] : []
-						)
+						limit: vi.fn().mockResolvedValue(liveSet.has(p.id) ? [{ id: `dep-${p.id}` }] : [])
 					})
 				})
 			})
@@ -191,11 +197,13 @@ describe('restoreAllRoutes', () => {
 	}
 
 	it('restores project primary domains and custom domains', async () => {
-		mockGetSetting.mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'risved.example.eu',
-			prefix: 'dash'
-		}))
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'risved.example.eu',
+				prefix: 'dash'
+			})
+		)
 
 		const caddy = mockCaddy() /* no existing routes */
 
@@ -204,7 +212,7 @@ describe('restoreAllRoutes', () => {
 				{ id: 'p-1', domain: 'app.example.com', port: 4001 },
 				{ id: 'p-2', domain: 'other.example.com', port: 4002 }
 			],
-			['p-1'], /* only p-1 is live */
+			['p-1'] /* only p-1 is live */,
 			[
 				{ hostname: 'custom.example.com', projectId: 'p-1' },
 				{ hostname: 'orphan.example.com', projectId: 'p-3' }
@@ -242,18 +250,36 @@ describe('restoreAllRoutes', () => {
 		)
 	})
 
+	it('restores shared-host subpaths for live apps with no legacy primary domain', async () => {
+		const caddy = mockCaddy(['route-onui-com'])
+		setupDbForRestore(
+			[{ id: 'blog', domain: null, port: 4002 }],
+			['blog'],
+			[{ hostname: 'onui.com', projectId: 'blog', pathPrefix: '/blog', forwardingMode: 'strip' }]
+		)
+		await restoreAllRoutes(caddy)
+		expect(caddy.addRoute).toHaveBeenCalledWith({
+			hostname: 'onui.com',
+			port: 4002,
+			pathPrefix: '/blog',
+			forwardingMode: 'strip'
+		})
+		expect(caddy.addRoute).not.toHaveBeenCalledWith(
+			expect.objectContaining({ hostname: 'onui.com', pathPrefix: '/' })
+		)
+	})
+
 	it('skips routes that already exist in Caddy', async () => {
-		mockGetSetting.mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'risved.example.eu',
-			prefix: 'dash'
-		}))
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'risved.example.eu',
+				prefix: 'dash'
+			})
+		)
 
 		/* Dashboard and app.example.com already exist in Caddy */
-		const caddy = mockCaddy([
-			'route-dash-risved-example-eu',
-			'route-app-example-com'
-		])
+		const caddy = mockCaddy(['route-dash-risved-example-eu', 'route-app-example-com'])
 
 		setupDbForRestore(
 			[
@@ -290,22 +316,17 @@ describe('restoreAllRoutes', () => {
 	})
 
 	it('does nothing when all routes already present', async () => {
-		mockGetSetting.mockResolvedValue(JSON.stringify({
-			mode: 'subdomain',
-			baseDomain: 'risved.example.eu',
-			prefix: 'dash'
-		}))
-
-		const caddy = mockCaddy([
-			'route-dash-risved-example-eu',
-			'route-app-example-com'
-		])
-
-		setupDbForRestore(
-			[{ id: 'p-1', domain: 'app.example.com', port: 4001 }],
-			['p-1'],
-			[]
+		mockGetSetting.mockResolvedValue(
+			JSON.stringify({
+				mode: 'subdomain',
+				baseDomain: 'risved.example.eu',
+				prefix: 'dash'
+			})
 		)
+
+		const caddy = mockCaddy(['route-dash-risved-example-eu', 'route-app-example-com'])
+
+		setupDbForRestore([{ id: 'p-1', domain: 'app.example.com', port: 4001 }], ['p-1'], [])
 
 		await restoreAllRoutes(caddy)
 
@@ -345,11 +366,7 @@ describe('restoreAllRoutes', () => {
 		})
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-		setupDbForRestore(
-			[{ id: 'p-1', domain: 'app.example.com', port: 4001 }],
-			['p-1'],
-			[]
-		)
+		setupDbForRestore([{ id: 'p-1', domain: 'app.example.com', port: 4001 }], ['p-1'], [])
 
 		await restoreAllRoutes(caddy)
 

@@ -1,13 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('$lib/server/domain-conflicts', () => ({
+	hasRootConflict: vi.fn().mockResolvedValue(false)
+}))
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 /* ── Hoisted mock handles ─────────────────────────────────────────── */
 
 const { removeRouteMock, resolveSslStatusMock, repairDomainRouteMock } = vi.hoisted(() => {
-	const removeRouteMock = vi.fn().mockResolvedValue(undefined);
-	const resolveSslStatusMock = vi.fn().mockResolvedValue('provisioning');
-	const repairDomainRouteMock = vi.fn().mockResolvedValue(true);
-	return { removeRouteMock, resolveSslStatusMock, repairDomainRouteMock };
-});
+	const removeRouteMock = vi.fn().mockResolvedValue(undefined)
+	const resolveSslStatusMock = vi.fn().mockResolvedValue('provisioning')
+	const repairDomainRouteMock = vi.fn().mockResolvedValue(true)
+	return { removeRouteMock, resolveSslStatusMock, repairDomainRouteMock }
+})
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
 
@@ -16,7 +19,7 @@ const mockDb = {
 	insert: vi.fn(),
 	update: vi.fn(),
 	delete: vi.fn()
-};
+}
 
 function setupSelectChain(rows: unknown[]) {
 	mockDb.select.mockReturnValue({
@@ -27,15 +30,15 @@ function setupSelectChain(rows: unknown[]) {
 			}),
 			orderBy: vi.fn().mockResolvedValue(rows)
 		})
-	});
+	})
 }
 
-vi.mock('$lib/server/db', () => ({ db: mockDb }));
+vi.mock('$lib/server/db', () => ({ db: mockDb }))
 
 vi.mock('$lib/server/db/schema', () => ({
 	projects: { id: 'id', port: 'port' },
 	domains: { id: 'id', projectId: 'project_id', hostname: 'hostname' }
-}));
+}))
 
 vi.mock('$lib/server/api-utils', () => ({
 	requireAuth: vi.fn().mockReturnValue({ id: 'user-1' }),
@@ -43,9 +46,9 @@ vi.mock('$lib/server/api-utils', () => ({
 		return new Response(JSON.stringify({ error: message }), {
 			status,
 			headers: { 'Content-Type': 'application/json' }
-		});
+		})
 	})
-}));
+}))
 
 vi.mock('$lib/server/caddy', () => ({
 	CaddyClient: vi.fn().mockImplementation(() => ({
@@ -56,29 +59,31 @@ vi.mock('$lib/server/caddy', () => ({
 		addRoute: vi.fn().mockResolvedValue({ success: true }),
 		removeRoute: removeRouteMock
 	})
-}));
+}))
 
 vi.mock('$lib/server/dns', () => ({
 	checkDnsRecord: vi.fn().mockResolvedValue({ resolved: true }),
 	getServerIps: vi.fn().mockResolvedValue({ ipv4: '1.2.3.4', ipv6: null })
-}));
+}))
 
 vi.mock('$lib/server/ssl', () => ({
 	resolveSslStatus: resolveSslStatusMock
-}));
+}))
 
 vi.mock('$lib/server/caddy/repair', () => ({
 	repairDomainRoute: repairDomainRouteMock
-}));
+}))
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
-function makeEvent(overrides: {
-	method?: string;
-	body?: unknown;
-	params?: Record<string, string>;
-} = {}) {
-	const { method = 'GET', body, params = {} } = overrides;
+function makeEvent(
+	overrides: {
+		method?: string
+		body?: unknown
+		params?: Record<string, string>
+	} = {}
+) {
+	const { method = 'GET', body, params = {} } = overrides
 	return {
 		request: new Request('http://localhost/api/projects/p-1/domains', {
 			method,
@@ -88,18 +93,16 @@ function makeEvent(overrides: {
 		locals: { user: { id: 'user-1' }, session: {} },
 		params,
 		url: new URL('http://localhost/api/projects/p-1/domains')
-	} as never;
+	} as never
 }
 
 /* ── Tests: GET /api/projects/:id/domains ─────────────────────────── */
 
 describe('GET /api/projects/:id/domains', () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks())
 
 	it('returns domain list', async () => {
-		const domainRows = [
-			{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }
-		];
+		const domainRows = [{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }]
 
 		mockDb.select
 			.mockImplementationOnce(() => ({
@@ -113,31 +116,31 @@ describe('GET /api/projects/:id/domains', () => {
 				from: vi.fn().mockReturnValue({
 					where: vi.fn().mockResolvedValue(domainRows)
 				})
-			}));
+			}))
 
-		const { GET } = await import('./+server');
-		const res = await GET(makeEvent({ params: { id: 'p-1' } }));
+		const { GET } = await import('./+server')
+		const res = await GET(makeEvent({ params: { id: 'p-1' } }))
 
-		expect(res.status).toBe(200);
-		const data = await res.json();
-		expect(data).toHaveLength(1);
-		expect(data[0].hostname).toBe('app.example.com');
-	});
+		expect(res.status).toBe(200)
+		const data = await res.json()
+		expect(data).toHaveLength(1)
+		expect(data[0].hostname).toBe('app.example.com')
+	})
 
 	it('returns 404 for missing project', async () => {
-		setupSelectChain([]);
+		setupSelectChain([])
 
-		const { GET } = await import('./+server');
-		const res = await GET(makeEvent({ params: { id: 'nope' } }));
+		const { GET } = await import('./+server')
+		const res = await GET(makeEvent({ params: { id: 'nope' } }))
 
-		expect(res.status).toBe(404);
-	});
-});
+		expect(res.status).toBe(404)
+	})
+})
 
 /* ── Tests: POST /api/projects/:id/domains ────────────────────────── */
 
 describe('POST /api/projects/:id/domains', () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks())
 
 	it('adds a domain', async () => {
 		mockDb.select
@@ -154,29 +157,29 @@ describe('POST /api/projects/:id/domains', () => {
 						limit: vi.fn().mockResolvedValue([])
 					})
 				})
-			}));
+			}))
 
 		mockDb.insert.mockReturnValue({
 			values: vi.fn().mockReturnValue({
-				returning: vi.fn().mockResolvedValue([
-					{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending' }
-				])
+				returning: vi
+					.fn()
+					.mockResolvedValue([{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending' }])
 			})
-		});
+		})
 
-		const { POST } = await import('./+server');
+		const { POST } = await import('./+server')
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
 				params: { id: 'p-1' },
 				body: { hostname: 'app.example.com' }
 			})
-		);
+		)
 
-		expect(res.status).toBe(201);
-		const data = await res.json();
-		expect(data.hostname).toBe('app.example.com');
-	});
+		expect(res.status).toBe(201)
+		const data = await res.json()
+		expect(data.hostname).toBe('app.example.com')
+	})
 
 	it('returns 400 for invalid hostname', async () => {
 		mockDb.select.mockImplementationOnce(() => ({
@@ -185,19 +188,19 @@ describe('POST /api/projects/:id/domains', () => {
 					limit: vi.fn().mockResolvedValue([{ id: 'p-1' }])
 				})
 			})
-		}));
+		}))
 
-		const { POST } = await import('./+server');
+		const { POST } = await import('./+server')
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
 				params: { id: 'p-1' },
 				body: { hostname: 'not a valid hostname!' }
 			})
-		);
+		)
 
-		expect(res.status).toBe(400);
-	});
+		expect(res.status).toBe(400)
+	})
 
 	it('returns 409 on duplicate hostname', async () => {
 		mockDb.select
@@ -214,115 +217,111 @@ describe('POST /api/projects/:id/domains', () => {
 						limit: vi.fn().mockResolvedValue([{ id: 'd-existing' }])
 					})
 				})
-			}));
+			}))
 
-		const { POST } = await import('./+server');
+		const { POST } = await import('./+server')
 		const res = await POST(
 			makeEvent({
 				method: 'POST',
 				params: { id: 'p-1' },
 				body: { hostname: 'app.example.com' }
 			})
-		);
+		)
 
-		expect(res.status).toBe(409);
-	});
-});
+		expect(res.status).toBe(409)
+	})
+})
 
 /* ── Tests: DELETE /api/projects/:id/domains/:did ─────────────────── */
 
 describe('DELETE /api/projects/:id/domains/:did', () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks())
 
 	it('deletes a domain', async () => {
-		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com' }]);
+		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com' }])
 
 		mockDb.delete.mockReturnValue({
 			where: vi.fn().mockResolvedValue(undefined)
-		});
+		})
 
-		const { DELETE } = await import('./[did]/+server');
-		const res = await DELETE(
-			makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'd-1' } })
-		);
+		const { DELETE } = await import('./[did]/+server')
+		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'd-1' } }))
 
-		expect(res.status).toBe(200);
-	});
+		expect(res.status).toBe(200)
+	})
 
 	it('returns 404 for missing domain', async () => {
-		setupSelectChain([]);
+		setupSelectChain([])
 
-		const { DELETE } = await import('./[did]/+server');
-		const res = await DELETE(
-			makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'nope' } })
-		);
+		const { DELETE } = await import('./[did]/+server')
+		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'nope' } }))
 
-		expect(res.status).toBe(404);
-	});
+		expect(res.status).toBe(404)
+	})
 
 	it('skips www-redirect removal when hostname already starts with www.', async () => {
-		setupSelectChain([{ id: 'd-2', hostname: 'www.example.com' }]);
+		setupSelectChain([{ id: 'd-2', hostname: 'www.example.com' }])
 
 		mockDb.delete.mockReturnValue({
 			where: vi.fn().mockResolvedValue(undefined)
-		});
+		})
 
-		const { DELETE } = await import('./[did]/+server');
-		const res = await DELETE(
-			makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'd-2' } })
-		);
+		const { DELETE } = await import('./[did]/+server')
+		const res = await DELETE(makeEvent({ method: 'DELETE', params: { id: 'p-1', did: 'd-2' } }))
 
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(200)
 		/* removeRoute should be called exactly once (hostname only, no www. duplicate) */
-		expect(removeRouteMock).toHaveBeenCalledTimes(1);
-		expect(removeRouteMock).toHaveBeenCalledWith('www.example.com');
-	});
-});
+		expect(removeRouteMock).toHaveBeenCalledTimes(1)
+		expect(removeRouteMock).toHaveBeenCalledWith('www.example.com', undefined)
+	})
+})
 
 /* ── Tests: POST verify ───────────────────────────────────────────── */
 
 describe('POST /api/projects/:id/domains/:did/verify', () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks())
 
 	it('verifies DNS and updates status', async () => {
-		resolveSslStatusMock.mockResolvedValueOnce('active');
-		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }]);
+		resolveSslStatusMock.mockResolvedValueOnce('active')
+		setupSelectChain([
+			{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }
+		])
 
 		const setMock = vi.fn().mockReturnValue({
 			where: vi.fn().mockReturnValue({
-				returning: vi.fn().mockResolvedValue([
-					{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }
-				])
+				returning: vi
+					.fn()
+					.mockResolvedValue([{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'active' }])
 			})
-		});
+		})
 
 		mockDb.update.mockReturnValue({
 			set: setMock
-		});
+		})
 
-		const { POST } = await import('./[did]/verify/+server');
-		const res = await POST(
-			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
-		);
+		const { POST } = await import('./[did]/verify/+server')
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }))
 
-		expect(res.status).toBe(200);
-		const data = await res.json();
-		expect(data.dnsResolved).toBe(true);
-		expect(data.sslStatus).toBe('active');
-		expect(resolveSslStatusMock).toHaveBeenCalledWith('app.example.com', true);
-		expect(repairDomainRouteMock).not.toHaveBeenCalled();
-		expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'active' }));
-	});
+		expect(res.status).toBe(200)
+		const data = await res.json()
+		expect(data.dnsResolved).toBe(true)
+		expect(data.sslStatus).toBe('active')
+		expect(resolveSslStatusMock).toHaveBeenCalledWith('app.example.com', true)
+		expect(repairDomainRouteMock).not.toHaveBeenCalled()
+		expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'active' }))
+	})
 
 	it('repairs caddy route when DNS resolves but SSL is still provisioning', async () => {
-		resolveSslStatusMock.mockResolvedValueOnce('provisioning');
+		resolveSslStatusMock.mockResolvedValueOnce('provisioning')
 		mockDb.select
 			.mockImplementationOnce(() => ({
 				from: vi.fn().mockReturnValue({
 					where: vi.fn().mockReturnValue({
-						limit: vi.fn().mockResolvedValue([
-							{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }
-						])
+						limit: vi
+							.fn()
+							.mockResolvedValue([
+								{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'pending', verifiedAt: null }
+							])
 					})
 				})
 			}))
@@ -332,75 +331,72 @@ describe('POST /api/projects/:id/domains/:did/verify', () => {
 						limit: vi.fn().mockResolvedValue([{ port: 3001 }])
 					})
 				})
-			}));
+			}))
 
 		const setMock = vi.fn().mockReturnValue({
 			where: vi.fn().mockReturnValue({
-				returning: vi.fn().mockResolvedValue([
-					{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'provisioning' }
-				])
+				returning: vi
+					.fn()
+					.mockResolvedValue([
+						{ id: 'd-1', hostname: 'app.example.com', sslStatus: 'provisioning' }
+					])
 			})
-		});
-		mockDb.update.mockReturnValue({ set: setMock });
+		})
+		mockDb.update.mockReturnValue({ set: setMock })
 
-		const { POST } = await import('./[did]/verify/+server');
-		const res = await POST(
-			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
-		);
+		const { POST } = await import('./[did]/verify/+server')
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }))
 
-		expect(res.status).toBe(200);
-		expect(repairDomainRouteMock).toHaveBeenCalledWith('app.example.com', 3001);
-		expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'provisioning' }));
-	});
+		expect(res.status).toBe(200)
+		expect(repairDomainRouteMock).toHaveBeenCalledWith(
+			'app.example.com',
+			3001,
+			undefined,
+			undefined
+		)
+		expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sslStatus: 'provisioning' }))
+	})
 
 	it('returns 404 for missing domain', async () => {
-		setupSelectChain([]);
+		setupSelectChain([])
 
-		const { POST } = await import('./[did]/verify/+server');
-		const res = await POST(
-			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'nope' } })
-		);
+		const { POST } = await import('./[did]/verify/+server')
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'nope' } }))
 
-		expect(res.status).toBe(404);
-	});
-});
+		expect(res.status).toBe(404)
+	})
+})
 
 /* ── Tests: POST primary ──────────────────────────────────────────── */
 
 describe('POST /api/projects/:id/domains/:did/primary', () => {
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => vi.clearAllMocks())
 
 	it('sets domain as primary', async () => {
-		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com' }]);
+		setupSelectChain([{ id: 'd-1', hostname: 'app.example.com' }])
 
 		mockDb.update.mockReturnValue({
 			set: vi.fn().mockReturnValue({
 				where: vi.fn().mockReturnValue({
-					returning: vi.fn().mockResolvedValue([
-						{ id: 'd-1', isPrimary: true }
-					])
+					returning: vi.fn().mockResolvedValue([{ id: 'd-1', isPrimary: true }])
 				})
 			})
-		});
+		})
 
-		const { POST } = await import('./[did]/primary/+server');
-		const res = await POST(
-			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } })
-		);
+		const { POST } = await import('./[did]/primary/+server')
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'd-1' } }))
 
-		expect(res.status).toBe(200);
-		const data = await res.json();
-		expect(data.isPrimary).toBe(true);
-	});
+		expect(res.status).toBe(200)
+		const data = await res.json()
+		expect(data.isPrimary).toBe(true)
+	})
 
 	it('returns 404 for missing domain', async () => {
-		setupSelectChain([]);
+		setupSelectChain([])
 
-		const { POST } = await import('./[did]/primary/+server');
-		const res = await POST(
-			makeEvent({ method: 'POST', params: { id: 'p-1', did: 'nope' } })
-		);
+		const { POST } = await import('./[did]/primary/+server')
+		const res = await POST(makeEvent({ method: 'POST', params: { id: 'p-1', did: 'nope' } }))
 
-		expect(res.status).toBe(404);
-	});
-});
+		expect(res.status).toBe(404)
+	})
+})

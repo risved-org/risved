@@ -10,6 +10,49 @@
 			"options": {
 				"parser": "svelte"
 			}
+		},
+		{
+			"files": [
+				"src/lib/server/caddy/caddy.test.ts",
+				"src/lib/server/caddy/control-plane.test.ts",
+				"src/lib/server/caddy/control-plane.ts",
+				"src/lib/server/caddy/index.ts",
+				"src/lib/server/caddy/repair.test.ts",
+				"src/lib/server/caddy/repair.ts",
+				"src/lib/server/caddy/types.ts",
+				"src/lib/server/db/schema.ts",
+				"src/lib/server/pipeline/index.ts",
+				"src/lib/server/pipeline/pipeline.test.ts",
+				"src/lib/server/pipeline/rollback.test.ts",
+				"src/lib/server/pipeline/rollback.ts",
+				"src/routes/api/projects/\\[id\\]/+server.ts",
+				"src/routes/api/projects/\\[id\\]/domains/+server.ts",
+				"src/routes/api/projects/\\[id\\]/domains/\\[did\\]/+server.ts",
+				"src/routes/api/projects/\\[id\\]/domains/\\[did\\]/verify/+server.ts",
+				"src/routes/api/projects/\\[id\\]/domains/domains-api.test.ts",
+				"src/routes/projects/\\[slug\\]/domains/+page.server.ts",
+				"src/routes/projects/\\[slug\\]/domains/+page.svelte",
+				"src/routes/projects/\\[slug\\]/domains/domains.test.ts",
+				"src/routes/projects/\\[slug\\]/settings/+page.server.ts",
+				"src/routes/projects/\\[slug\\]/settings/+page.svelte",
+				"src/lib/components/DomainMountFields.svelte",
+				"src/lib/components/DomainMountFields.svelte.test.ts",
+				"src/lib/server/caddy/path-routing.integration.test.ts",
+				"src/lib/server/caddy/path-routing.test.ts",
+				"src/lib/server/caddy/routes.ts",
+				"src/lib/server/db/domain-paths.test.ts",
+				"src/lib/server/domain-conflicts.ts",
+				"src/lib/server/domain-mapping.ts",
+				"src/lib/server/domain-mappings.test.ts",
+				"src/routes/projects/\\[slug\\]/domains/AddDomainForm.svelte",
+				"src/routes/projects/\\[slug\\]/domains/DomainList.svelte",
+				"src/routes/projects/\\[slug\\]/domains/DomainRoutingHelp.svelte",
+				"src/routes/projects/\\[slug\\]/project-detail.test.ts"
+			],
+			"options": {
+				"semi": false,
+				"arrowParens": "avoid"
+			}
 		}
 	]
 }
