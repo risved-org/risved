@@ -49,7 +49,13 @@
 				"src/routes/projects/\\[slug\\]/domains/DomainRoutingHelp.svelte",
 				"src/routes/projects/\\[slug\\]/project-detail.test.ts",
 				"src/lib/server/db/mcp-migration.test.ts",
-				"e2e/mcp/mcp.spec.ts"
+				"e2e/mcp/mcp.spec.ts",
+				"src/lib/domain-address.ts",
+				"src/lib/domain-address.test.ts",
+				"src/routes/projects/\\[slug\\]/+layout.server.ts",
+				"src/routes/projects/\\[slug\\]/+page.svelte",
+				"src/routes/\\(dashboard\\)/projects/+page.server.ts",
+				"src/routes/projects/\\[slug\\]/deployments/\\[did\\]/+page.server.ts"
 			],
 			"options": {
 				"semi": false,

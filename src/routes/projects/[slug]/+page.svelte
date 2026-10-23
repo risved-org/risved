@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { domainAddress } from '$lib/domain-address'
 	import { goto, invalidateAll } from '$app/navigation'
 	import { resolve } from '$app/paths'
 	import { onMount } from 'svelte'
@@ -64,7 +65,7 @@
 		if (!res.ok) return
 
 		const rows: Deployment[] = await res.json()
-		deployments = rows.slice(0, 5).map((dep) => ({
+		deployments = rows.slice(0, 5).map(dep => ({
 			id: dep.id,
 			commitSha: dep.commitSha,
 			status: dep.status,
@@ -160,11 +161,11 @@
 			{#each data.project.domains as dom (dom.id)}
 				<a
 					class="card-domain mono"
-					href="https://{dom.hostname}"
+					href="https://{domainAddress(dom)}"
 					target="_blank"
 					rel="noopener"
 				>
-					{dom.hostname}
+					{domainAddress(dom)}
 				</a>
 			{/each}
 		</footer>
@@ -176,8 +177,12 @@
 	<header class="section-header">
 		<h2 class="section-title">Deployments</h2>
 		<nav class="section-actions">
-			<button class="btn-secondary btn-md" onclick={handleRedeploy} data-testid="redeploy-btn">Redeploy</button>
-			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-secondary btn-md">View all</a>
+			<button class="btn-secondary btn-md" onclick={handleRedeploy} data-testid="redeploy-btn"
+				>Redeploy</button
+			>
+			<a href={resolve(`/projects/${data.project.slug}/deployments`)} class="btn-secondary btn-md"
+				>View all</a
+			>
 		</nav>
 	</header>
 	{#if deployments.length === 0}
@@ -200,7 +205,7 @@
 							{:else if dep.triggerType === 'rebuild'}
 								<span class="badge-md badge-accent">Rebuild</span>
 							{/if}
-							{#if dep.status === 'live' && i === deployments.findIndex((d) => d.status === 'live')}
+							{#if dep.status === 'live' && i === deployments.findIndex(d => d.status === 'live')}
 								<span class="badge-md badge-live">Current</span>
 							{/if}
 						</span>
@@ -211,7 +216,7 @@
 									class="btn-rollback"
 									data-testid="rollback-btn"
 									disabled={rollingBack === dep.id}
-									onclick={(e) => handleRollback(e, dep.id)}
+									onclick={e => handleRollback(e, dep.id)}
 								>
 									{rollingBack === dep.id ? 'Rolling back…' : 'Rollback'}
 								</button>
@@ -219,7 +224,7 @@
 								<button
 									class="btn-rebuild"
 									disabled={rebuilding === dep.id}
-									onclick={(e) => handleRebuild(e, dep.id)}
+									onclick={e => handleRebuild(e, dep.id)}
 								>
 									{rebuilding === dep.id ? 'Rebuilding…' : 'Rebuild'}
 								</button>
@@ -284,7 +289,7 @@
 	}
 
 	.card-domain {
-		font-size: .875rem;
+		font-size: 0.875rem;
 		color: var(--color-accent);
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -300,5 +305,4 @@
 		text-decoration-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
 		text-underline-offset: 0.25em;
 	}
-
 </style>

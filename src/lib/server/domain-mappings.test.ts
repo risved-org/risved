@@ -27,9 +27,17 @@ vi.mock('$lib/server/caddy', () => ({
 	})
 }))
 
+vi.mock('$lib/server/health', () => ({
+	getHealthMonitor: () => ({ get: () => undefined, getAll: () => [] })
+}))
+
 import { POST, GET } from '../../routes/api/projects/[id]/domains/+server'
 import { DELETE } from '../../routes/api/projects/[id]/domains/[did]/+server'
 import { hasRootConflict, hasExplicitRootConflict } from './domain-conflicts'
+
+import { load as loadProject } from '../../routes/projects/[slug]/+layout.server'
+import { load as loadDashboard } from '../../routes/(dashboard)/projects/+page.server'
+import { load as loadDeployment } from '../../routes/projects/[slug]/deployments/[did]/+page.server'
 
 const client = createClient({ url: ':memory:' })
 
@@ -44,6 +52,7 @@ beforeAll(async () => {
 afterAll(() => client.close())
 beforeEach(async () => {
 	vi.clearAllMocks()
+	await mocks.database.db.delete(schema.deployments)
 	await mocks.database.db.delete(schema.domains)
 	await mocks.database.db.delete(schema.projects)
 	for (const id of ['main', 'blog']) {
@@ -130,4 +139,28 @@ it('reserves legacy project roots while permitting another app on a subpath', as
 	)
 	await POST(event('main', { hostname: 'another.test' }))
 	expect(await hasExplicitRootConflict('another.test', 'blog')).toBe(true)
+})
+
+it('keeps primary mount prefixes in project, dashboard and deployment links', async () => {
+	await mocks.database.db.insert(schema.domains).values([
+		{ projectId: 'main', hostname: 'onui.com', isPrimary: true },
+		{ projectId: 'blog', hostname: 'onui.com', pathPrefix: '/blog', isPrimary: true }
+	])
+	await mocks.database.db
+		.insert(schema.deployments)
+		.values({ id: 'deployment', projectId: 'blog', status: 'live' })
+	const project = await loadProject({ params: { slug: 'blog' } } as never)
+	expect(project.project).toMatchObject({ domain: 'onui.com/blog', pathPrefix: '/blog' })
+	expect(project.project.domains).toMatchObject([{ hostname: 'onui.com', pathPrefix: '/blog' }])
+	const dashboard = await loadDashboard()
+	expect(dashboard.projects.find(p => p.id === 'blog')).toMatchObject({
+		domain: 'onui.com/blog',
+		pathPrefix: '/blog'
+	})
+	expect(dashboard.projects.find(p => p.id === 'main')).toMatchObject({
+		domain: 'onui.com',
+		pathPrefix: '/'
+	})
+	const deployment = await loadDeployment({ params: { slug: 'blog', did: 'deployment' } } as never)
+	expect(deployment.project).toMatchObject({ domain: 'onui.com/blog', pathPrefix: '/blog' })
 })
