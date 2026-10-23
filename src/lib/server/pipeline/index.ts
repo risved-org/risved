@@ -1,11 +1,11 @@
 import { withProjectLock } from './project-lock'
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { writeFile, mkdir, rm } from 'node:fs/promises';
-import { db } from '$lib/server/db';
-import { deployments, projects, domains } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { getSetting } from '$lib/server/settings';
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { writeFile, mkdir, rm } from 'node:fs/promises'
+import { db } from '$lib/server/db'
+import { deployments, projects, domains } from '$lib/server/db/schema'
+import { eq } from 'drizzle-orm'
+import { getSetting } from '$lib/server/settings'
 import {
 	formatBytes,
 	getDiskSpace,
@@ -15,12 +15,12 @@ import {
 	KEEP_IMAGES_PER_PROJECT,
 	PROJECT_IMAGE_LABEL
 } from '$lib/server/cleanup'
-import { resolveCloneToken } from '../git-token';
-import { detectFramework, createFsContext } from '../detection';
-import { generateDockerfile } from '../dockerfile';
+import { resolveCloneToken } from '../git-token'
+import { detectFramework, createFsContext } from '../detection'
+import { generateDockerfile } from '../dockerfile'
 import { getFrameworkConfig } from '../dockerfile/configs'
-import { detectPackageManager } from '../detect-package-manager';
-import { CaddyClient, createCaddyClient } from '../caddy';
+import { detectPackageManager } from '../detect-package-manager'
+import { CaddyClient, createCaddyClient } from '../caddy'
 import {
 	gitClone,
 	getCommitSha,
@@ -32,11 +32,11 @@ import {
 	freePort,
 	getContainerLogs,
 	projectVolumeName
-} from './docker';
+} from './docker'
 import { ensureManagedPostgres } from './postgres'
 import { loadProjectEnv, resolveManagedPostgresEnv } from './env'
-import { runRelease } from './release';
-import { createLogCollector } from './log';
+import { runRelease } from './release'
+import { createLogCollector } from './log'
 import { supersedeLiveDeployments } from './supersede'
 import { getManagedAppDomain } from './domains'
 import type {
@@ -45,9 +45,9 @@ import type {
 	LogEmitter,
 	CommandRunner,
 	PipelinePhase
-} from './types';
+} from './types'
 
-export type { PipelineConfig, PipelineResult, LogEntry, LogEmitter, PipelinePhase } from './types';
+export type { PipelineConfig, PipelineResult, LogEntry, LogEmitter, PipelinePhase } from './types'
 
 /**
  * Run the full deployment pipeline for a project.
@@ -62,12 +62,12 @@ export async function runPipeline(
 	config: PipelineConfig,
 	runner: CommandRunner,
 	options?: {
-		onLog?: LogEmitter;
-		caddy?: CaddyClient;
-		fetchFn?: typeof fetch;
-		healthTimeoutMs?: number;
-		healthIntervalMs?: number;
-		deploymentId?: string;
+		onLog?: LogEmitter
+		caddy?: CaddyClient
+		fetchFn?: typeof fetch
+		healthTimeoutMs?: number
+		healthIntervalMs?: number
+		deploymentId?: string
 	}
 ): Promise<PipelineResult> {
 	return withProjectLock(config.projectId, () => _runPipeline(config, runner, options))
@@ -77,17 +77,17 @@ async function _runPipeline(
 	config: PipelineConfig,
 	runner: CommandRunner,
 	options?: {
-		onLog?: LogEmitter;
-		caddy?: CaddyClient;
-		fetchFn?: typeof fetch;
-		healthTimeoutMs?: number;
-		healthIntervalMs?: number;
-		deploymentId?: string;
+		onLog?: LogEmitter
+		caddy?: CaddyClient
+		fetchFn?: typeof fetch
+		healthTimeoutMs?: number
+		healthIntervalMs?: number
+		deploymentId?: string
 	}
 ): Promise<PipelineResult> {
-	const deploymentId = options?.deploymentId ?? crypto.randomUUID();
-	const { emit, entries } = createLogCollector(deploymentId, options?.onLog);
-	const caddy = options?.caddy ?? createCaddyClient();
+	const deploymentId = options?.deploymentId ?? crypto.randomUUID()
+	const { emit, entries } = createLogCollector(deploymentId, options?.onLog)
+	const caddy = options?.caddy ?? createCaddyClient()
 
 	/* Create deployment record (skip if pre-created by the API handler) */
 	if (!options?.deploymentId) {
@@ -100,18 +100,18 @@ async function _runPipeline(
 		})
 	}
 
-	const workDir = join(tmpdir(), `risved-build-${config.projectSlug}-${Date.now()}`);
-	const cloneDir = join(workDir, 'repo');
+	const workDir = join(tmpdir(), `risved-build-${config.projectSlug}-${Date.now()}`)
+	const cloneDir = join(workDir, 'repo')
 
 	let commitSha: string | null = null
 
 	try {
 		/* ── Phase 1: Clone ──────────────────────────────── */
-		emit('clone', `Cloning ${config.repoUrl} (branch: ${config.branch})`);
+		emit('clone', `Cloning ${config.repoUrl} (branch: ${config.branch})`)
 		if (config.checkoutRef) {
 			emit('clone', `Checking out ${config.checkoutRef}`)
 		}
-		await mkdir(workDir, { recursive: true });
+		await mkdir(workDir, { recursive: true })
 
 		/* Kick off clone, env var fetch, and SSH key lookup in parallel */
 		const sshKeyPromise = getSetting('ssh_deploy_private_key')
@@ -123,9 +123,7 @@ async function _runPipeline(
 			: null
 
 		const sshKey = await sshKeyPromise
-		const cloneUrl = cloneToken
-			? injectTokenIntoUrl(config.repoUrl, cloneToken)
-			: config.repoUrl
+		const cloneUrl = cloneToken ? injectTokenIntoUrl(config.repoUrl, cloneToken) : config.repoUrl
 		const cloneResult = await gitClone(
 			runner,
 			cloneUrl,
@@ -133,19 +131,16 @@ async function _runPipeline(
 			cloneDir,
 			sshKey ?? undefined,
 			config.checkoutRef
-		);
+		)
 		if (!cloneResult.success) {
-			throw new PipelineError('clone', `Git clone failed: ${cloneResult.error}`);
+			throw new PipelineError('clone', `Git clone failed: ${cloneResult.error}`)
 		}
 
-		commitSha = await getCommitSha(runner, cloneDir);
-		emit('clone', `Cloned at commit ${commitSha ?? 'unknown'}`);
+		commitSha = await getCommitSha(runner, cloneDir)
+		emit('clone', `Cloned at commit ${commitSha ?? 'unknown'}`)
 
 		if (commitSha) {
-			await db
-				.update(deployments)
-				.set({ commitSha })
-				.where(eq(deployments.id, deploymentId))
+			await db.update(deployments).set({ commitSha }).where(eq(deployments.id, deploymentId))
 		}
 
 		/* Resolve env vars (started in parallel with clone) */
@@ -153,28 +148,28 @@ async function _runPipeline(
 		const projectEnvCount = Object.keys(envMap).length
 
 		/* ── Phase 2: Detect ─────────────────────────────── */
-		let frameworkId = config.frameworkId;
-		let tier = config.tier;
+		let frameworkId = config.frameworkId
+		let tier = config.tier
 		let frameworkMeta: Record<string, string> | undefined
 
 		{
-			emit('detect', 'Detecting framework…');
-			const ctx = createFsContext(cloneDir);
-			const detection = await detectFramework(ctx);
+			emit('detect', 'Detecting framework…')
+			const ctx = createFsContext(cloneDir)
+			const detection = await detectFramework(ctx)
 			if (!detection.detected || !detection.framework) {
 				if (frameworkId && tier) {
 					emit('detect', `Using saved: ${frameworkId} (${tier} tier)`)
 				} else {
-					throw new PipelineError('detect', 'Could not detect framework');
+					throw new PipelineError('detect', 'Could not detect framework')
 				}
 			} else {
-				frameworkId = detection.framework.id;
-				tier = detection.framework.tier;
-				frameworkMeta = detection.framework.meta;
+				frameworkId = detection.framework.id
+				tier = detection.framework.tier
+				frameworkMeta = detection.framework.meta
 				emit(
 					'detect',
 					`Detected ${detection.framework.name} (${tier} tier, ${detection.framework.confidence} confidence)`
-				);
+				)
 			}
 		}
 
@@ -182,19 +177,20 @@ async function _runPipeline(
 		await db
 			.update(projects)
 			.set({ frameworkId, tier, updatedAt: new Date().toISOString() })
-			.where(eq(projects.id, config.projectId));
+			.where(eq(projects.id, config.projectId))
 
 		/* ── Phase 3: Build ──────────────────────────────── */
 		if (config.postgresEnabled) {
-			const { postgres, password, env: postgresEnv } = await resolveManagedPostgresEnv(
-				config.projectId,
-				config.postgresPassword
-			)
+			const {
+				postgres,
+				password,
+				env: postgresEnv
+			} = await resolveManagedPostgresEnv(config.projectId, config.postgresPassword)
 			Object.assign(envMap, postgresEnv)
 
 			emit('build', `Managed Postgres enabled for project ${config.projectId}`)
 			const postgresResult = await ensureManagedPostgres(runner, postgres, password, {
-				onLine: (line) => emit('build', line)
+				onLine: line => emit('build', line)
 			})
 			if (!postgresResult.success) {
 				throw new PipelineError(
@@ -209,15 +205,16 @@ async function _runPipeline(
 		   cached from onboarding, because the user may have changed
 		   lockfiles since then. Warnings surface in the build log so the
 		   user can see them in the deploy UI. */
-		const pmResult = await detectPackageManager(cloneDir);
-		const pmLabel = pmResult.packageManager + (pmResult.yarnVersion ? ` (${pmResult.yarnVersion})` : '');
-		const pmSource = pmResult.lockfile ? `from ${pmResult.lockfile}` : 'no lockfile — using default';
-		emit('build', `Detected package manager: ${pmLabel} (${pmSource})`);
+		const pmResult = await detectPackageManager(cloneDir)
+		const pmLabel =
+			pmResult.packageManager + (pmResult.yarnVersion ? ` (${pmResult.yarnVersion})` : '')
+		const pmSource = pmResult.lockfile ? `from ${pmResult.lockfile}` : 'no lockfile — using default'
+		emit('build', `Detected package manager: ${pmLabel} (${pmSource})`)
 		for (const warning of pmResult.warnings) {
-			emit('build', warning, 'warn');
+			emit('build', warning, 'warn')
 		}
 
-		emit('build', 'Generating Dockerfile…');
+		emit('build', 'Generating Dockerfile…')
 		const dockerfile = generateDockerfile({
 			frameworkId,
 			tier,
@@ -228,7 +225,7 @@ async function _runPipeline(
 			startCommand: config.startCommand || undefined,
 			meta: frameworkMeta,
 			stripBuildEnv: Object.keys(envMap).length > 0
-		});
+		})
 		const dockerfileContent = dockerfile.content
 
 		/* Write all env vars into a build-time .env file so that:
@@ -249,29 +246,29 @@ async function _runPipeline(
 			emit('build', `Injecting ${buildEnv.length} env var(s) into build`)
 		}
 
-		await writeFile(join(cloneDir, 'Dockerfile'), dockerfileContent);
-		await writeFile(join(cloneDir, '.dockerignore'), [
-			'.git',
-			'node_modules',
-			'.svelte-kit',
-			'.next',
-			'.nuxt',
-			'.output',
-			'dist',
-			'Dockerfile',
-			'.dockerignore'
-		].join('\n'));
-		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`);
+		await writeFile(join(cloneDir, 'Dockerfile'), dockerfileContent)
+		await writeFile(
+			join(cloneDir, '.dockerignore'),
+			[
+				'.git',
+				'node_modules',
+				'.svelte-kit',
+				'.next',
+				'.nuxt',
+				'.output',
+				'dist',
+				'Dockerfile',
+				'.dockerignore'
+			].join('\n')
+		)
+		emit('build', `Dockerfile generated for ${frameworkId} (${tier} tier)`)
 
-		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`;
+		const imageTag = `${config.projectSlug}:${commitSha ?? 'latest'}`
 
 		/* Record the tag before building so the Docker prune (daily, on
 		   restart, and the disk watchdog) can see this running deployment owns
 		   the image and leaves it alone until the container is up. */
-		await db
-			.update(deployments)
-			.set({ imageTag })
-			.where(eq(deployments.id, deploymentId));
+		await db.update(deployments).set({ imageTag }).where(eq(deployments.id, deploymentId))
 
 		/* A build needs several GB of headroom. If the host disk is nearly
 		   full, prune old images and the build cache first rather than letting
@@ -302,33 +299,33 @@ async function _runPipeline(
 		if (tier === 'node') {
 			const warm = await ensureWarmImage(runner, {
 				nodeVersion: getFrameworkConfig(frameworkId).nodeVersion,
-				onLine: (line) => emit('build', line)
-			});
+				onLine: line => emit('build', line)
+			})
 			if (!warm.success) {
 				throw new PipelineError(
 					'build',
 					`Failed to prepare warm builder image: ${warm.error ?? 'unknown error'}`
-				);
+				)
 			}
 		}
 
-		emit('build', `Building image ${imageTag}…`);
+		emit('build', `Building image ${imageTag}…`)
 
 		const buildResult = await dockerBuild(runner, {
 			contextDir: cloneDir,
 			imageTag,
 			labels: { [PROJECT_IMAGE_LABEL]: config.projectSlug },
-			onLine: (line) => emit('build', line)
-		});
+			onLine: line => emit('build', line)
+		})
 		if (!buildResult.success) {
-			throw new PipelineError('build', 'Docker build failed');
+			throw new PipelineError('build', 'Docker build failed')
 		}
-		emit('build', 'Image built successfully');
+		emit('build', 'Image built successfully')
 
 		/* ── Phase 3b: Release ───────────────────────────── */
-		const releaseCommand = config.releaseCommand?.trim() || null;
-		const volumeName = config.volumeName ?? projectVolumeName(config.projectId);
-		const volumes = [`${volumeName}:/app/data`];
+		const releaseCommand = config.releaseCommand?.trim() || null
+		const volumeName = config.volumeName ?? projectVolumeName(config.projectId)
+		const volumes = [`${volumeName}:/app/data`]
 
 		if (releaseCommand) {
 			/* Build a throwaway image from the build stage so the release
@@ -340,13 +337,13 @@ async function _runPipeline(
 				imageTag: releaseImageTag,
 				labels: { [PROJECT_IMAGE_LABEL]: config.projectSlug },
 				target: 'build',
-				onLine: (line) => emit('release', line)
+				onLine: line => emit('release', line)
 			})
 			if (!releaseBuild.success) {
 				throw new PipelineError('release', 'Failed to build release image')
 			}
 
-			emit('release', `Running release command: ${releaseCommand}`);
+			emit('release', `Running release command: ${releaseCommand}`)
 
 			const releaseResult = await runRelease(runner, {
 				imageTag: releaseImageTag,
@@ -354,8 +351,8 @@ async function _runPipeline(
 				env: envMap,
 				volumes,
 				containerName: `risved-release-${deploymentId.slice(0, 8)}`,
-				onLine: (line) => emit('release', line)
-			});
+				onLine: line => emit('release', line)
+			})
 
 			await db
 				.update(deployments)
@@ -363,29 +360,29 @@ async function _runPipeline(
 					releaseCommand,
 					releaseExitCode: releaseResult.exitCode
 				})
-				.where(eq(deployments.id, deploymentId));
+				.where(eq(deployments.id, deploymentId))
 
 			if (releaseResult.timedOut) {
 				throw new PipelineError(
 					'release',
 					`Release command timed out (exit code ${releaseResult.exitCode})`
-				);
+				)
 			}
 			if (releaseResult.exitCode !== 0) {
 				throw new PipelineError(
 					'release',
 					`Release command failed (exit code ${releaseResult.exitCode})`
-				);
+				)
 			}
-			emit('release', 'Release command completed');
+			emit('release', 'Release command completed')
 
 			/* Remove the throwaway release image */
 			await runner.exec('docker', ['rmi', releaseImageTag]).catch(() => {})
 		}
 
 		/* ── Phase 4: Start ──────────────────────────────── */
-		const containerName = config.projectSlug;
-		emit('start', `Starting container ${containerName} on port ${config.port}…`);
+		const containerName = config.projectSlug
+		emit('start', `Starting container ${containerName} on port ${config.port}…`)
 		if (projectEnvCount > 0) {
 			emit('start', `Injecting ${projectEnvCount} env var(s)`)
 		}
@@ -397,7 +394,7 @@ async function _runPipeline(
 		}
 
 		/* Remove existing container with the same name */
-		await runner.exec('docker', ['rm', '-f', containerName]);
+		await runner.exec('docker', ['rm', '-f', containerName])
 
 		emit('start', `Mounting persistent volume at /app/data`)
 
@@ -407,21 +404,21 @@ async function _runPipeline(
 			port: config.port,
 			env: envMap,
 			volumes
-		});
+		})
 		if (!runResult.success) {
-			throw new PipelineError('start', `Docker run failed: ${runResult.error}`);
+			throw new PipelineError('start', `Docker run failed: ${runResult.error}`)
 		}
-		emit('start', `Container started (ID: ${runResult.containerId})`);
+		emit('start', `Container started (ID: ${runResult.containerId})`)
 
 		/* ── Phase 5: Health ─────────────────────────────── */
-		emit('health', 'Waiting for health check…');
+		emit('health', 'Waiting for health check…')
 		const healthTimeout = options?.healthTimeoutMs ?? 60000
 		const healthy = await waitForHealthy(
 			containerName,
 			healthTimeout,
 			options?.healthIntervalMs ?? 2000,
 			options?.fetchFn ?? globalThis.fetch
-		);
+		)
 		if (!healthy) {
 			const logs = await getContainerLogs(runner, containerName)
 			if (logs) {
@@ -429,25 +426,25 @@ async function _runPipeline(
 					emit('health', line, 'error')
 				}
 			}
-			await dockerStop(runner, containerName, 5);
-			throw new PipelineError('health', `Health check timed out after ${healthTimeout / 1000}s`);
+			await dockerStop(runner, containerName, 5)
+			throw new PipelineError('health', `Health check timed out after ${healthTimeout / 1000}s`)
 		}
-		emit('health', 'Health check passed');
+		emit('health', 'Health check passed')
 
 		/* ── Phase 6: Route ──────────────────────────────── */
 		if (config.domain) {
-			emit('route', `Configuring route: ${config.domain} → port ${config.port}`);
+			emit('route', `Configuring route: ${config.domain} → port ${config.port}`)
 			const routeResult = await caddy.addRoute({
 				hostname: config.domain,
 				port: config.port
-			});
+			})
 			if (!routeResult.success) {
-				emit('route', `Warning: route update failed: ${routeResult.error}`, 'warn');
+				emit('route', `Warning: route update failed: ${routeResult.error}`, 'warn')
 			} else {
-				emit('route', 'Route configured');
+				emit('route', 'Route configured')
 			}
 		} else {
-			emit('route', 'No domain configured, skipping route setup');
+			emit('route', 'No domain configured, skipping route setup')
 		}
 
 		/* Also add a route via the configured app wildcard domain. */
@@ -472,12 +469,21 @@ async function _runPipeline(
 			emit('route', 'Preview build: leaving custom domains pointed at production')
 		} else {
 			const customDomains = await db
-				.select({ hostname: domains.hostname })
+				.select({
+					hostname: domains.hostname,
+					pathPrefix: domains.pathPrefix,
+					forwardingMode: domains.forwardingMode
+				})
 				.from(domains)
 				.where(eq(domains.projectId, config.projectId))
 
 			for (const d of customDomains) {
-				const r = await caddy.addRoute({ hostname: d.hostname, port: config.port })
+				const r = await caddy.addRoute({
+					hostname: d.hostname,
+					port: config.port,
+					pathPrefix: d.pathPrefix,
+					forwardingMode: d.forwardingMode
+				})
 				if (!r.success) {
 					emit('route', `Warning: custom domain route failed (${d.hostname}): ${r.error}`, 'warn')
 				} else {
@@ -485,13 +491,13 @@ async function _runPipeline(
 				}
 				/* Auto-add www → non-www redirect for non-www custom domains */
 				if (!d.hostname.startsWith('www.')) {
-					await caddy.addRedirectRoute(`www.${d.hostname}`, d.hostname)
+					await caddy.addRedirectRoute(`www.${d.hostname}`, d.hostname, d.pathPrefix)
 				}
 			}
 		}
 
 		/* ── Phase 7: Live ──────────────────────────────── */
-		emit('live', 'Deployment is live');
+		emit('live', 'Deployment is live')
 
 		await db
 			.update(deployments)
@@ -502,7 +508,7 @@ async function _runPipeline(
 				containerName,
 				finishedAt: new Date().toISOString()
 			})
-			.where(eq(deployments.id, deploymentId));
+			.where(eq(deployments.id, deploymentId))
 
 		/* The container this deployment replaced is gone, so its row is no longer live. */
 		await supersedeLiveDeployments(config.projectId, containerName, deploymentId)
@@ -516,7 +522,11 @@ async function _runPipeline(
 			}
 			await runner.exec('docker', ['image', 'prune', '-f'])
 		} catch (err) {
-			emit('live', `Image cleanup skipped: ${err instanceof Error ? err.message : 'unknown error'}`, 'warn')
+			emit(
+				'live',
+				`Image cleanup skipped: ${err instanceof Error ? err.message : 'unknown error'}`,
+				'warn'
+			)
 		}
 
 		return {
@@ -526,11 +536,11 @@ async function _runPipeline(
 			imageTag,
 			containerName,
 			logs: entries
-		};
+		}
 	} catch (err) {
-		const phase = err instanceof PipelineError ? err.phase : 'build';
-		const message = err instanceof Error ? err.message : 'Unknown error';
-		emit(phase, message, 'error');
+		const phase = err instanceof PipelineError ? err.phase : 'build'
+		const message = err instanceof Error ? err.message : 'Unknown error'
+		emit(phase, message, 'error')
 
 		await db
 			.update(deployments)
@@ -539,18 +549,17 @@ async function _runPipeline(
 				commitSha,
 				finishedAt: new Date().toISOString()
 			})
-			.where(eq(deployments.id, deploymentId));
-
+			.where(eq(deployments.id, deploymentId))
 
 		return {
 			success: false,
 			deploymentId,
 			error: message,
 			logs: entries
-		};
+		}
 	} finally {
 		/* Cleanup work directory */
-		await rm(workDir, { recursive: true, force: true }).catch(() => {});
+		await rm(workDir, { recursive: true, force: true }).catch(() => {})
 	}
 }
 
@@ -580,7 +589,7 @@ class PipelineError extends Error {
 		public readonly phase: PipelinePhase,
 		message: string
 	) {
-		super(message);
-		this.name = 'PipelineError';
+		super(message)
+		this.name = 'PipelineError'
 	}
 }

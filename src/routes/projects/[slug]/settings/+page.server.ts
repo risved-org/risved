@@ -1,6 +1,12 @@
+import { createCaddyClient } from '$lib/server/caddy'
 import { runtimeError, type ProjectRuntime } from '$lib/project-runtime'
 import { error, fail, redirect } from '@sveltejs/kit'
-import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker'
+import {
+	createCommandRunner,
+	dockerStop,
+	dockerVolumeRemove,
+	projectVolumeName
+} from '$lib/server/pipeline/docker'
 import {
 	buildManagedPostgresEnv,
 	ensureManagedPostgres,
@@ -44,7 +50,7 @@ export const load = (async ({ params }) => {
 	/* Cron jobs with latest run */
 	const crons = await db.select().from(cronJobs).where(eq(cronJobs.projectId, project.id))
 	const cronJobsWithLastRun = await Promise.all(
-		crons.map(async (job) => {
+		crons.map(async job => {
 			const lastRun = await db
 				.select()
 				.from(cronRuns)
@@ -95,15 +101,17 @@ export const load = (async ({ params }) => {
 				}
 			: null,
 		/* Secrets are write-only: their stored value never leaves the server */
-		envVars: envs.map((e) => ({
+		envVars: envs.map(e => ({
 			id: e.id,
 			key: e.key,
 			value: e.isSecret ? '' : safeDecrypt(e.value),
 			isSecret: e.isSecret
 		})),
-		domains: doms.map((d) => ({
+		domains: doms.map(d => ({
 			id: d.id,
 			hostname: d.hostname,
+			pathPrefix: d.pathPrefix,
+			forwardingMode: d.forwardingMode,
 			isPrimary: d.isPrimary,
 			sslStatus: d.sslStatus
 		})),
@@ -129,7 +137,13 @@ export const actions: Actions = {
 
 		await db
 			.update(projects)
-			.set({ runtime: runtime as ProjectRuntime, buildCommand, startCommand, releaseCommand, updatedAt: new Date().toISOString() })
+			.set({
+				runtime: runtime as ProjectRuntime,
+				buildCommand,
+				startCommand,
+				releaseCommand,
+				updatedAt: new Date().toISOString()
+			})
 			.where(eq(projects.id, proj[0].id))
 
 		return { scriptsSaved: true }
@@ -156,9 +170,15 @@ export const actions: Actions = {
 		const envKeep = envKeepRaw ? envKeepRaw.split('\x1F') : []
 
 		const existing = await db.select().from(envVars).where(eq(envVars.projectId, projectId))
-		const existingById = new Map(existing.map((e) => [e.id, e]))
+		const existingById = new Map(existing.map(e => [e.id, e]))
 
-		const rows: { id?: string; projectId: string; key: string; value: string; isSecret: boolean }[] = []
+		const rows: {
+			id?: string
+			projectId: string
+			key: string
+			value: string
+			isSecret: boolean
+		}[] = []
 		const seenKeys = new Set<string>()
 
 		for (let i = 0; i < envKeys.length; i++) {
@@ -194,7 +214,7 @@ export const actions: Actions = {
 		}
 
 		/* Kept secrets only exist in the database, so replace the set atomically */
-		await db.transaction(async (tx) => {
+		await db.transaction(async tx => {
 			await tx.delete(envVars).where(eq(envVars.projectId, projectId))
 			for (const row of rows) {
 				await tx.insert(envVars).values(row)
@@ -240,8 +260,16 @@ export const actions: Actions = {
 
 		const project = proj[0]
 		const runner = createCommandRunner()
-		try { await dockerStop(runner, managedPostgresContainerName(project.id), 10) } catch { /* best-effort */ }
-		try { await dockerVolumeRemove(runner, managedPostgresVolumeName(project.id)) } catch { /* best-effort */ }
+		try {
+			await dockerStop(runner, managedPostgresContainerName(project.id), 10)
+		} catch {
+			/* best-effort */
+		}
+		try {
+			await dockerVolumeRemove(runner, managedPostgresVolumeName(project.id))
+		} catch {
+			/* best-effort */
+		}
 
 		await db
 			.update(projects)
@@ -265,12 +293,50 @@ export const actions: Actions = {
 		const projectId = proj[0].id
 
 		const runner = createCommandRunner()
-		try { await cleanupProjectPreviews(projectId) } catch { /* best-effort */ }
-		try { await dockerStop(runner, proj[0].slug, 10) } catch { /* may not be running */ }
-		try { await dockerVolumeRemove(runner, projectVolumeName(projectId)) } catch { /* best-effort */ }
-		try { await dockerStop(runner, managedPostgresContainerName(projectId), 10) } catch { /* best-effort */ }
-		try { await dockerVolumeRemove(runner, managedPostgresVolumeName(projectId)) } catch { /* best-effort */ }
-		try { await removeProjectImages(runner, proj[0].slug) } catch { /* best-effort */ }
+		try {
+			await cleanupProjectPreviews(projectId)
+		} catch {
+			/* best-effort */
+		}
+		try {
+			await dockerStop(runner, proj[0].slug, 10)
+		} catch {
+			/* may not be running */
+		}
+		try {
+			await dockerVolumeRemove(runner, projectVolumeName(projectId))
+		} catch {
+			/* best-effort */
+		}
+		try {
+			await dockerStop(runner, managedPostgresContainerName(projectId), 10)
+		} catch {
+			/* best-effort */
+		}
+		try {
+			await dockerVolumeRemove(runner, managedPostgresVolumeName(projectId))
+		} catch {
+			/* best-effort */
+		}
+		try {
+			await removeProjectImages(runner, proj[0].slug)
+		} catch {
+			/* best-effort */
+		}
+
+		try {
+			const caddy = createCaddyClient()
+			const mappings = await db.select().from(domains).where(eq(domains.projectId, projectId))
+			for (const mapping of mappings) {
+				await caddy.removeRoute(mapping.hostname, mapping.pathPrefix)
+				if (!mapping.hostname.startsWith('www.')) {
+					await caddy.removeRedirectRoute(`www.${mapping.hostname}`, mapping.pathPrefix)
+				}
+			}
+			if (proj[0].domain) await caddy.removeRoute(proj[0].domain)
+		} catch {
+			/* Proxy cleanup is best-effort */
+		}
 
 		await getCronScheduler().deleteProjectJobs(projectId)
 		await db.delete(webhookDeliveries).where(eq(webhookDeliveries.projectId, projectId))

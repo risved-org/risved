@@ -1,110 +1,122 @@
-import { json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { projects, deployments, envVars, domains, previewDeployments } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { requireAuth, jsonError } from '$lib/server/api-utils';
-import { createCommandRunner, dockerStop, dockerVolumeRemove, projectVolumeName } from '$lib/server/pipeline/docker';
-import { managedPostgresContainerName, managedPostgresVolumeName } from '$lib/server/pipeline/postgres'
-import { createCaddyClient } from '$lib/server/caddy';
+import { hasRootConflict, hasExplicitRootConflict } from '$lib/server/domain-conflicts'
+import { json } from '@sveltejs/kit'
+import { db } from '$lib/server/db'
+import { projects, deployments, envVars, domains, previewDeployments } from '$lib/server/db/schema'
+import { eq, desc } from 'drizzle-orm'
+import { requireAuth, jsonError } from '$lib/server/api-utils'
+import {
+	createCommandRunner,
+	dockerStop,
+	dockerVolumeRemove,
+	projectVolumeName
+} from '$lib/server/pipeline/docker'
+import {
+	managedPostgresContainerName,
+	managedPostgresVolumeName
+} from '$lib/server/pipeline/postgres'
+import { createCaddyClient } from '$lib/server/caddy'
 import { removeProjectImages } from '$lib/server/cleanup/docker-prune'
 import { cleanupProjectPreviews } from '$lib/server/preview'
-import { getSetting } from '$lib/server/settings';
-import type { RequestHandler } from './$types';
+import { getSetting } from '$lib/server/settings'
+import type { RequestHandler } from './$types'
 
 /**
  * GET /api/projects/:id — get project detail with latest deployment.
  */
-export const GET: RequestHandler = async (event) => {
-	await requireAuth(event);
+export const GET: RequestHandler = async event => {
+	await requireAuth(event)
 
-	const { id } = event.params;
-	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+	const { id } = event.params
+	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
 
 	if (rows.length === 0) {
-		return jsonError(404, 'Project not found');
+		return jsonError(404, 'Project not found')
 	}
 
-	const project = rows[0];
+	const project = rows[0]
 
 	const latestDeployments = await db
 		.select()
 		.from(deployments)
 		.where(eq(deployments.projectId, id))
 		.orderBy(desc(deployments.createdAt))
-		.limit(1);
+		.limit(1)
 
 	return json({
 		...project,
 		latestDeployment: latestDeployments[0] ?? null
-	});
-};
+	})
+}
 
 /**
  * PUT /api/projects/:id — update project settings.
  * Body: { name?, branch?, framework_id?, domain? }
  */
-export const PUT: RequestHandler = async (event) => {
-	await requireAuth(event);
+export const PUT: RequestHandler = async event => {
+	await requireAuth(event)
 
-	const { id } = event.params;
-	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+	const { id } = event.params
+	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
 
 	if (rows.length === 0) {
-		return jsonError(404, 'Project not found');
+		return jsonError(404, 'Project not found')
 	}
 
-	const body = await event.request.json().catch(() => null);
+	const body = await event.request.json().catch(() => null)
 	if (!body || typeof body !== 'object') {
-		return jsonError(400, 'Invalid JSON body');
+		return jsonError(400, 'Invalid JSON body')
 	}
 
-	const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
-	const { name, branch, framework_id, domain } = body as Record<string, unknown>;
+	const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
+	const { name, branch, framework_id, domain } = body as Record<string, unknown>
 
 	if (name !== undefined) {
 		if (typeof name !== 'string' || name.trim().length === 0) {
-			return jsonError(400, 'name must be a non-empty string');
+			return jsonError(400, 'name must be a non-empty string')
 		}
-		updates.name = name.trim();
+		updates.name = name.trim()
 	}
 	if (branch !== undefined) {
 		if (typeof branch !== 'string' || branch.trim().length === 0) {
-			return jsonError(400, 'branch must be a non-empty string');
+			return jsonError(400, 'branch must be a non-empty string')
 		}
-		updates.branch = branch.trim();
+		updates.branch = branch.trim()
 	}
 	if (framework_id !== undefined) {
-		updates.frameworkId = typeof framework_id === 'string' ? framework_id : null;
+		updates.frameworkId = typeof framework_id === 'string' ? framework_id : null
 	}
 	if (domain !== undefined) {
-		updates.domain = typeof domain === 'string' ? domain : null;
+		const hostname = typeof domain === 'string' ? domain.trim().toLowerCase() : null
+		if (
+			hostname &&
+			((await hasRootConflict(hostname, id)) || (await hasExplicitRootConflict(hostname, id)))
+		) {
+			return jsonError(409, 'Hostname and path prefix are already in use')
+		}
+		updates.domain = hostname
 	}
 
-	const [updated] = await db
-		.update(projects)
-		.set(updates)
-		.where(eq(projects.id, id))
-		.returning();
+	const [updated] = await db.update(projects).set(updates).where(eq(projects.id, id)).returning()
 
-	return json(updated);
-};
+	return json(updated)
+}
 
 /**
  * DELETE /api/projects/:id — delete project, stop container, remove Caddy routes.
  */
-export const DELETE: RequestHandler = async (event) => {
-	await requireAuth(event);
+export const DELETE: RequestHandler = async event => {
+	await requireAuth(event)
 
-	const { id } = event.params;
-	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+	const { id } = event.params
+	const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
 
 	if (rows.length === 0) {
-		return jsonError(404, 'Project not found');
+		return jsonError(404, 'Project not found')
 	}
 
-	const project = rows[0];
+	const project = rows[0]
 
-	const runner = createCommandRunner();
+	const runner = createCommandRunner()
 
 	/* Tear down PR previews: containers, volumes and routes (best-effort) */
 	try {
@@ -115,8 +127,8 @@ export const DELETE: RequestHandler = async (event) => {
 
 	/* Stop the running container and remove persistent volume (best-effort) */
 	try {
-		await dockerStop(runner, project.slug, 10);
-		await dockerVolumeRemove(runner, projectVolumeName(id));
+		await dockerStop(runner, project.slug, 10)
+		await dockerVolumeRemove(runner, projectVolumeName(id))
 		await dockerStop(runner, managedPostgresContainerName(id), 10)
 		await dockerVolumeRemove(runner, managedPostgresVolumeName(id))
 	} catch {
@@ -133,8 +145,8 @@ export const DELETE: RequestHandler = async (event) => {
 	/* Remove Caddy routes (best-effort) */
 	if (project.domain) {
 		try {
-			const caddy = createCaddyClient();
-			await caddy.removeRoute(project.domain);
+			const caddy = createCaddyClient()
+			await caddy.removeRoute(project.domain)
 			/* Also remove the alt route via the control plane hostname */
 			const hostname = await getSetting('hostname')
 			if (hostname && !project.domain.endsWith(hostname)) {
@@ -145,12 +157,25 @@ export const DELETE: RequestHandler = async (event) => {
 		}
 	}
 
-	/* Delete domains, env vars, deployments, previews, then project */
-	await db.delete(domains).where(eq(domains.projectId, id));
-	await db.delete(envVars).where(eq(envVars.projectId, id));
-	await db.delete(deployments).where(eq(deployments.projectId, id));
-	await db.delete(previewDeployments).where(eq(previewDeployments.projectId, id));
-	await db.delete(projects).where(eq(projects.id, id));
+	const mappings = await db.select().from(domains).where(eq(domains.projectId, id))
+	try {
+		const caddy = createCaddyClient()
+		for (const mapping of mappings) {
+			await caddy.removeRoute(mapping.hostname, mapping.pathPrefix)
+			if (!mapping.hostname.startsWith('www.')) {
+				await caddy.removeRedirectRoute(`www.${mapping.hostname}`, mapping.pathPrefix)
+			}
+		}
+	} catch {
+		/* Caddy may not be running */
+	}
 
-	return json({ success: true });
-};
+	/* Delete domains, env vars, deployments, previews, then project */
+	await db.delete(domains).where(eq(domains.projectId, id))
+	await db.delete(envVars).where(eq(envVars.projectId, id))
+	await db.delete(deployments).where(eq(deployments.projectId, id))
+	await db.delete(previewDeployments).where(eq(previewDeployments.projectId, id))
+	await db.delete(projects).where(eq(projects.id, id))
+
+	return json({ success: true })
+}

@@ -1,3 +1,4 @@
+import { domainAddress } from '$lib/domain-address'
 import { db } from '$lib/server/db'
 import { projects, deployments, domains } from '$lib/server/db/schema'
 import { desc, eq } from 'drizzle-orm'
@@ -24,7 +25,11 @@ export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
 
 	/* Fetch primary domains */
 	const primaryDomains = await db
-		.select({ projectId: domains.projectId, hostname: domains.hostname })
+		.select({
+			projectId: domains.projectId,
+			hostname: domains.hostname,
+			pathPrefix: domains.pathPrefix
+		})
 		.from(domains)
 		.where(eq(domains.isPrimary, true))
 
@@ -51,13 +56,13 @@ export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
 		}
 	}
 
-	const domainMap = new Map(primaryDomains.map((d) => [d.projectId, d.hostname]))
+	const domainMap = new Map(primaryDomains.map(d => [d.projectId, d]))
 
 	/* Health monitor status per project */
 	const monitor = getHealthMonitor()
-	const healthMap = new Map(monitor.getAll().map((h) => [h.projectId, h]))
+	const healthMap = new Map(monitor.getAll().map(h => [h.projectId, h]))
 
-	const projectList = allProjects.map((p) => {
+	const projectList = allProjects.map(p => {
 		const latestDeployment = latestDeployMap.get(p.id)
 		const liveDeployment = liveDeployMap.get(p.id)
 		const productionDeployment = liveDeployment ?? latestDeployment
@@ -72,7 +77,8 @@ export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
 			slug: p.slug,
 			framework: p.frameworkId ? (_FRAMEWORK_NAMES[p.frameworkId] ?? p.frameworkId) : null,
 			frameworkId: p.frameworkId,
-			domain: domainMap.get(p.id) ?? p.domain ?? null,
+			domain: domainMap.has(p.id) ? domainAddress(domainMap.get(p.id)!) : (p.domain ?? null),
+			pathPrefix: domainMap.get(p.id)?.pathPrefix ?? '/',
 			status: productionDeployment?.status ?? 'stopped',
 			commitSha: productionDeployment?.commitSha ?? null,
 			lastDeployedAt: productionDeployment?.createdAt ?? null,
