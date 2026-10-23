@@ -29,7 +29,7 @@ it('submits legacy defaults and explicit subpath forwarding choices', async () =
 	expect(new FormData(form).get('forwardingMode')).toBe('strip')
 	expect(form.textContent).toContain('authentication callbacks and cookie')
 	await page.viewport(1280, 800)
-	await page.screenshot({ path: '/private/tmp/risved-domain-mount-fields.png' })
+	await page.screenshot({ path: '../../../test-results/risved-domain-mount-fields.png' })
 })
 
 it('shows existing mount settings and exposes the controls in the domain page', async () => {
@@ -59,9 +59,9 @@ it('shows existing mount settings and exposes the controls in the domain page', 
 	await page.getByRole('textbox', { name: 'Path prefix' }).fill('/blog')
 	await expect.element(page.getByRole('combobox', { name: 'Forwarding mode' })).toBeVisible()
 	await page.viewport(1280, 1000)
-	await page.screenshot({ path: '/private/tmp/risved-domain-page-desktop.png' })
+	await page.screenshot({ path: '../../../test-results/risved-domain-page-desktop.png' })
 	await page.viewport(390, 844)
 	expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
-	await page.screenshot({ path: '/private/tmp/risved-domain-page-mobile.png' })
+	await page.screenshot({ path: '../../../test-results/risved-domain-page-mobile.png' })
 	await page.viewport(1280, 800)
 })
