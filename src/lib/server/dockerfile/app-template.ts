@@ -45,7 +45,7 @@ export function appTemplate(
 	lines.push(`WORKDIR ${JSON.stringify(app)}`)
 	if (config.requiredServerFile) {
 		lines.push(
-			`RUN test -f ${quote(config.requiredServerFile)} || (echo \"Missing ${config.requiredServerFile}: enable SSR or configure a custom start command for your output.\" >&2; exit 1)`
+			`RUN test -f ${quote(config.requiredServerFile)} || (echo "Missing ${config.requiredServerFile}: enable SSR or configure a custom start command for your output." >&2; exit 1)`
 		)
 	}
 	// Keep the release target's environment, but remove it from every runtime layer.

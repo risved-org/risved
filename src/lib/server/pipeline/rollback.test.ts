@@ -1,3 +1,4 @@
+import { withDockerPrune } from '../docker-resource-lock'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const { envRows, mappingRows } = vi.hoisted(() => ({
@@ -103,6 +104,37 @@ describe('runRollback', () => {
 		vi.clearAllMocks()
 		envRows.value = []
 		mappingRows.value = []
+	})
+
+	it('protects the container from pruning throughout its health check', async () => {
+		let finishHealth!: () => void
+		let healthStarted!: () => void
+		const health = new Promise<void>(resolve => {
+			finishHealth = resolve
+		})
+		const started = new Promise<void>(resolve => {
+			healthStarted = resolve
+		})
+		const deployment = runRollback(makeConfig(), makeSuccessRunner(), {
+			caddy: makeCaddy() as never,
+			fetchFn: async () => {
+				healthStarted()
+				await health
+				return new Response('healthy')
+			}
+		})
+		await started
+		const operation = vi.fn(async () => {})
+		const prune = withDockerPrune(operation)
+		try {
+			await Promise.resolve()
+			expect(operation).not.toHaveBeenCalled()
+		} finally {
+			finishHealth()
+			await Promise.all([deployment, prune])
+		}
+		expect((await deployment).success).toBe(true)
+		expect(operation).toHaveBeenCalledOnce()
 	})
 
 	it('succeeds with existing image (skips clone/detect/build)', async () => {

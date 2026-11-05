@@ -1,3 +1,4 @@
+import { withDeploymentResources } from '../docker-resource-lock'
 import { withProjectLock } from './project-lock'
 import { resolveAppDirectory } from '../app-directory'
 import { resolveWorkspace } from '../workspace'
@@ -72,7 +73,9 @@ export async function runPipeline(
 		deploymentId?: string
 	}
 ): Promise<PipelineResult> {
-	return withProjectLock(config.projectId, () => _runPipeline(config, runner, options))
+	return withProjectLock(config.projectId, () =>
+		withDeploymentResources(() => _runPipeline(config, runner, options))
+	)
 }
 
 async function _runPipeline(

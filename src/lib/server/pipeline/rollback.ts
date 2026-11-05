@@ -1,3 +1,4 @@
+import { withDeploymentResources } from '../docker-resource-lock'
 import { withProjectLock } from './project-lock'
 import { db } from '$lib/server/db'
 import { deployments, domains } from '$lib/server/db/schema'
@@ -41,7 +42,9 @@ export async function runRollback(
 		healthIntervalMs?: number
 	}
 ): Promise<PipelineResult> {
-	return withProjectLock(config.projectId, () => runRollbackLocked(config, runner, options))
+	return withProjectLock(config.projectId, () =>
+		withDeploymentResources(() => runRollbackLocked(config, runner, options))
+	)
 }
 
 async function runRollbackLocked(

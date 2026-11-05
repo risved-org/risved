@@ -5,9 +5,9 @@ import { mocks, project, queueSelects } from './test-fixtures'
 import { ServiceError } from './types'
 
 describe('createProject', () => {
-	it('rejects a subdirectory before creating a project that would deploy the wrong root', async () => {
+	it('rejects an unsafe app directory before creating a project', async () => {
 		await expect(
-			createProject({ repo: 'o/r', rootDir: 'apps/web', origin: 'https://risved.test' })
+			createProject({ repo: 'o/r', rootDir: '../web', origin: 'https://risved.test' })
 		).rejects.toMatchObject({ code: 'validation' })
 		expect(mocks.db.insert).not.toHaveBeenCalled()
 	})
@@ -79,5 +79,17 @@ describe('createProject', () => {
 		await createProject({ repo: 'o/my-app', origin: 'https://risved.test' })
 
 		expect(values.mock.calls[0][0]).toMatchObject({ branch: 'trunk' })
+	})
+	it('saves a valid app directory when an agent creates a project', async () => {
+		mocks.resolveGitHubRepo.mockResolvedValue({
+			connectionId: 'c-1',
+			client: {},
+			repo: { name: 'my-app', default_branch: 'main', clone_url: 'https://github.com/o/r.git' }
+		})
+		queueSelects([])
+		const values = vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([project]) })
+		mocks.db.insert.mockReturnValue({ values })
+		await createProject({ repo: 'o/my-app', rootDir: 'apps/web/', origin: 'https://risved.test' })
+		expect(values.mock.calls[0][0]).toMatchObject({ rootDirectory: 'apps/web' })
 	})
 })

@@ -1,3 +1,4 @@
+import { parseAppDirectory } from '../app-directory'
 import { generateWebhookSecret, slugify } from '$lib/server/api-utils'
 import { registerWebhook } from '$lib/server/auto-webhook'
 import { db } from '$lib/server/db'
@@ -44,11 +45,11 @@ export interface CreateProjectResult {
  * returned hints exist so config can be fixed before the first build.
  */
 export async function createProject(input: CreateProjectInput): Promise<CreateProjectResult> {
-	if (input.rootDir && input.rootDir !== '.') {
-		throw new ServiceError(
-			'validation',
-			'Creating projects in subdirectories is not supported by this release'
-		)
+	let rootDirectory: string | null
+	try {
+		rootDirectory = parseAppDirectory(input.rootDir === '.' ? null : input.rootDir)
+	} catch (error) {
+		throw new ServiceError('validation', (error as Error).message)
 	}
 	const target = parseOwnerRepo(input.repo)
 	if (!target) {
@@ -80,7 +81,12 @@ export async function createProject(input: CreateProjectInput): Promise<CreatePr
 	}
 
 	/* Detect and validate against the repo tree over the API — no clone yet. */
-	const ctx = createRemoteDetectionContext(resolved.client, target, branch, input.rootDir)
+	const ctx = createRemoteDetectionContext(
+		resolved.client,
+		target,
+		branch,
+		rootDirectory ?? undefined
+	)
 	const detection = await detectFramework(ctx)
 	const buildHints = await inspectRepoConfig(ctx, detection.framework)
 
@@ -95,6 +101,7 @@ export async function createProject(input: CreateProjectInput): Promise<CreatePr
 			slug,
 			repoUrl: resolved.repo.clone_url,
 			branch,
+			rootDirectory,
 			gitConnectionId: resolved.connectionId,
 			frameworkId: detection.framework?.id,
 			tier: detection.framework?.tier,

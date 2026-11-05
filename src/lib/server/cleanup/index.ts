@@ -1,3 +1,4 @@
+import { withDockerPrune } from '../docker-resource-lock'
 import { db } from '$lib/server/db'
 import { deployments, buildLogs, cronRuns, projects } from '$lib/server/db/schema'
 import { inArray, isNotNull, lt } from 'drizzle-orm'
@@ -303,6 +304,11 @@ export class CleanupManager {
 	async dockerPrune(
 		type: 'images' | 'containers' | 'volumes' | 'buildcache' | 'all'
 	): Promise<DockerPruneResult> {
+		return withDockerPrune(() => this.pruneDockerManually(type))
+	}
+
+	/** Execute a manual prune while holding exclusive Docker resource access. */
+	private async pruneDockerManually(type: DockerPruneResult['type']): Promise<DockerPruneResult> {
 		const { execFile } = await import('node:child_process')
 		const { promisify } = await import('node:util')
 		const execFileAsync = promisify(execFile) as ExecFileFn

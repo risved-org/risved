@@ -46,8 +46,9 @@
 		searching = true
 		try {
 			const provider = selectedConnection?.provider ?? 'github'
-			const params = new URLSearchParams({ connectionId: selectedConnectionId })
-			if (searchQuery.trim()) params.set('search', searchQuery.trim())
+			const params = `connectionId=${encodeURIComponent(selectedConnectionId)}${
+				searchQuery.trim() ? `&search=${encodeURIComponent(searchQuery.trim())}` : ''
+			}`
 
 			const res = await fetch(`/api/git/${provider}/repos?${params}`)
 			if (res.ok) {

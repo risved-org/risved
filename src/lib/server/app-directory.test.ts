@@ -7,10 +7,11 @@ import { resolveWorkspace } from './workspace'
 import { appTemplate } from './dockerfile/app-template'
 import { getFrameworkConfig } from './dockerfile/configs'
 import { generateDockerfile } from './dockerfile'
+import { BUN_VERSION } from '$lib/project-runtime'
 
 const dirs: string[] = []
 afterEach(async () => {
-	await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
+	await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
 })
 
 async function fixture(pnpm = false) {
@@ -56,7 +57,7 @@ describe('App directory', () => {
 	})
 	it.each(['../app', '/apps/a', 'apps/../a', 'apps//a', 'apps/./a', 'C:\\app', 'apps/a\nfile', 4])(
 		'rejects unsafe input %s',
-		value => {
+		(value) => {
 			expect(() => parseAppDirectory(value)).toThrow()
 		}
 	)
@@ -71,11 +72,11 @@ describe('App directory', () => {
 	})
 	it.each([false, true])(
 		'builds only the selected app and shared dependency (pnpm: %s)',
-		async pnpm => {
+		async (pnpm) => {
 			const root = await fixture(pnpm)
 			const workspace = await resolveWorkspace(root, 'apps/a')
 			expect(workspace.root).toBe('')
-			expect(workspace.buildPackages.map(pkg => pkg.path)).toEqual(['packages/shared', 'apps/a'])
+			expect(workspace.buildPackages.map((pkg) => pkg.path)).toEqual(['packages/shared', 'apps/a'])
 			const output = appTemplate(
 				getFrameworkConfig('sveltekit'),
 				{ frameworkId: 'sveltekit', tier: 'node', stripBuildEnv: true },
@@ -121,5 +122,59 @@ describe('App directory', () => {
 		)
 		expect(generateDockerfile(options).content).toContain('WORKDIR /app')
 		expect(generateDockerfile(options).content).not.toContain('apps/')
+	})
+	it.each(['bun', 'node'] as const)(
+		'preserves the selected %s runtime for workspace builds',
+		(runtime) => {
+			const content = generateDockerfile({
+				frameworkId: 'elysia',
+				tier: 'node',
+				runtime,
+				workspace: { root: '', app: 'apps/api', buildPackages: [] },
+				packageManagerDetection: {
+					packageManager: 'bun',
+					lockfile: 'bun.lock',
+					lockfilesFound: [],
+					warnings: []
+				}
+			}).content
+			expect(content).toContain(
+				`FROM ${runtime === 'bun' ? `oven/bun:${BUN_VERSION}-debian` : 'node:22-slim'} AS runtime`
+			)
+			expect(content).toContain('ENV PORT=3000')
+			expect(content).toContain(`${runtime} dist/index.js`)
+		}
+	)
+
+	it('preserves Node 24 and the app-relative Adonis runtime directory', () => {
+		const content = generateDockerfile({
+			frameworkId: 'adonisjs',
+			tier: 'node',
+			workspace: { root: '', app: 'apps/api', buildPackages: [] },
+			packageManagerDetection: {
+				packageManager: 'npm',
+				lockfile: 'package-lock.json',
+				lockfilesFound: [],
+				warnings: []
+			}
+		}).content
+		expect(content).toContain('FROM risved-node-build:24 AS build')
+		expect(content).toContain('FROM node:24-slim AS runtime')
+		expect(content).toContain('WORKDIR "/app/apps/api/build"')
+	})
+
+	it('keeps the React Router server-output guard for workspace builds', () => {
+		const content = generateDockerfile({
+			frameworkId: 'react-router',
+			tier: 'node',
+			workspace: { root: '', app: 'apps/web', buildPackages: [] },
+			packageManagerDetection: {
+				packageManager: 'npm',
+				lockfile: 'package-lock.json',
+				lockfilesFound: [],
+				warnings: []
+			}
+		}).content
+		expect(content).toContain("RUN test -f 'build/server/index.js'")
 	})
 })
