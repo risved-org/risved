@@ -29,6 +29,7 @@ export interface PipelineConfig {
 	projectId: string;
 	projectSlug: string;
 	repoUrl: string;
+	rootDirectory?: string | null
 	branch: string;
 	/** Optional commit/ref to checkout after cloning, used for rebuilding historical deployments. */
 	checkoutRef?: string | null;

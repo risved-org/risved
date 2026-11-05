@@ -30,7 +30,7 @@ describe('repairDomainRoute', () => {
 
 		expect(result).toBe(true)
 		expect(caddy.addRoute).toHaveBeenCalledWith({ hostname: 'example.com', port: 3000 })
-		expect(caddy.addRedirectRoute).toHaveBeenCalledWith('www.example.com', 'example.com')
+		expect(caddy.addRedirectRoute).toHaveBeenCalledWith('www.example.com', 'example.com', undefined)
 	})
 
 	it('returns true for www. hostnames without adding a redirect', async () => {
@@ -75,4 +75,17 @@ describe('repairDomainRoute', () => {
 
 		expect(await repairDomainRoute('example.com', 3000)).toBe(false)
 	})
+})
+
+it('repairs only the selected mount with its configured forwarding mode', async () => {
+	const caddy = makeCaddyMock({ success: true })
+	mockCreateCaddyClient.mockReturnValue(caddy as never)
+	expect(await repairDomainRoute('onui.com', 3002, '/blog', 'strip')).toBe(true)
+	expect(caddy.addRoute).toHaveBeenCalledWith({
+		hostname: 'onui.com',
+		port: 3002,
+		pathPrefix: '/blog',
+		forwardingMode: 'strip'
+	})
+	expect(caddy.addRedirectRoute).toHaveBeenCalledWith('www.onui.com', 'onui.com', '/blog')
 })

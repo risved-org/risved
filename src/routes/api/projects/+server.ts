@@ -1,64 +1,75 @@
 import { runtimeError, type ProjectRuntime } from '$lib/project-runtime'
-import { json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { projects } from '$lib/server/db/schema';
-import { desc, eq } from 'drizzle-orm';
-import { requireAuth, slugify, generateWebhookSecret, jsonError } from '$lib/server/api-utils';
-import { allocatePort } from '$lib/server/pipeline/port';
-import type { RequestHandler } from './$types';
+import { parseAppDirectory } from '$lib/server/app-directory'
+import { json } from '@sveltejs/kit'
+import { db } from '$lib/server/db'
+import { projects } from '$lib/server/db/schema'
+import { desc, eq } from 'drizzle-orm'
+import { requireAuth, slugify, generateWebhookSecret, jsonError } from '$lib/server/api-utils'
+import { allocatePort } from '$lib/server/pipeline/port'
+import type { RequestHandler } from './$types'
 
 /**
  * GET /api/projects — list all projects with their latest deployment status.
  */
 export const GET: RequestHandler = async (event) => {
-	await requireAuth(event);
+	await requireAuth(event)
 
-	const rows = await db.select().from(projects).orderBy(desc(projects.createdAt));
+	const rows = await db.select().from(projects).orderBy(desc(projects.createdAt))
 
-	return json(rows);
-};
+	return json(rows)
+}
 
 /**
  * POST /api/projects — create a new project.
  * Body: { name, git_url, branch?, framework_id? }
  */
 export const POST: RequestHandler = async (event) => {
-	await requireAuth(event);
+	await requireAuth(event)
 
-	const body = await event.request.json().catch(() => null);
+	const body = await event.request.json().catch(() => null)
 	if (!body || typeof body !== 'object') {
-		return jsonError(400, 'Invalid JSON body');
+		return jsonError(400, 'Invalid JSON body')
 	}
 
 	const { name, git_url, branch, framework_id, runtime = 'node' } = body as Record<string, unknown>
 
 	if (!name || typeof name !== 'string' || name.trim().length === 0) {
-		return jsonError(400, 'name is required');
+		return jsonError(400, 'name is required')
 	}
 	if (!git_url || typeof git_url !== 'string' || git_url.trim().length === 0) {
-		return jsonError(400, 'git_url is required');
+		return jsonError(400, 'git_url is required')
 	}
 
-	const validationError = runtimeError(runtime, typeof framework_id === 'string' ? framework_id : undefined)
+	const validationError = runtimeError(
+		runtime,
+		typeof framework_id === 'string' ? framework_id : undefined
+	)
 	if (validationError) return jsonError(400, validationError)
+	let rootDirectory: string | null
+	try {
+		rootDirectory = parseAppDirectory(body.root_directory)
+	} catch (error) {
+		return jsonError(400, (error as Error).message)
+	}
 
-	const slug = slugify(name);
+	const slug = slugify(name)
 	if (!slug) {
-		return jsonError(400, 'name must contain at least one alphanumeric character');
+		return jsonError(400, 'name must contain at least one alphanumeric character')
 	}
 
 	/* Check for duplicate slug */
-	const existing = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1);
+	const existing = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
 	if (existing.length > 0) {
-		return jsonError(409, `A project with slug "${slug}" already exists`);
+		return jsonError(409, `A project with slug "${slug}" already exists`)
 	}
 
-	const port = await allocatePort();
-	const webhookSecret = generateWebhookSecret();
+	const port = await allocatePort()
+	const webhookSecret = generateWebhookSecret()
 
 	const [project] = await db
 		.insert(projects)
 		.values({
+			rootDirectory,
 			name: name.trim(),
 			slug,
 			repoUrl: git_url.trim(),
@@ -68,7 +79,7 @@ export const POST: RequestHandler = async (event) => {
 			runtime: runtime as ProjectRuntime,
 			webhookSecret
 		})
-		.returning();
+		.returning()
 
-	return json(project, { status: 201 });
-};
+	return json(project, { status: 201 })
+}

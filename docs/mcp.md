@@ -134,7 +134,7 @@ than starting another build.
 
 Tools take no `server` argument: a self-hosted instance is one server.
 
-Project creation currently supports apps at the repository root. A non-root `rootDir` returns a validation error.
+Set `rootDir` to an app directory such as `apps/web` when creating a monorepo project. Risved validates and saves this path, detects the framework there, and uses it for subsequent deployments. See [monorepo deployment](monorepos.md).
 
 OAuth connections require S256 PKCE and explicit approval on the Risved consent page. Approve only clients you trust.
 

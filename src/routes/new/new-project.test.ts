@@ -187,7 +187,7 @@ describe('new project page source', () => {
 	it('has branch and root directory fields', async () => {
 		const mod = await import('./+page.svelte?raw');
 		expect(mod.default).toContain('branch');
-		expect(mod.default).toContain('Root directory');
+		expect(mod.default).toContain('<AppDirectoryField')
 	});
 
 	it('has framework override dropdown', async () => {

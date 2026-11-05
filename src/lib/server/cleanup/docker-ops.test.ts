@@ -1,3 +1,4 @@
+import { withDeploymentResources } from '../docker-resource-lock'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 /* ── Mocks ────────────────────────────────────────────────────────── */
@@ -137,6 +138,31 @@ describe('CleanupManager.dockerPrune (docker available)', () => {
 		manager = new CleanupManager()
 	})
 
+	it.each(['images', 'containers', 'volumes', 'buildcache', 'all'] as const)(
+		'waits for active deployments before %s prune touches Docker',
+		async (type) => {
+			setupProjects([])
+			let finish!: () => void
+			const build = withDeploymentResources(
+				() =>
+					new Promise<void>((resolve) => {
+						finish = resolve
+					})
+			)
+			await Promise.resolve()
+			const calls = setupDocker({})
+			const prune = manager.dockerPrune(type)
+			try {
+				await Promise.resolve()
+				expect(calls).toEqual([])
+			} finally {
+				finish()
+				await Promise.all([build, prune])
+			}
+			expect(calls.length).toBeGreaterThan(0)
+		}
+	)
+
 	it('parses reclaimed space for images prune', async () => {
 		mockExecFile.mockResolvedValue({ stdout: 'Total reclaimed space: 1.23GB\n' })
 
@@ -157,7 +183,10 @@ describe('CleanupManager.dockerPrune (docker available)', () => {
 
 	it('sums the size of removed volumes for volumes prune', async () => {
 		setupProjects([])
-		setupDocker({ dangling: ['abc123', 'old_pgdata'], sizes: { abc123: '300MB', old_pgdata: '500MB' } })
+		setupDocker({
+			dangling: ['abc123', 'old_pgdata'],
+			sizes: { abc123: '300MB', old_pgdata: '500MB' }
+		})
 
 		const result = await manager.dockerPrune('volumes')
 

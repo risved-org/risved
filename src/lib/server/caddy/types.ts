@@ -1,37 +1,40 @@
 /** Configuration for the Caddy admin API client */
 export interface CaddyClientConfig {
 	/** Base URL for Caddy's admin API (default: http://localhost:2019) */
-	adminUrl?: string;
+	adminUrl?: string
 }
 
 /** A route mapping a hostname to a container port */
 export interface CaddyRoute {
 	/** The hostname to match (e.g. "myapp.risved.example.eu") */
-	hostname: string;
+	hostname: string
+	pathPrefix?: string
+	forwardingMode?: 'preserve' | 'strip'
 	/** The upstream container port to proxy to */
-	port: number;
+	port: number
 }
 
 /** Result of a Caddy API operation */
 export interface CaddyResult {
-	success: boolean;
-	error?: string;
+	success: boolean
+	error?: string
 }
 
 /** Health check response from Caddy */
 export interface CaddyHealthStatus {
-	healthy: boolean;
-	error?: string;
+	healthy: boolean
+	error?: string
 }
 
 /** Caddy route match configuration */
 export interface CaddyMatchConfig {
-	host: string[];
+	host: string[]
+	path?: string[]
 }
 
 /** Caddy upstream handler */
 export interface CaddyUpstream {
-	dial: string;
+	dial: string
 }
 
 /** Caddy encode handler configuration */
@@ -44,6 +47,7 @@ export interface CaddyEncodeHandlerConfig {
 /** Caddy reverse proxy handler configuration */
 export interface CaddyReverseProxyHandlerConfig {
 	handler: 'reverse_proxy'
+	headers?: { request: { set: Record<string, string[]> } }
 	upstreams: CaddyUpstream[]
 }
 
@@ -55,22 +59,27 @@ export interface CaddyStaticResponseHandlerConfig {
 }
 
 /** Union of all Caddy handler types */
-export type CaddyHandlerConfig = CaddyEncodeHandlerConfig | CaddyReverseProxyHandlerConfig | CaddyStaticResponseHandlerConfig
+export type CaddyHandlerConfig =
+	| { handler: 'rewrite'; strip_path_prefix: string }
+	| CaddyEncodeHandlerConfig
+	| CaddyReverseProxyHandlerConfig
+	| CaddyStaticResponseHandlerConfig
 
 /** Full Caddy route configuration for the JSON API */
 export interface CaddyRouteConfig {
-	'@id'?: string;
-	match: CaddyMatchConfig[];
-	handle: CaddyHandlerConfig[];
+	'@id'?: string
+	terminal?: boolean
+	match: CaddyMatchConfig[]
+	handle: CaddyHandlerConfig[]
 }
 
 /** Caddy server configuration */
 export interface CaddyServerConfig {
-	listen: string[];
-	routes: CaddyRouteConfig[];
+	listen: string[]
+	routes: CaddyRouteConfig[]
 }
 
 /** Interface for HTTP fetching (allows mocking in tests) */
 export interface FetchFn {
-	(input: string, init?: RequestInit): Promise<Response>;
+	(input: string, init?: RequestInit): Promise<Response>
 }

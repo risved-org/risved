@@ -1,27 +1,27 @@
-import { db } from '$lib/server/db';
-import { projects, deployments } from '$lib/server/db/schema';
-import { desc, eq, count } from 'drizzle-orm';
-import { getSetting, setSetting } from '$lib/server/settings';
-import { getCensusReporter } from '$lib/server/census';
-import { getServerIps } from '$lib/server/dns';
-import { getBandwidthBytes } from '$lib/server/metrics';
-import { getBackupBytes } from './usage';
-import { env } from '$env/dynamic/private';
-import { createHmac } from 'node:crypto';
+import { db } from '$lib/server/db'
+import { projects, deployments } from '$lib/server/db/schema'
+import { desc, eq, count } from 'drizzle-orm'
+import { getSetting, setSetting } from '$lib/server/settings'
+import { getCensusReporter } from '$lib/server/census'
+import { getServerIps } from '$lib/server/dns'
+import { getBandwidthBytes } from '$lib/server/metrics'
+import { getBackupBytes } from './usage'
+import { env } from '$env/dynamic/private'
+import { createHmac } from 'node:crypto'
 
-const HEARTBEAT_URL = 'https://risved.com/api/heartbeat';
-const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const HEARTBEAT_URL = 'https://risved.com/api/heartbeat'
+const INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
 
 export interface HeartbeatPayload {
-	instance_id: string;
-	version: string;
-	timestamp: string;
-	uptime_seconds: number;
-	project_count: number;
-	last_deploy_at: string | null;
-	total_backup_bytes: number;
-	total_bandwidth_bytes_30d: number;
-	control_plane_url: string | null;
+	instance_id: string
+	version: string
+	timestamp: string
+	uptime_seconds: number
+	project_count: number
+	last_deploy_at: string | null
+	total_backup_bytes: number
+	total_bandwidth_bytes_30d: number
+	control_plane_url: string | null
 }
 
 /**
@@ -30,119 +30,119 @@ export interface HeartbeatPayload {
  * Default is off — Cloud provisioning sets it to true.
  */
 export class HeartbeatReporter {
-	private timer: ReturnType<typeof setInterval> | null = null;
-	private startedAt: number = Date.now();
-	private heartbeatUrl: string;
+	private timer: ReturnType<typeof setInterval> | null = null
+	private startedAt: number = Date.now()
+	private heartbeatUrl: string
 
 	constructor(config: { heartbeatUrl?: string } = {}) {
-		this.heartbeatUrl = config.heartbeatUrl ?? env.RISVED_HEARTBEAT_ENDPOINT ?? HEARTBEAT_URL;
+		this.heartbeatUrl = config.heartbeatUrl ?? env.RISVED_HEARTBEAT_ENDPOINT ?? HEARTBEAT_URL
 	}
 
 	async start(): Promise<void> {
-		if (this.timer) return;
-		this.startedAt = Date.now();
+		if (this.timer) return
+		this.startedAt = Date.now()
 
-		const enabled = await this.isEnabled();
-		if (!enabled) return;
+		const enabled = await this.isEnabled()
+		if (!enabled) return
 
 		console.log(
 			'[heartbeat] Operational reporting is enabled, sending to risved.com every 5 minutes'
-		);
-		this.timer = setInterval(() => this.beat(), INTERVAL_MS);
-		setTimeout(() => this.beat(), 20_000);
+		)
+		this.timer = setInterval(() => this.beat(), INTERVAL_MS)
+		setTimeout(() => this.beat(), 20_000)
 	}
 
 	stop(): void {
 		if (this.timer) {
-			clearInterval(this.timer);
-			this.timer = null;
+			clearInterval(this.timer)
+			this.timer = null
 		}
 	}
 
 	isRunning(): boolean {
-		return this.timer !== null;
+		return this.timer !== null
 	}
 
 	async isEnabled(): Promise<boolean> {
-		if (env.RISVED_MODE !== 'cloud') return false;
+		if (env.RISVED_MODE !== 'cloud') return false
 
-		const setting = await getSetting('operational_heartbeat');
-		if (setting) return setting === 'true';
+		const setting = await getSetting('operational_heartbeat')
+		if (setting) return setting === 'true'
 
 		if (env.RISVED_INSTANCE_ID && env.RISVED_HEARTBEAT_SECRET) {
-			await setSetting('operational_heartbeat', 'true');
-			return true;
+			await setSetting('operational_heartbeat', 'true')
+			return true
 		}
 
-		return false;
+		return false
 	}
 
 	async setEnabled(enabled: boolean): Promise<void> {
 		if (env.RISVED_MODE !== 'cloud') {
-			await setSetting('operational_heartbeat', 'false');
-			this.stop();
-			return;
+			await setSetting('operational_heartbeat', 'false')
+			this.stop()
+			return
 		}
 
-		await setSetting('operational_heartbeat', enabled ? 'true' : 'false');
+		await setSetting('operational_heartbeat', enabled ? 'true' : 'false')
 		if (enabled && !this.timer) {
-			console.log('[heartbeat] Operational reporting enabled');
-			this.timer = setInterval(() => this.beat(), INTERVAL_MS);
-			setTimeout(() => this.beat(), 5_000);
+			console.log('[heartbeat] Operational reporting enabled')
+			this.timer = setInterval(() => this.beat(), INTERVAL_MS)
+			setTimeout(() => this.beat(), 5_000)
 		} else if (!enabled && this.timer) {
-			console.log('[heartbeat] Operational reporting disabled');
-			clearInterval(this.timer);
-			this.timer = null;
+			console.log('[heartbeat] Operational reporting disabled')
+			clearInterval(this.timer)
+			this.timer = null
 		}
 	}
 
 	/** Get or create the signing secret for HMAC authentication. */
 	async getSigningSecret(): Promise<string> {
-		const existing = await getSetting('heartbeat_signing_secret');
-		if (existing) return existing;
+		const existing = await getSetting('heartbeat_signing_secret')
+		if (existing) return existing
 
-		let secret = env.RISVED_HEARTBEAT_SECRET;
+		let secret = env.RISVED_HEARTBEAT_SECRET
 		if (!secret) {
-			const bytes = new Uint8Array(32);
-			crypto.getRandomValues(bytes);
-			secret = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+			const bytes = new Uint8Array(32)
+			crypto.getRandomValues(bytes)
+			secret = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
 		}
 
-		await setSetting('heartbeat_signing_secret', secret);
-		return secret;
+		await setSetting('heartbeat_signing_secret', secret)
+		return secret
 	}
 
 	/** Sign a payload with HMAC-SHA256. */
 	async sign(payload: string): Promise<string> {
-		const secret = await this.getSigningSecret();
-		return createHmac('sha256', secret).update(payload).digest('hex');
+		const secret = await this.getSigningSecret()
+		return createHmac('sha256', secret).update(payload).digest('hex')
 	}
 
 	/** Build the heartbeat payload. */
 	async buildPayload(): Promise<HeartbeatPayload> {
-		const census = getCensusReporter();
-		const instanceId = await census.getInstanceId();
-		const version = census.getVersion();
-		const timestamp = new Date().toISOString();
-		const uptimeSeconds = Math.floor((Date.now() - this.startedAt) / 1000);
+		const census = getCensusReporter()
+		const instanceId = await census.getInstanceId()
+		const version = census.getVersion()
+		const timestamp = new Date().toISOString()
+		const uptimeSeconds = Math.floor((Date.now() - this.startedAt) / 1000)
 
-		const [projectCountResult] = await db.select({ value: count() }).from(projects);
+		const [projectCountResult] = await db.select({ value: count() }).from(projects)
 
 		const latestDeploy = await db
 			.select({ finishedAt: deployments.finishedAt })
 			.from(deployments)
 			.where(eq(deployments.status, 'live'))
 			.orderBy(desc(deployments.createdAt))
-			.limit(1);
+			.limit(1)
 
-		const lastDeployAt = latestDeploy[0]?.finishedAt ?? null;
-		const controlPlaneUrl = await this.getControlPlaneUrl();
+		const lastDeployAt = latestDeploy[0]?.finishedAt ?? null
+		const controlPlaneUrl = await this.getControlPlaneUrl()
 
 		/* Usage figures are best-effort: a failed probe reports 0, not a missed heartbeat */
 		const [totalBackupBytes, totalBandwidthBytes] = await Promise.all([
 			getBackupBytes().catch(() => 0),
 			getBandwidthBytes(30).catch(() => 0)
-		]);
+		])
 
 		return {
 			instance_id: instanceId,
@@ -154,51 +154,54 @@ export class HeartbeatReporter {
 			total_backup_bytes: totalBackupBytes,
 			total_bandwidth_bytes_30d: totalBandwidthBytes,
 			control_plane_url: controlPlaneUrl
-		};
+		}
 	}
 
 	/**
 	 * Public URL of this control plane's dashboard, so risved.com can link to it.
 	 * Uses the configured hostname (set during onboarding), then the public IP
-	 * when onboarding chose IP-only mode, falling back to ORIGIN.
+	 * when onboarding chose IP-only mode (IPv4, else bracketed IPv6), falling
+	 * back to ORIGIN.
 	 */
 	async getControlPlaneUrl(): Promise<string | null> {
-		const hostname = (await getSetting('hostname'))?.trim();
-		if (hostname) return `https://${hostname}`;
+		const hostname = (await getSetting('hostname'))?.trim()
+		if (hostname) return `https://${hostname}`
 
 		if (await this.isIpOnlyMode()) {
-			const { ipv4 } = await getServerIps();
-			if (ipv4) return `http://${ipv4}`;
+			const { ipv4, ipv6 } = await getServerIps()
+			if (ipv4) return `http://${ipv4}`
+			/* IPv6-only hosts have no A record to fall back on */
+			if (ipv6) return `http://[${ipv6}]`
 		}
 
-		const origin = env.ORIGIN?.trim().replace(/\/+$/, '');
-		return origin || null;
+		const origin = env.ORIGIN?.trim().replace(/\/+$/, '')
+		return origin || null
 	}
 
 	private async isIpOnlyMode(): Promise<boolean> {
-		const raw = await getSetting('domain_config');
-		if (!raw) return false;
+		const raw = await getSetting('domain_config')
+		if (!raw) return false
 
 		try {
-			const config = JSON.parse(raw) as { mode?: unknown };
-			return config.mode === 'ip';
+			const config = JSON.parse(raw) as { mode?: unknown }
+			return config.mode === 'ip'
 		} catch {
-			return false;
+			return false
 		}
 	}
 
 	/** Send the heartbeat. Silently swallows errors. */
 	async beat(): Promise<boolean> {
 		try {
-			const enabled = await this.isEnabled();
+			const enabled = await this.isEnabled()
 			if (!enabled) {
-				this.stop();
-				return false;
+				this.stop()
+				return false
 			}
 
-			const payload = await this.buildPayload();
-			const body = JSON.stringify(payload);
-			const signature = await this.sign(body);
+			const payload = await this.buildPayload()
+			const body = JSON.stringify(payload)
+			const signature = await this.sign(body)
 
 			const res = await fetch(this.heartbeatUrl, {
 				method: 'POST',
@@ -209,32 +212,32 @@ export class HeartbeatReporter {
 				},
 				body,
 				signal: AbortSignal.timeout(10_000)
-			});
+			})
 
-			await setSetting('heartbeat_last_ping', payload.timestamp);
-			return res.ok;
+			await setSetting('heartbeat_last_ping', payload.timestamp)
+			return res.ok
 		} catch {
-			return false;
+			return false
 		}
 	}
 
 	/** Get heartbeat info for the settings page. */
 	async getInfo(): Promise<{
-		enabled: boolean;
-		lastPing: string | null;
+		enabled: boolean
+		lastPing: string | null
 	}> {
-		const enabled = await this.isEnabled();
-		const lastPing = await getSetting('heartbeat_last_ping');
-		return { enabled, lastPing };
+		const enabled = await this.isEnabled()
+		const lastPing = await getSetting('heartbeat_last_ping')
+		return { enabled, lastPing }
 	}
 }
 
 /* Singleton */
-let instance: HeartbeatReporter | null = null;
+let instance: HeartbeatReporter | null = null
 
 export function getHeartbeatReporter(config?: { heartbeatUrl?: string }): HeartbeatReporter {
 	if (!instance) {
-		instance = new HeartbeatReporter(config);
+		instance = new HeartbeatReporter(config)
 	}
-	return instance;
+	return instance
 }

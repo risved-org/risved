@@ -1,30 +1,31 @@
 import { runtimeError, type ProjectRuntime } from '$lib/project-runtime'
-import { fail, redirect } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { projects, envVars } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { slugify, generateWebhookSecret } from '$lib/server/api-utils';
-import { encrypt } from '$lib/server/crypto';
-import { allocatePort } from '$lib/server/pipeline/port';
-import { runPipeline } from '$lib/server/pipeline';
-import { createCommandRunner } from '$lib/server/pipeline/docker';
-import { detectors } from '$lib/server/detection/detectors';
-import { gitConnections } from '$lib/server/db/schema';
-import { getSetting } from '$lib/server/settings';
-import { registerWebhook } from '$lib/server/auto-webhook';
-import type { FrameworkId, Tier } from '$lib/server/detection/types';
-import type { PageServerLoad, Actions } from './$types';
+import { parseAppDirectory } from '$lib/server/app-directory'
+import { fail, redirect } from '@sveltejs/kit'
+import { db } from '$lib/server/db'
+import { projects, envVars } from '$lib/server/db/schema'
+import { eq } from 'drizzle-orm'
+import { slugify, generateWebhookSecret } from '$lib/server/api-utils'
+import { encrypt } from '$lib/server/crypto'
+import { allocatePort } from '$lib/server/pipeline/port'
+import { runPipeline } from '$lib/server/pipeline'
+import { createCommandRunner } from '$lib/server/pipeline/docker'
+import { detectors } from '$lib/server/detection/detectors'
+import { gitConnections } from '$lib/server/db/schema'
+import { getSetting } from '$lib/server/settings'
+import { registerWebhook } from '$lib/server/auto-webhook'
+import type { FrameworkId, Tier } from '$lib/server/detection/types'
+import type { PageServerLoad, Actions } from './$types'
 
 /** Framework options for the manual override dropdown */
 const FRAMEWORK_OPTIONS = detectors.map((d) => ({
 	id: d.id,
 	name: d.name,
 	tier: d.tier
-}));
+}))
 
 export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
 	void event
-	const domain = await getSetting('risved_domain');
+	const domain = await getSetting('risved_domain')
 	const connections = await db
 		.select({
 			id: gitConnections.id,
@@ -32,28 +33,36 @@ export const load = (async (event?: Parameters<PageServerLoad>[0]) => {
 			accountName: gitConnections.accountName,
 			avatarUrl: gitConnections.avatarUrl
 		})
-		.from(gitConnections);
-	return { frameworks: FRAMEWORK_OPTIONS, domain, connections };
-}) satisfies PageServerLoad;
+		.from(gitConnections)
+	return { frameworks: FRAMEWORK_OPTIONS, domain, connections }
+}) satisfies PageServerLoad
 
 export const actions: Actions = {
 	default: async ({ request, url }) => {
-		const formData = await request.formData();
-		const repoUrl = formData.get('repoUrl') as string | null;
-		const branch = (formData.get('branch') as string | null)?.trim() || 'main';
-		const rootDir = (formData.get('rootDir') as string | null)?.trim() || '/';
-		const projectName = (formData.get('projectName') as string | null)?.trim() || '';
-		const frameworkId = (formData.get('frameworkId') as string | null)?.trim() || '';
+		const formData = await request.formData()
+		const repoUrl = formData.get('repoUrl') as string | null
+		const branch = (formData.get('branch') as string | null)?.trim() || 'main'
+		const rootDir = (formData.get('rootDir') as string | null)?.trim() || ''
+		const projectName = (formData.get('projectName') as string | null)?.trim() || ''
+		const frameworkId = (formData.get('frameworkId') as string | null)?.trim() || ''
 		const runtime = formData.get('runtime') ?? 'node'
 		const validationError = runtimeError(runtime, frameworkId)
-		if (validationError) return fail(400, { error: validationError, repoUrl, branch, rootDir, projectName, frameworkId })
+		if (validationError)
+			return fail(400, {
+				error: validationError,
+				repoUrl,
+				branch,
+				rootDir,
+				projectName,
+				frameworkId
+			})
 		const buildCommand = (formData.get('buildCommand') as string | null)?.trim() || ''
 		const startCommand = (formData.get('startCommand') as string | null)?.trim() || ''
 		const releaseCommand = (formData.get('releaseCommand') as string | null)?.trim() || ''
 		const connectionId = (formData.get('connectionId') as string | null)?.trim() || null
-		const envKeysRaw = formData.get('envKeys') as string | null;
-		const envValsRaw = formData.get('envValues') as string | null;
-		const envSecretsRaw = formData.get('envSecrets') as string | null;
+		const envKeysRaw = formData.get('envKeys') as string | null
+		const envValsRaw = formData.get('envValues') as string | null
+		const envSecretsRaw = formData.get('envSecrets') as string | null
 
 		if (!repoUrl || !repoUrl.trim()) {
 			return fail(400, {
@@ -63,10 +72,10 @@ export const actions: Actions = {
 				rootDir,
 				projectName,
 				frameworkId
-			});
+			})
 		}
 
-		const name = projectName || deriveNameFromUrl(repoUrl);
+		const name = projectName || deriveNameFromUrl(repoUrl)
 		if (!name) {
 			return fail(400, {
 				error: 'Could not determine project name. Please provide one.',
@@ -75,10 +84,10 @@ export const actions: Actions = {
 				rootDir,
 				projectName,
 				frameworkId
-			});
+			})
 		}
 
-		const slug = slugify(name);
+		const slug = slugify(name)
 		if (!slug) {
 			return fail(400, {
 				error: 'Project name must contain at least one alphanumeric character',
@@ -87,11 +96,11 @@ export const actions: Actions = {
 				rootDir,
 				projectName,
 				frameworkId
-			});
+			})
 		}
 
 		/* Check for duplicate slug */
-		const existing = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1);
+		const existing = await db.select().from(projects).where(eq(projects.slug, slug)).limit(1)
 		if (existing.length > 0) {
 			return fail(409, {
 				error: `A project with slug "${slug}" already exists`,
@@ -100,11 +109,25 @@ export const actions: Actions = {
 				rootDir,
 				projectName,
 				frameworkId
-			});
+			})
 		}
 
-		const port = await allocatePort();
-		const webhookSecret = generateWebhookSecret();
+		let rootDirectory: string | null
+		try {
+			rootDirectory = parseAppDirectory(formData.get('rootDir'))
+		} catch (error) {
+			return fail(400, {
+				error: (error as Error).message,
+				repoUrl,
+				branch,
+				rootDir,
+				projectName,
+				frameworkId
+			})
+		}
+
+		const port = await allocatePort()
+		const webhookSecret = generateWebhookSecret()
 		const domainConfig = await getSetting('domain_config')
 		let projectDomain: string | undefined
 		if (domainConfig) {
@@ -117,7 +140,9 @@ export const actions: Actions = {
 		}
 
 		/* Look up tier from framework list */
-		const matchedFramework = frameworkId ? FRAMEWORK_OPTIONS.find(f => f.id === frameworkId) : null
+		const matchedFramework = frameworkId
+			? FRAMEWORK_OPTIONS.find((f) => f.id === frameworkId)
+			: null
 
 		const [project] = await db
 			.insert(projects)
@@ -126,6 +151,7 @@ export const actions: Actions = {
 				slug,
 				repoUrl: repoUrl.trim(),
 				branch,
+				rootDirectory,
 				gitConnectionId: connectionId,
 				domain: projectDomain,
 				frameworkId: frameworkId || undefined,
@@ -137,24 +163,24 @@ export const actions: Actions = {
 				startCommand: startCommand || null,
 				releaseCommand: releaseCommand || null
 			})
-			.returning();
+			.returning()
 
 		/* Save environment variables */
-		const envKeys = envKeysRaw ? envKeysRaw.split('\x1F') : [];
-		const envValues = envValsRaw ? envValsRaw.split('\x1F') : [];
-		const envSecrets = envSecretsRaw ? envSecretsRaw.split('\x1F') : [];
+		const envKeys = envKeysRaw ? envKeysRaw.split('\x1F') : []
+		const envValues = envValsRaw ? envValsRaw.split('\x1F') : []
+		const envSecrets = envSecretsRaw ? envSecretsRaw.split('\x1F') : []
 
 		for (let i = 0; i < envKeys.length; i++) {
-			const key = envKeys[i]?.trim();
-			const value = envValues[i] ?? '';
-			const isSecret = envSecrets[i] === '1';
+			const key = envKeys[i]?.trim()
+			const value = envValues[i] ?? ''
+			const isSecret = envSecrets[i] === '1'
 			if (key && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
 				await db.insert(envVars).values({
 					projectId: project.id,
 					key,
 					value: encrypt(value),
 					isSecret
-				});
+				})
 			}
 		}
 
@@ -183,21 +209,22 @@ export const actions: Actions = {
 				domain: project.domain ?? undefined,
 				frameworkId: (project.frameworkId as FrameworkId) ?? undefined,
 				tier: (project.tier as Tier) ?? undefined,
+				rootDirectory: project.rootDirectory,
 				buildCommand: project.buildCommand,
 				runtime: project.runtime,
 				startCommand: project.startCommand,
 				releaseCommand: project.releaseCommand
 			},
 			createCommandRunner()
-		);
+		)
 
-		redirect(303, `/`);
+		redirect(303, `/`)
 	}
-};
+}
 
 /** Extract a project name from a git URL */
 function deriveNameFromUrl(url: string): string {
-	const cleaned = url.replace(/\.git$/, '').replace(/\/$/, '');
-	const parts = cleaned.split('/');
-	return parts[parts.length - 1] || '';
+	const cleaned = url.replace(/\.git$/, '').replace(/\/$/, '')
+	const parts = cleaned.split('/')
+	return parts[parts.length - 1] || ''
 }

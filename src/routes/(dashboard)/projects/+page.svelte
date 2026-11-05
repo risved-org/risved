@@ -9,6 +9,7 @@
 		framework: string | null
 		frameworkId: string | null
 		domain: string | null
+		rootDirectory?: string | null
 		status: string
 		commitSha: string | null
 		lastDeployedAt: string | null
@@ -59,6 +60,7 @@
 					<header class="card-header">
 						<span class="card-name">{project.name}</span>
 					</header>
+					{#if project.rootDirectory}<small>{project.rootDirectory}</small>{/if}
 
 					<span class="card-meta">
 						{#if project.framework}

@@ -37,7 +37,8 @@ jobs:
 
   test:
     name: test
-    runs-on: ubuntu-latest
+    # Playwright 1.58 supports Ubuntu 24.04; keep browser installs off newer runner images.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:

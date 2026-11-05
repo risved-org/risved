@@ -1,4 +1,5 @@
 import { runtimeError } from '$lib/project-runtime'
+import { appTemplate } from './app-template'
 import { getFrameworkConfig } from './configs'
 import { nodeTemplate } from './templates'
 import type { DockerfileOptions, DockerfileResult } from './types'
@@ -47,6 +48,14 @@ export function generateDockerfile(options: DockerfileOptions): DockerfileResult
 	/* Apply startCommand override to the framework config's serveCommand */
 	if (startCommand) {
 		config = { ...config, serveCommand: startCommand, requiredServerFile: undefined }
+	}
+
+	if (options.workspace && options.packageManagerDetection) {
+		return {
+			content: appTemplate(config, options, options.workspace, options.packageManagerDetection),
+			frameworkId,
+			tier
+		}
 	}
 
 	let content: string
