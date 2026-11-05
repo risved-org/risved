@@ -121,6 +121,8 @@ it('rejects invalid prefixes and modes without touching the database or proxy', 
 	for (const body of [
 		{ pathPrefix: '/blog/' },
 		{ pathPrefix: '/blog*' },
+		{ pathPrefix: '/Blog' },
+		{ pathPrefix: '/blog/Admin' },
 		{ forwardingMode: 'rewrite' }
 	]) {
 		expect((await POST(event('blog', { hostname: 'onui.com', ...body }))).status).toBe(400)

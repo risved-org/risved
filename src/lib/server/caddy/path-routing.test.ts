@@ -56,6 +56,9 @@ describe('path routing', () => {
 			expect(() => parseMapping(path)).toThrow()
 		}
 		expect(() => parseMapping('/blog', 'invalid')).toThrow()
+		for (const path of ['/Blog', '/blog/Admin', '/BLOG']) {
+			expect(() => parseMapping(path)).toThrow('lowercase')
+		}
 	})
 
 	it('shares hosts, matches boundaries, sorts longest prefix first, and falls back to root', async () => {

@@ -6,12 +6,12 @@ export function parseMapping(
 	if (
 		typeof pathPrefix !== 'string' ||
 		(pathPrefix !== '/' &&
-			!/^\/(?:[A-Za-z0-9_~-]+(?:\.[A-Za-z0-9_~-]+)*)(?:\/[A-Za-z0-9_~-]+(?:\.[A-Za-z0-9_~-]+)*)*$/.test(
+			!/^\/(?:[a-z0-9_~-]+(?:\.[a-z0-9_~-]+)*)(?:\/[a-z0-9_~-]+(?:\.[a-z0-9_~-]+)*)*$/.test(
 				pathPrefix
 			))
 	) {
 		throw new Error(
-			'Path prefix must be / or a path such as /blog without a trailing slash, query or fragment'
+			'Path prefix must be / or a lowercase path such as /blog without a trailing slash, query or fragment'
 		)
 	}
 	if (forwardingMode !== 'preserve' && forwardingMode !== 'strip') {

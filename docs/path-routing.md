@@ -29,7 +29,7 @@ Content-Type: application/json
 
 Omitting the two new fields selects `/` and `preserve`. GET returns them. To change a mapping using the existing domain management flow, remove that mapping and add it again with the desired settings; this temporarily removes that mount. Other prefixes remain configured. Redeployment and rollback keep each mapping's forwarding mode and prefix.
 
-Prefixes must be literal, case-sensitive paths beginning with `/`, with no trailing slash (except `/`), empty segments, dot segments, percent encoding, query, fragment or wildcard. Duplicate hostname/prefix pairs return HTTP 409, even across projects. Multiple different prefixes on the same hostname are allowed. A legacy project root cannot be claimed by a different app.
+Configured prefixes must be literal, lowercase paths beginning with `/`, with no trailing slash (except `/`), empty segments, dot segments, percent encoding, query, fragment or wildcard. Caddy matches request paths case-insensitively; lowercase-only configuration prevents aliases such as `/Blog` and `/blog` from claiming the same route. Duplicate hostname/prefix pairs return HTTP 409, even across projects. Multiple different prefixes on the same hostname are allowed. A legacy project root cannot be claimed by a different app.
 
 ## Routing behavior
 

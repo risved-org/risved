@@ -311,7 +311,10 @@ export class CleanupManager {
 	private async pruneDockerManually(type: DockerPruneResult['type']): Promise<DockerPruneResult> {
 		const { execFile } = await import('node:child_process')
 		const { promisify } = await import('node:util')
-		const execFileAsync = promisify(execFile) as ExecFileFn
+		const execFileAsync = promisify(execFile)
+		/* execFile settles after the child exits; do not race a timer against the lock. */
+		const exec: ExecFileFn = (cmd, args) =>
+			execFileAsync(cmd, args, { timeout: 120000, killSignal: 'SIGKILL' })
 
 		try {
 			let stdout = ''
@@ -321,22 +324,22 @@ export class CleanupManager {
 			if (type === 'all') {
 				/* Resolve protected volumes first so a failed lookup prunes nothing. */
 				const protectedVolumes = await this.getProtectedVolumes()
-				const result = await execFileAsync('docker', ['system', 'prune', '-af'])
+				const result = await exec('docker', ['system', 'prune', '-af'])
 				stdout = result.stdout
-				volumeBytes = await this.pruneUnusedVolumes(execFileAsync, protectedVolumes)
+				volumeBytes = await this.pruneUnusedVolumes(exec, protectedVolumes)
 				prunedVolumes = true
 			} else if (type === 'images') {
-				const result = await execFileAsync('docker', ['image', 'prune', '-af'])
+				const result = await exec('docker', ['image', 'prune', '-af'])
 				stdout = result.stdout
 			} else if (type === 'containers') {
-				const result = await execFileAsync('docker', ['container', 'prune', '-f'])
+				const result = await exec('docker', ['container', 'prune', '-f'])
 				stdout = result.stdout
 			} else if (type === 'volumes') {
 				const protectedVolumes = await this.getProtectedVolumes()
-				volumeBytes = await this.pruneUnusedVolumes(execFileAsync, protectedVolumes)
+				volumeBytes = await this.pruneUnusedVolumes(exec, protectedVolumes)
 				prunedVolumes = true
 			} else if (type === 'buildcache') {
-				const result = await execFileAsync('docker', ['builder', 'prune', '-af'])
+				const result = await exec('docker', ['builder', 'prune', '-af'])
 				stdout = result.stdout
 			}
 
